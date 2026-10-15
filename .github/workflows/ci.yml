@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test on macOS
+        run: swift test
+      - name: Build for iOS
+        run: xcodebuild build -scheme FM1Kit -destination 'generic/platform=iOS' -quiet
