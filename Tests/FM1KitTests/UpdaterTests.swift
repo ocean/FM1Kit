@@ -1,5 +1,6 @@
-@testable import FM1Kit
 import Testing
+
+@testable import FM1Kit
 
 /// End-to-end runs of the updater against the simulated FM-1, with timings shrunk.
 struct UpdaterTests {
@@ -63,9 +64,9 @@ struct UpdaterTests {
         #expect(installed.text == "FM-1_916")
     }
 
-    @Test func finishesFromUSBRescueMode() async throws {
+    @Test func finishesFromUSBRecoveryMode() async throws {
         var options = Self.fastOptions
-        options.startsInRescueMode = true
+        options.startsInRecoveryMode = true
         let device = SimulatedFM1(options: options)
         let package = try Self.package()
         device.prepare(for: package)

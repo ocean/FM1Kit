@@ -1,5 +1,6 @@
-@testable import FM1Kit
 import Testing
+
+@testable import FM1Kit
 
 struct SevenBitTests {
     @Test func packsLeastSignificantBitFirst() {
@@ -93,5 +94,29 @@ struct PackageTests {
     @Test func rejectsOtherFiles() {
         #expect(throws: FwscPackage.Failure.tooShort) { try FwscPackage(bytes: [1, 2, 3]) }
         #expect(throws: FwscPackage.Failure.self) { try FwscPackage(bytes: [UInt8](repeating: 0x41, count: 4000)) }
+    }
+}
+
+struct RecordedDeviceTests {
+    /// A real FM-1's handshake reply, as recorded in FM-1-RE's `docs/io/11-ota-protocol.md`.
+    static let recordedReply: [UInt8] =
+        [0xF0, 0x00, 0x32, 0x45, 0x58, 0x01, 0x00, 0x00, 0x23, 0x4D, 0x5A, 0x44, 0x79, 0x05, 0x06, 0x4C, 0x1C]
+        + [UInt8](repeating: 0, count: 21) + [0x40, 0x05, 0xF7]
+
+    @Test func readsARealDevicesHandshakeReply() throws {
+        let identity = try #require(FM1Identity(handshakeReply: Self.recordedReply))
+        #expect(identity.text == "FM-1_009")
+        #expect(identity.handshakeReply() == Self.recordedReply)
+    }
+
+    @Test func rejectsAReplyWithABadChecksum() {
+        var corrupted = Self.recordedReply
+        corrupted[corrupted.count - 2] ^= 0x01
+        #expect(FM1Identity(handshakeReply: corrupted) == nil)
+    }
+
+    @Test func sendsTheDocumentedCommands() {
+        #expect(FM1Message.handshakeQuery == [0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7])
+        #expect(FM1Message.upgradeCommand == [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7])
     }
 }

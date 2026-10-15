@@ -1,5 +1,6 @@
-@testable import FM1Kit
 import Testing
+
+@testable import FM1Kit
 
 /// The README's and documentation's examples, run against the simulated FM-1 so they keep compiling.
 struct DocExamplesTests {
@@ -19,7 +20,10 @@ struct DocExamplesTests {
         }
         #expect(installed == package.identity)
 
-        try await updater.install(package) { event in
+        // A real FM-1 refuses the firmware it's running, so the README's example installs another.
+        let other = try UpdaterTests.package(product: "FM-1_917")
+        device.prepare(for: other)
+        try await updater.install(other) { event in
             if case .writing(let fraction, _) = event {
                 print("Writing \(Int(fraction * 100))%")
             }

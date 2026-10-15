@@ -5,8 +5,12 @@
 /// scheme, so it must not be swapped for one.
 public enum SevenBit {
     /// Packs 8-bit bytes into 7-bit SysEx data bytes.
+    ///
+    /// - Parameter bytes: The unpacked message.
+    /// - Returns: Data bytes for between `F0` and `F7`, each below `0x80`; the last is padded with zero bits.
     public static func pack(_ bytes: some Sequence<UInt8>) -> [UInt8] {
         var packed: [UInt8] = []
+        packed.reserveCapacity(bytes.underestimatedCount * 8 / 7 + 1)
         var accumulator: UInt32 = 0
         var bitCount = 0
         for byte in bytes {
@@ -24,9 +28,13 @@ public enum SevenBit {
         return packed
     }
 
-    /// Unpacks 7-bit SysEx data bytes into 8-bit bytes; trailing padding bits are dropped.
+    /// Unpacks 7-bit SysEx data bytes into 8-bit bytes.
+    ///
+    /// - Parameter septets: Data bytes from between `F0` and `F7`; any top bit is ignored.
+    /// - Returns: The unpacked message, without the padding bits that end the last data byte.
     public static func unpack(_ septets: some Sequence<UInt8>) -> [UInt8] {
         var unpacked: [UInt8] = []
+        unpacked.reserveCapacity(septets.underestimatedCount * 7 / 8)
         var accumulator: UInt32 = 0
         var bitCount = 0
         for septet in septets {

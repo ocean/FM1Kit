@@ -4,12 +4,16 @@ Read a package, find the FM-1, install, and recover when an update is cut off.
 
 ## Overview
 
-An install has two halves. First the FM-1 reads the whole package while still running its
-current firmware (staging); nothing is written yet, and if this is interrupted the device
-simply carries on as before. Then it restarts into its update loader, which reports itself as
-`ota-FM-1_…`, and reads the package again while writing it. If that half is interrupted, the
-device stays in the loader until an update finishes, and ``FM1Updater/resume(_:events:)``
-picks up from there.
+An install has two halves. First the FM-1 checks the package while still running its current
+firmware (staging). If it accepts it, it marks itself for update and restarts into its update
+loader, which reports itself as `ota-FM-1_…`. An interrupted staging normally leaves the
+device on its current firmware. Then the loader reads the package again while writing it. If
+that half is interrupted, the device stays in the loader until an update finishes, and
+``FM1Updater/resume(_:events:)`` picks up from there.
+
+The FM-1 refuses a package it judges to be the firmware it's already running: staging then
+stops without restarting into the loader, and the updater reports
+``FM1UpdateError/stalled(phase:requests:)`` in the `.staging` phase.
 
 ### Read the package
 

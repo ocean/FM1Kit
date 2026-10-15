@@ -13,7 +13,10 @@ on many devices yet. If you install firmware with FM1Kit, please open an issue s
 
 ## Pull requests
 
-- Run `swift test` before opening one; CI also builds for iOS.
+- Run `scripts/check.sh` before opening one (it needs `brew install swiftlint periphery`). It's
+  what CI runs, and it must pass with no warnings.
+- Format with `swift format format --in-place --recursive Sources Tests Package.swift`.
+- Add tests for new behaviour; the simulated FM-1 can stand in for the device.
 - Keep FM1Kit about the device: protocol, packages, transports and installing. Firmware
   catalogues, downloads and UI belong in apps built on it.
 - Match the surrounding style: Australian/British spelling in names and comments, comments

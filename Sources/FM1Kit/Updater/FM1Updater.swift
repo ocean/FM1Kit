@@ -1,132 +1,55 @@
-import Foundation
-
-/// Timings for an update session. The standard values follow the FM-1-RE protocol notes and
-/// have not yet been tuned against a wide range of hardware.
-public struct UpdaterTiming: Sendable {
-    /// Pause after an upgrade command before the device starts asking for data.
-    public var afterUpgradeCommand: Duration = .seconds(2)
-    /// Give up staging when the device has been silent this long.
-    public var stagingIdleLimit: Duration = .seconds(8)
-    /// Pause after staging while the device reboots into the loader.
-    public var loaderBoot: Duration = .seconds(3)
-    /// How long to look for the loader after staging.
-    public var loaderSearch: Duration = .seconds(30)
-    /// Give up writing when the loader has been silent this long.
-    public var writeIdleLimit: Duration = .seconds(60)
-    /// Pause after writing while the device reboots into the new firmware.
-    public var firmwareBoot: Duration = .seconds(3)
-    /// How long to look for the device after writing.
-    public var returnSearch: Duration = .seconds(40)
-    /// Pause before each response, giving the device time between packets.
-    public var responseDelay: Duration = .milliseconds(10)
-    /// Time between port scans while waiting for a device.
-    public var scanInterval: Duration = .seconds(1)
-    /// How long to wait for a handshake reply.
-    public var handshakeWait: Duration = .seconds(1)
-    /// Handshake attempts per port.
-    public var handshakeAttempts = 2
-
-    /// The standard timings.
-    public init() {}
-
-    /// The timings from the protocol notes.
-    public static let standard = UpdaterTiming()
-}
-
-/// Progress reported during an update.
-public enum UpdateEvent: Sendable, Equatable {
-    case connected(FM1Identity)
-    /// Staging (nothing written yet): the number of reads answered.
-    case staging(requests: Int)
-    case waitingForLoader
-    case loaderFound(FM1Identity)
-    /// Writing: how far through the image the device has read (0...1).
-    case writing(fraction: Double, requests: Int)
-    case rebooting
-    case finished(FM1Identity)
-    case log(String)
-}
-
-/// Why an update stopped. Each has a description that says what to do next.
-public enum FM1UpdateError: Error, Equatable, LocalizedError {
-    case deviceNotFound
-    case modelMismatch(device: String, package: String)
-    case stalled(phase: Phase, requests: Int)
-    case disconnected(phase: Phase, requests: Int)
-    case loaderNotFound
-    case deviceDidNotReturn
-    case identityMismatch(expected: String, reported: String)
-    case badRequest(address: UInt32, length: Int)
-
-    /// Which half of an update failed: staging writes nothing, writing leaves the loader waiting.
-    public enum Phase: String, Sendable {
-        case staging
-        case writing
-    }
-
-    public var errorDescription: String? {
-        switch self {
-        case .deviceNotFound:
-            return "No FM-1 found. Check the cable, and close any other app using it."
-        case .modelMismatch(let device, let package):
-            return "The device is \(device) but the package is for \(package)."
-        case .stalled(.staging, let requests):
-            return "The FM-1 stopped after \(requests) requests while checking the package. Nothing was written."
-        case .disconnected(.staging, let requests):
-            return "The FM-1 disconnected after \(requests) requests while checking the package. Nothing was written."
-        case .stalled(.writing, let requests):
-            return "The loader stopped after \(requests) requests. Keep it connected and choose Resume."
-        case .disconnected(.writing, let requests):
-            return "The loader disconnected after \(requests) requests. Reconnect and choose Resume; it stays in update mode until finished."
-        case .loaderNotFound:
-            return "The update loader did not appear. Replug the cable and try again; the device stays in update mode."
-        case .deviceDidNotReturn:
-            return "The FM-1 did not come back after writing. Switch it off and on again."
-        case .identityMismatch(let expected, let reported):
-            return "Written, but the FM-1 reports \(reported) instead of \(expected)."
-        case .badRequest(let address, let length):
-            return "The device asked for an impossible range (0x\(String(address, radix: 16)), \(length) bytes). Stopped without answering."
-        }
-    }
-}
-
 /// A device found on a port, with its connection still open.
 public struct FoundDevice: Sendable {
-    /// The open connection; close it when done.
+    /// The open connection, which the caller must close when finished with the device.
     public let connection: any MIDIConnection
     /// What the device said it is.
     public let identity: FM1Identity
 }
 
-/// Runs the FM-1 USB-MIDI update protocol over any `MIDITransport`.
+/// Runs the FM-1 USB-MIDI update protocol over any ``MIDITransport``.
 ///
-/// Install flow: handshake, upgrade command, answer staging reads until the device asks for
+/// An install goes: handshake, upgrade command, answer staging reads until the device asks for
 /// `0xE0000000`, wait for the `ota-` loader, upgrade command again, answer write reads until
 /// `0xF0000000`, then wait for the device and check it reports the package's identity.
+///
+/// Installs and resumes support cooperative cancellation. Cancelling while the loader is writing
+/// leaves the device in its loader, where ``resume(_:events:)`` can finish the update later.
 public actor FM1Updater {
     /// Only ports whose names contain one of these are probed, so SysEx is never sent to other gear.
-    public static let probeablePortNameFragments = ["fm-1", "fm1", "felucca", "ota", "composite", "usb-midi", "simulated"]
-
-    /// True when the port's name contains one of `probeablePortNameFragments`.
-    public static func isProbeable(_ port: MIDIPortDescriptor) -> Bool {
-        let name = port.name.lowercased()
-        return probeablePortNameFragments.contains { name.contains($0) }
-    }
+    public static let probeablePortNameFragments = [
+        "fm-1", "fm1", "felucca", "ota", "composite", "usb-midi", "simulated",
+    ]
 
     /// Where devices are found.
     public let transport: any MIDITransport
     /// How long to wait at each step.
     public let timing: UpdaterTiming
 
-    /// An updater that finds devices through `transport`.
+    /// Creates an updater.
+    ///
+    /// - Parameters:
+    ///   - transport: Where to find devices: a ``CoreMIDITransport``, or a ``SimulatedFM1``.
+    ///   - timing: How long to wait at each step.
     public init(transport: any MIDITransport, timing: UpdaterTiming = .standard) {
         self.transport = transport
         self.timing = timing
     }
 
+    /// Whether the updater would send SysEx to a port.
+    ///
+    /// - Parameter port: A port pair from ``MIDITransport/ports()``.
+    /// - Returns: `true` when the port's name contains one of ``probeablePortNameFragments``.
+    public static func isProbeable(_ port: MIDIPortDescriptor) -> Bool {
+        let name = port.name.lowercased()
+        return probeablePortNameFragments.contains { name.contains($0) }
+    }
+
     // MARK: - Discovery.
 
-    /// The first probeable port that answers the handshake (and passes `filter`), left open.
+    /// Finds the first probeable port whose device answers the handshake.
+    ///
+    /// - Parameter filter: Which identities to accept; any by default.
+    /// - Returns: The device with its connection left open, or `nil` if none answered.
     public func find(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> FoundDevice? {
         for port in await transport.ports() where Self.isProbeable(port) {
             guard let connection = try? await transport.open(port) else { continue }
@@ -138,24 +61,32 @@ public actor FM1Updater {
         return nil
     }
 
-    /// Asks what the connected FM-1 is running, then closes the connection.
+    /// Asks what the connected FM-1 is running.
+    ///
+    /// Only the handshake query is sent, so this never changes the device.
+    ///
+    /// - Returns: What the device reports, or `nil` if no FM-1 answered.
     public func identify() async -> FM1Identity? {
         guard let device = await find() else { return nil }
         device.connection.close()
         return device.identity
     }
 
-    func waitFor(_ limit: Duration, where filter: @escaping @Sendable (FM1Identity) -> Bool) async -> FoundDevice? {
+    /// Scans until a device matching `filter` answers, or `limit` passes.
+    func waitFor(_ limit: Duration, where filter: @escaping @Sendable (FM1Identity) -> Bool) async throws
+        -> FoundDevice?
+    {
         let deadline = ContinuousClock.now + limit
         while ContinuousClock.now < deadline {
             if let device = await find(where: filter) {
                 return device
             }
-            try? await Task.sleep(for: timing.scanInterval)
+            try await Task.sleep(for: timing.scanInterval)
         }
         return nil
     }
 
+    /// Sends the handshake query and waits for the identity reply, retrying as configured.
     func handshake(_ connection: any MIDIConnection) async -> FM1Identity? {
         connection.drain()
         for _ in 0..<timing.handshakeAttempts {
@@ -173,30 +104,42 @@ public actor FM1Updater {
 
     // MARK: - Installing.
 
-    /// Installs a package on a device running firmware (official or custom).
-    /// If the device is already in its loader (an interrupted update, or USB rescue), use `resume`.
+    /// Installs a package on a device that's running firmware (official or custom).
+    ///
+    /// If the device is already in its loader (an interrupted update, or USB recovery mode), use
+    /// ``resume(_:events:)`` instead.
+    ///
+    /// - Parameters:
+    ///   - package: The firmware to install.
+    ///   - events: Called with progress as the update goes; it may be called from any task.
+    /// - Returns: The identity the device reports once it's running the new firmware.
+    /// - Throws: ``FM1UpdateError`` when the update stops, a ``MIDITransportError`` when sending
+    ///   fails, or `CancellationError` when the task is cancelled.
     @discardableResult
-    public func install(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in }) async throws -> FM1Identity {
+    public func install(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in })
+        async throws -> FM1Identity
+    {
         guard let device = await find(where: { !$0.isLoader }) else {
             throw FM1UpdateError.deviceNotFound
         }
-        guard device.identity.hardwareModel == package.identity.model else {
-            device.connection.close()
-            throw FM1UpdateError.modelMismatch(device: device.identity.text, package: package.product)
+        let staging: ServeOutcome
+        do {
+            defer { device.connection.close() }
+            guard device.identity.hardwareModel == package.identity.model else {
+                throw FM1UpdateError.modelMismatch(device: device.identity.text, package: package.product)
+            }
+            events(.connected(device.identity))
+            try device.connection.send(FM1Message.upgradeCommand)
+            try await Task.sleep(for: timing.afterUpgradeCommand)
+            staging = try await serve(
+                device.connection,
+                image: package.logicalImage,
+                until: FM1Message.stageFinishAddress,
+                idleLimit: timing.stagingIdleLimit
+            ) { requests, _ in
+                events(.staging(requests: requests))
+            }
         }
-        events(.connected(device.identity))
-
-        try device.connection.send(FM1Message.upgradeCommand)
-        try? await Task.sleep(for: timing.afterUpgradeCommand)
-        let staging = try await serve(
-            device.connection,
-            image: package.logicalImage,
-            until: FM1Message.stageFinishAddress,
-            idleLimit: timing.stagingIdleLimit
-        ) { requests, _ in
-            events(.staging(requests: requests))
-        }
-        device.connection.close()
         guard staging.finished else {
             throw staging.lost
                 ? FM1UpdateError.disconnected(phase: .staging, requests: staging.requests)
@@ -204,17 +147,29 @@ public actor FM1Updater {
         }
 
         events(.waitingForLoader)
-        try? await Task.sleep(for: timing.loaderBoot)
+        try await Task.sleep(for: timing.loaderBoot)
         let loaderModel = FM1Identity.loaderPrefix + package.identity.model
-        guard let loader = await waitFor(timing.loaderSearch, where: { $0.model == loaderModel }) else {
+        guard let loader = try await waitFor(timing.loaderSearch, where: { $0.model == loaderModel }) else {
             throw FM1UpdateError.loaderNotFound
         }
         return try await write(package, with: loader, events: events)
     }
 
-    /// Finishes an update with the device already in its loader.
+    /// Finishes an update on a device that's waiting in its update loader.
+    ///
+    /// The loader waits after an interrupted write, and when the FM-1 is switched on with OCT−
+    /// held (USB recovery mode).
+    ///
+    /// - Parameters:
+    ///   - package: The firmware to install.
+    ///   - events: Called with progress as the update goes; it may be called from any task.
+    /// - Returns: The identity the device reports once it's running the new firmware.
+    /// - Throws: ``FM1UpdateError`` when the update stops, a ``MIDITransportError`` when sending
+    ///   fails, or `CancellationError` when the task is cancelled.
     @discardableResult
-    public func resume(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in }) async throws -> FM1Identity {
+    public func resume(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in })
+        async throws -> FM1Identity
+    {
         let loaderModel = FM1Identity.loaderPrefix + package.identity.model
         guard let loader = await find(where: { $0.model == loaderModel }) else {
             throw FM1UpdateError.loaderNotFound
@@ -222,20 +177,28 @@ public actor FM1Updater {
         return try await write(package, with: loader, events: events)
     }
 
-    private func write(_ package: FwscPackage, with loader: FoundDevice, events: @escaping @Sendable (UpdateEvent) -> Void) async throws -> FM1Identity {
-        events(.loaderFound(loader.identity))
-        try loader.connection.send(FM1Message.upgradeCommand)
-        try? await Task.sleep(for: timing.afterUpgradeCommand)
-        let imageLength = Double(package.logicalImage.count)
-        let writing = try await serve(
-            loader.connection,
-            image: package.logicalImage,
-            until: FM1Message.writeFinishAddress,
-            idleLimit: timing.writeIdleLimit
-        ) { requests, highestEnd in
-            events(.writing(fraction: min(Double(highestEnd) / imageLength, 1), requests: requests))
+    /// Answers the loader's reads, then waits for the device to return running the package.
+    private func write(
+        _ package: FwscPackage,
+        with loader: FoundDevice,
+        events: @escaping @Sendable (UpdateEvent) -> Void
+    ) async throws -> FM1Identity {
+        let writing: ServeOutcome
+        do {
+            defer { loader.connection.close() }
+            events(.loaderFound(loader.identity))
+            try loader.connection.send(FM1Message.upgradeCommand)
+            try await Task.sleep(for: timing.afterUpgradeCommand)
+            let imageLength = Double(package.logicalImage.count)
+            writing = try await serve(
+                loader.connection,
+                image: package.logicalImage,
+                until: FM1Message.writeFinishAddress,
+                idleLimit: timing.writeIdleLimit
+            ) { requests, highestEnd in
+                events(.writing(fraction: min(Double(highestEnd) / imageLength, 1), requests: requests))
+            }
         }
-        loader.connection.close()
         guard writing.finished else {
             throw writing.lost
                 ? FM1UpdateError.disconnected(phase: .writing, requests: writing.requests)
@@ -243,8 +206,8 @@ public actor FM1Updater {
         }
 
         events(.rebooting)
-        try? await Task.sleep(for: timing.firmwareBoot)
-        guard let returned = await waitFor(timing.returnSearch, where: { !$0.isLoader }) else {
+        try await Task.sleep(for: timing.firmwareBoot)
+        guard let returned = try await waitFor(timing.returnSearch, where: { !$0.isLoader }) else {
             throw FM1UpdateError.deviceDidNotReturn
         }
         returned.connection.close()
@@ -255,13 +218,28 @@ public actor FM1Updater {
         return returned.identity
     }
 
+    /// How a run of answering read requests ended.
     struct ServeOutcome {
+        /// Image reads answered (finish requests aren't counted).
         var requests = 0
+        /// True when the device asked for the expected finish address.
         var finished = false
+        /// True when the device disconnected.
         var lost = false
     }
 
     /// Answers read requests until the device asks for `finishAddress`, goes quiet, or disappears.
+    ///
+    /// - Parameters:
+    ///   - connection: The open connection to the device.
+    ///   - image: The package's logical image, which the requests address.
+    ///   - finishAddress: The address that ends this phase.
+    ///   - idleLimit: How long the device may stay silent before the phase counts as stalled.
+    ///   - progress: Called after each answered read with the number of reads so far and the
+    ///     furthest image offset sent.
+    /// - Returns: How the phase ended: finished, stalled or disconnected, with the reads answered.
+    /// - Throws: ``FM1UpdateError/badRequest(address:length:)`` for a request outside the image,
+    ///   or `CancellationError`.
     func serve(
         _ connection: any MIDIConnection,
         image: [UInt8],
@@ -273,6 +251,7 @@ public actor FM1Updater {
         var highestEnd = 0
         var lastActivity = ContinuousClock.now
         while true {
+            try Task.checkCancellation()
             guard let message = await connection.receive(timeout: .seconds(1)) else {
                 if connection.isLost {
                     outcome.lost = true
@@ -287,6 +266,7 @@ public actor FM1Updater {
             lastActivity = ContinuousClock.now
 
             if request.isFinish {
+                // The device moves on once it has asked; a lost reply shows up as a failed reconnect.
                 try? connection.send(request.finishResponse())
                 if request.address == finishAddress {
                     outcome.finished = true
@@ -298,7 +278,7 @@ public actor FM1Updater {
             guard request.length <= FM1Message.maximumReadLength, start + request.length <= image.count else {
                 throw FM1UpdateError.badRequest(address: request.address, length: request.length)
             }
-            try? await Task.sleep(for: timing.responseDelay)
+            try await Task.sleep(for: timing.responseDelay)
             guard (try? connection.send(request.response(with: image[start..<(start + request.length)]))) != nil else {
                 outcome.lost = true
                 return outcome

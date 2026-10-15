@@ -44,7 +44,8 @@ public enum UMPSysex7 {
         for (index, byte) in bytes.enumerated() {
             data[index] = byte & 0x7F
         }
-        let word0 = messageType << 28
+        let word0 =
+            messageType << 28
             | UInt32(group & 0x0F) << 24
             | status.rawValue << 20
             | UInt32(bytes.count) << 16
@@ -68,7 +69,9 @@ public enum UMPSysex7 {
         }
     }
 
-    /// Reassembles SysEx messages from a stream of UMP words. Not thread-safe: feed it from one place.
+    /// Reassembles SysEx messages from a stream of UMP words.
+    ///
+    /// It's a value type with no locking: feed it from one place, such as a port's receive callback.
     public struct Assembler: Sendable {
         /// Guards against a stream that starts but never ends.
         public static let maximumMessageLength = 64 * 1024

@@ -13,10 +13,13 @@ public enum FM1Message {
     /// Asks the running firmware (or the update loader) who it is.
     public static let handshakeQuery: [UInt8] = [0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7]
 
-    /// Starts an update session. Sent once to the firmware (staging) and once to the loader (writing).
+    /// Starts an update session.
+    ///
+    /// It's sent twice: once to the running firmware to start staging, then once to the update
+    /// loader to start writing.
     public static let upgradeCommand: [UInt8] = [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7]
 
-    /// The device asks for this address when staging has finished and it is about to reboot into the loader.
+    /// The address the device asks for when staging has finished and it's about to restart into its loader.
     public static let stageFinishAddress: UInt32 = 0xE000_0000
 
     /// The loader asks for this address when the write has finished and it is about to reboot.
@@ -28,11 +31,32 @@ public enum FM1Message {
     /// The largest read the host will answer; anything bigger is treated as a protocol error.
     public static let maximumReadLength = 512
 
+    /// The two bytes that start every unpacked message.
     static let prefix: [UInt8] = [0x00, 0x59]
+    /// The command for read requests and their responses.
     static let readCommand: UInt8 = 0x30
+    /// The command the identity reply carries.
     static let identityCommand: UInt8 = 0x11
+    /// Flash type, address and length: the body fields before any data.
     static let fixedFieldsLength = 8
+    /// Prefix, command and body length.
     static let headerLength = 6
+
+    /// Byte offsets of the fields in an unpacked message.
+    enum Offset {
+        /// The command byte, after the two prefix bytes.
+        static let command = 2
+        /// The 24-bit little-endian body length.
+        static let bodyLength = 3
+        /// The flash type, where the checksummed body starts.
+        static let flashType = 6
+        /// The 32-bit little-endian address.
+        static let address = 7
+        /// The 24-bit little-endian requested length.
+        static let length = 11
+        /// The data in a response, or the checksum in a request.
+        static let data = 14
+    }
 
     /// Wraps an unpacked message body in `F0 ... F7` after 7-bit packing.
     static func frame(_ unpacked: [UInt8]) -> [UInt8] {
@@ -47,24 +71,28 @@ public enum FM1Message {
         return SevenBit.unpack(sysex.dropFirst().dropLast())
     }
 
+    /// The protocol's checksum: the complement of the bytes' sum, modulo 256.
     static func checksum(_ bytes: ArraySlice<UInt8>) -> UInt8 {
         ~UInt8(truncatingIfNeeded: bytes.reduce(0) { $0 &+ Int($1) })
     }
 
+    /// The prefix, command and body length that start every message.
     static func header(command: UInt8, bodyLength: Int) -> [UInt8] {
         prefix + [command] + littleEndian(UInt32(bodyLength), byteCount: 3)
     }
 
+    /// The low `byteCount` bytes of `value`, least significant first.
     static func littleEndian(_ value: UInt32, byteCount: Int) -> [UInt8] {
         (0..<byteCount).map { UInt8(truncatingIfNeeded: value >> (8 * $0)) }
     }
 
+    /// Reads a little-endian number; the caller checks `bytes` is long enough.
     static func readLittleEndian(_ bytes: [UInt8], at offset: Int, byteCount: Int) -> UInt32 {
         (0..<byteCount).reduce(UInt32(0)) { $0 | UInt32(bytes[offset + $1]) << (8 * $1) }
     }
 }
 
-/// A read request from the device: "send me `length` bytes of the image at `address`".
+/// A read request from the device, asking for `length` bytes of the image at `address`.
 public struct FM1ReadRequest: Equatable, Sendable {
     /// Which flash the device is reading; 0 for the firmware image.
     public var flashType: UInt8
@@ -80,20 +108,25 @@ public struct FM1ReadRequest: Equatable, Sendable {
         self.length = length
     }
 
-    /// Parses a request; `nil` for any other message, or one whose checksum does not match.
+    /// Parses a request from the device.
+    ///
+    /// Fails for any other message, or a request whose checksum doesn't match.
+    ///
+    /// - Parameter sysex: A complete `F0 … F7` message.
     public init?(sysex: [UInt8]) {
+        typealias Offset = FM1Message.Offset
         guard
             let body = FM1Message.unframe(sysex),
             body.count == FM1Message.headerLength + FM1Message.fixedFieldsLength + 1,
-            Array(body[0..<2]) == FM1Message.prefix,
-            body[2] == FM1Message.readCommand,
-            FM1Message.checksum(body[6..<14]) == body[14]
+            body.starts(with: FM1Message.prefix),
+            body[Offset.command] == FM1Message.readCommand,
+            FM1Message.checksum(body[Offset.flashType..<Offset.data]) == body[Offset.data]
         else {
             return nil
         }
-        flashType = body[6]
-        address = FM1Message.readLittleEndian(body, at: 7, byteCount: 4)
-        length = Int(FM1Message.readLittleEndian(body, at: 11, byteCount: 3))
+        flashType = body[Offset.flashType]
+        address = FM1Message.readLittleEndian(body, at: Offset.address, byteCount: 4)
+        length = Int(FM1Message.readLittleEndian(body, at: Offset.length, byteCount: 3))
     }
 
     /// True for the two magic addresses that end a phase rather than read image data.
@@ -101,56 +134,74 @@ public struct FM1ReadRequest: Equatable, Sendable {
         address == FM1Message.stageFinishAddress || address == FM1Message.writeFinishAddress
     }
 
-    /// The request as the device sends it (used by the simulated device and the tests).
+    /// Encodes the request as the device sends it, for simulated devices and tests.
+    ///
+    /// - Returns: A complete `F0 … F7` message.
     public func encoded() -> [UInt8] {
-        FM1Message.frame(Self.body(command: FM1Message.readCommand, flashType: flashType, address: address, length: length, data: []))
+        FM1Message.frame(Self.body(flashType: flashType, address: address, length: length, data: []))
     }
 
-    /// The host's answer to this request carrying `data`.
+    /// Encodes the host's answer to this request.
+    ///
+    /// The answer declares the length of `data`, which should be the requested ``length``.
+    ///
+    /// - Parameter data: The image bytes asked for.
+    /// - Returns: A complete `F0 … F7` message.
     public func response(with data: some Collection<UInt8>) -> [UInt8] {
-        FM1Message.frame(Self.body(command: FM1Message.readCommand, flashType: flashType, address: address, length: data.count, data: Array(data)))
+        FM1Message.frame(Self.body(flashType: flashType, address: address, length: data.count, data: Array(data)))
     }
 
-    /// The host's answer to a finish request.
+    /// Encodes the host's answer to a finish request: `success` and a zero byte.
+    ///
+    /// - Returns: A complete `F0 … F7` message.
     public func finishResponse() -> [UInt8] {
         response(with: FM1Message.finishPayload)
     }
 
-    /// Parses a host response into the request it answers and its data (used by the simulated device).
-    public static func parseResponse(_ sysex: [UInt8]) -> (request: FM1ReadRequest, data: [UInt8])? {
+    /// Parses a host's answer, as a device does; used by simulated devices.
+    ///
+    /// - Parameter sysex: A complete `F0 … F7` message.
+    /// - Returns: The request it answers and the data it carries, or `nil` for any other message,
+    ///   or an answer whose declared length or checksum is wrong.
+    public static func parseResponse(_ sysex: [UInt8]) -> (request: Self, data: [UInt8])? {
+        typealias Offset = FM1Message.Offset
         guard
             let body = FM1Message.unframe(sysex),
             body.count >= FM1Message.headerLength + FM1Message.fixedFieldsLength + 1,
-            Array(body[0..<2]) == FM1Message.prefix,
-            body[2] == FM1Message.readCommand
+            body.starts(with: FM1Message.prefix),
+            body[Offset.command] == FM1Message.readCommand
         else {
             return nil
         }
-        let bodyLength = Int(FM1Message.readLittleEndian(body, at: 3, byteCount: 3))
-        let length = Int(FM1Message.readLittleEndian(body, at: 11, byteCount: 3))
-        let checksumIndex = 14 + length
+        let bodyLength = Int(FM1Message.readLittleEndian(body, at: Offset.bodyLength, byteCount: 3))
+        let length = Int(FM1Message.readLittleEndian(body, at: Offset.length, byteCount: 3))
+        let checksumIndex = Offset.data + length
         guard
             bodyLength == length + FM1Message.fixedFieldsLength,
             body.count == checksumIndex + 1,
-            FM1Message.checksum(body[6..<checksumIndex]) == body[checksumIndex]
+            FM1Message.checksum(body[Offset.flashType..<checksumIndex]) == body[checksumIndex]
         else {
             return nil
         }
-        let request = FM1ReadRequest(
-            flashType: body[6],
-            address: FM1Message.readLittleEndian(body, at: 7, byteCount: 4),
+        let request = Self(
+            flashType: body[Offset.flashType],
+            address: FM1Message.readLittleEndian(body, at: Offset.address, byteCount: 4),
             length: length
         )
-        return (request, Array(body[14..<checksumIndex]))
+        return (request, Array(body[Offset.data..<checksumIndex]))
     }
 
-    private static func body(command: UInt8, flashType: UInt8, address: UInt32, length: Int, data: [UInt8]) -> [UInt8] {
-        var body = FM1Message.header(command: command, bodyLength: data.count + FM1Message.fixedFieldsLength)
+    /// The unpacked message: header, fields, data and checksum.
+    private static func body(flashType: UInt8, address: UInt32, length: Int, data: [UInt8]) -> [UInt8] {
+        var body = FM1Message.header(
+            command: FM1Message.readCommand,
+            bodyLength: data.count + FM1Message.fixedFieldsLength
+        )
         body.append(flashType)
         body += FM1Message.littleEndian(address, byteCount: 4)
         body += FM1Message.littleEndian(UInt32(length), byteCount: 3)
         body += data
-        body.append(FM1Message.checksum(body[6...]))
+        body.append(FM1Message.checksum(body[FM1Message.Offset.flashType...]))
         return body
     }
 }

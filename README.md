@@ -74,10 +74,21 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 A Mac command-line tool for checking a setup without writing anything:
 
 ```sh
-swift run fm1probe ports              # list MIDI ports and which would be probed
-swift run fm1probe identify           # ask the connected FM-1 what it's running
-swift run fm1probe inspect FILE.fwsc  # show a package's identity, size and checksum
+swift run fm1probe ports                 # list MIDI ports and which would be probed
+swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's running, 20 times
+swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
+swift run fm1probe watch 60              # show ports as devices come and go
+swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
 ```
+
+[HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1.
+
+## Development
+
+`scripts/check.sh` runs everything CI runs: `swift format` and SwiftLint in strict mode, a build
+with warnings as errors, the tests, an iOS build, the documentation with warnings as errors, and
+unused-code analysis with SwiftLint and Periphery. The package uses Swift 6 language mode with
+the `ExistentialAny`, `InternalImportsByDefault` and `MemberImportVisibility` upcoming features.
 
 ## Recovery
 
