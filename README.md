@@ -80,7 +80,7 @@ swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's runn
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
-swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated)
+swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE)
 ```
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1.
@@ -95,8 +95,8 @@ the `ExistentialAny`, `InternalImportsByDefault` and `MemberImportVisibility` up
 ## Recovery
 
 If an FM-1 doesn't start after an update, some firmwares can start it in USB recovery mode: hold
-**OCT−** while switching it on. Not every firmware supports this (Felucca 1.6.1 doesn't), and it
-may not help if the firmware is too damaged to start. Whenever the FM-1 is in its update loader,
+**OCT−** while switching it on. Many don't, including M-VAVE's official V15 and Felucca 1.6.1,
+and it may not help if the firmware is too damaged to start. Whenever the FM-1 is in its update loader,
 from recovery mode or an interrupted update, `FM1Updater.resume(_:events:)` can install a
 firmware. Otherwise, recovery needs a computer and the chip's ROM bootloader, which FM1Kit
 doesn't cover.

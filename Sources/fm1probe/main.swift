@@ -18,6 +18,7 @@ let usage = """
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
                --simulated                     run against a simulated FM-1 instead (writes nothing)
+               --log FILE                      write every message to and from the device to FILE (CSV)
     """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -203,16 +204,19 @@ case "install" where arguments.count >= 2:
     let isSimulated = arguments.contains("--simulated")
     let path = arguments[1]
     let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
-    let transport: any MIDITransport
+    let device: any MIDITransport
     if isSimulated {
         var options = SimulatedFM1.Options()
         options.startsInRecoveryMode = isResume
-        let device = SimulatedFM1(options: options)
-        device.prepare(for: package)
-        transport = device
+        let simulated = SimulatedFM1(options: options)
+        simulated.prepare(for: package)
+        device = simulated
     } else {
-        transport = try CoreMIDITransport(clientName: "fm1probe")
+        device = try CoreMIDITransport(clientName: "fm1probe")
     }
+    let logPath = option("--log")
+    let transport: any MIDITransport =
+        try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
     let updater = FM1Updater(transport: transport)
 
     let official = OfficialFirmware.matching(package).map { "  (\($0.name), verified)" } ?? ""
@@ -255,6 +259,7 @@ case "install" where arguments.count >= 2:
         }
     }
 
+    if let logPath { print("Logging every message to \(logPath).") }
     let report = InstallReport()
     let start = ContinuousClock.now
     let installation = Task {

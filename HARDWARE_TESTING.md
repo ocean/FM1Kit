@@ -42,8 +42,8 @@ if that isn't possible.
 
 Only some firmwares start the loader when OCT− is held at power-on: FM-1-RE names the SLOOP
 family and zp12. The firmware checks the key as it starts, so it's not a feature of the chip's
-ROM, and it can't rescue a firmware too damaged to start. Felucca 1.6.1 ignores it (see
-[Results](#results)), so this stage needs a firmware that supports it. The loader is still
+ROM, and it can't rescue a firmware too damaged to start. Neither Felucca 1.6.1 nor
+official V15 offers it (see [Results](#results)), so this stage needs a firmware that does. The loader is still
 tested in stage D, because every install restarts into it.
 
 | Step | Command | What to look for |
@@ -64,7 +64,9 @@ checks FM1Kit's CoreMIDI transport on iOS, which can differ from macOS.
 Only once stage A has passed, and stage B too if the running firmware supports recovery mode.
 `fm1probe install` checks the package and the device first, then asks you to type the package's
 identity before anything is written. It prints each step with timestamps and ends with a
-summary of the time, the requests and the longest gap between requests in each step. Run it in
+summary of the time, the requests and the longest gap between requests in each step. With
+`--log FILE` it also writes every message to and from the device to a CSV file, including each
+read request's address and length. Run it in
 a terminal rather than through an agent, so the progress shows as it happens.
 
 - Install a firmware other than the one running: the FM-1 refuses to reinstall the firmware it's
@@ -77,8 +79,8 @@ a terminal rather than through an agent, so the progress shows as it happens.
 | D1 | `swift run fm1probe install FM-1.fwsc --simulated` | A rehearsal against the simulated FM-1, which writes nothing. It should finish with `Installed`. |
 | D2 | `swift run fm1probe install FM-1.fwsc`, then type `FM-1_015` | Staging, the loader, writing and the restart, ending `Installed: the FM-1 is running FM-1_015`. Keep the summary. |
 | D3 | `swift run fm1probe identify`, then switch the FM-1 off and on | It reports `FM-1_015` and starts normally. If wanted, try stage B again: V15 may support recovery mode. |
-| D4 | `swift run fm1probe install OTHER.fwsc`, then unplug the cable part-way through writing | It stops while writing. Reconnect, and `fm1probe identify` reports the `ota-` loader. |
-| D5 | `swift run fm1probe install OTHER.fwsc --resume` | The loader writes the package again from the start, ending `Installed`. |
+| D4 | `swift run fm1probe install OTHER.fwsc --log d4.csv`, then unplug the cable part-way through writing | It stops while writing. Reconnect, and `fm1probe identify` reports the `ota-` loader. |
+| D5 | `swift run fm1probe install OTHER.fwsc --resume --log d5.csv` | The loader writes the package again from the start, ending `Installed`. |
 
 ## What to report
 
@@ -97,3 +99,18 @@ model and macOS version, or iPhone model and iOS version) and the cable or adapt
   - `watch` saw every unplug, replug and power cycle. The port returns under 3 s after power-on.
 - **Stage B: not possible on this firmware.** Holding OCT− at power-on (for 6 s the second time)
   made no difference: Felucca started normally and no loader port appeared.
+- **Stage D1: passed.** The simulated rehearsal installed `FM-1_015` in 34.6 s.
+- **Stage D2: passed.** `fm1probe install` took the FM-1 from Felucca 1.6.1 (`FM-1_916`) to
+  official V15 (`FM-1_015`) in 34.7 s:
+  - Staging: 4.2 s, 75 requests, with at most 121 ms between requests.
+  - The loader answered as `ota-FM-1_015` (the incoming version, not `ota-FM-1_009` as in
+    FM-1-RE's recording) on the first scan after the 3 s pause.
+  - Writing: 24.4 s, 1167 requests, with at most 350 ms between requests. 1167 reads of at most
+    512 bytes can't cover the 699,936-byte image, so the loader doesn't read all of it.
+  - The firmware answered on the first scan after the 3 s restart pause.
+  - Writing progress jumped from 0% to 80% within 14 requests and then stayed there until the
+    end, so the loader doesn't read the image in order. Progress based on the furthest offset
+    read is wrong for the real device.
+- **Stage D3: passed.** After the install, `identify` reported `FM-1_015` (port name `FM-1`),
+  answering in 1 ms. Holding OCT− while switching on did nothing on V15 either: the official
+  firmware doesn't offer USB recovery mode.
