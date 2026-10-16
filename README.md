@@ -1,5 +1,7 @@
 # FM1Kit
 
+[![CI](https://github.com/ocean/FM1Kit/actions/workflows/ci.yml/badge.svg)](https://github.com/ocean/FM1Kit/actions/workflows/ci.yml)
+
 A Swift package for installing firmware on the [M-VAVE FM-1](https://www.m-vave.com) over
 USB-MIDI, from iOS and macOS.
 
@@ -9,23 +11,25 @@ the device reports the new firmware afterwards. It can also finish an update tha
 or one started from USB recovery mode.
 
 > [!WARNING]
-> FM1Kit hasn't yet been tested widely on real hardware, and its timings may need tuning.
+> FM1Kit has been tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15 and
+> Felucca 1.6.1, pulling the cable part-way through writing, and resuming. Reports from other
+> devices and hosts are very welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 > FM1Kit isn't affiliated with M-VAVE. Installing custom firmware is at your own risk.
 
 ## Requirements
 
 - iOS 17 or macOS 14
-- Swift 6
+- Swift 6.1 or later (Xcode 16.3 or later)
 - An FM-1 connected by USB: an iPhone or iPad's USB-C port, a Lightning device through Apple's
   camera adapter, or a Mac
 
 ## Installation
 
-Add FM1Kit with Swift Package Manager:
+Add FM1Kit with Swift Package Manager. There's no tagged release yet, so use the `main` branch:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", from: "0.1.0"),
+    .package(url: "https://github.com/ocean/FM1Kit.git", branch: "main"),
 ]
 ```
 
@@ -33,6 +37,7 @@ dependencies: [
 
 ```swift
 import FM1Kit
+import Foundation
 
 // Read a firmware package and see what it is.
 let package = try FwscPackage(data: Data(contentsOf: fileURL))
@@ -41,8 +46,12 @@ print(package.product, package.sha256)
 // Install it on the connected FM-1.
 let updater = FM1Updater(transport: try CoreMIDITransport(clientName: "My App"))
 try await updater.install(package) { event in
-    if case .writing(let fraction, _) = event {
-        print("Writing \(Int(fraction * 100))%")
+    switch event {
+    case .staging(let requests): print("Preparing… \(requests)")
+    case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
+    case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+    case .finished(let identity): print("Now running \(identity)")
+    default: break
     }
 }
 
@@ -52,9 +61,27 @@ if let identity = await updater.identify(), identity.isLoader {
 }
 ```
 
-The [documentation](https://swiftpackageindex.com/ocean/FM1Kit/documentation/fm1kit)
-covers the update's two halves, recovery, keeping an update running on iOS, and testing
-with `SimulatedFM1`, which speaks the protocol in software for the iOS Simulator and tests.
+Each firmware brings its own update loader, and loaders write differently, so plan progress
+displays around both of these:
+
+- Writing can finish below 100%. M-VAVE's V15 loader writes only part of its image (about
+  84%); the rest is read while staging.
+- Some loaders read the image a second time after writing, probably to check it. Felucca's
+  does, and FM1Kit reports that pass as `.checking`.
+
+### What an install looks like
+
+On the FM-1 tested, an install took about 35 seconds for V15 and about a minute for Felucca
+1.6.1. The FM-1 first checks the package while running its current firmware, then restarts
+into its update loader, which shows up as a MIDI port with a new name (such as
+`Felucca Update`) and reports itself as `ota-` followed by the firmware's name, for example
+`ota-FM-1_015` for V15. The loader may leave the screen blank. If the update is cut off, the
+FM-1 waits in its loader until an update finishes, and `resume` picks it up.
+
+The documentation articles, [FM1Kit](Sources/FM1Kit/FM1Kit.docc/FM1Kit.md) and
+[Installing firmware](Sources/FM1Kit/FM1Kit.docc/InstallingFirmware.md), cover the update's
+two halves, recovery, keeping an update running on iOS, and testing with `SimulatedFM1`, which
+speaks the protocol in software for the iOS Simulator and tests.
 
 ### What's in the package
 
@@ -62,7 +89,7 @@ with `SimulatedFM1`, which speaks the protocol in software for the iOS Simulator
 |---|---|
 | `FwscPackage` | Reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256 |
 | `OfficialFirmware` | Recognises M-VAVE's official releases by size and checksum |
-| `FM1Identity` | Parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_009` for the update loader |
+| `FM1Identity` | Parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader |
 | `FM1Updater` | Finds the device, installs, resumes, and reports progress as `UpdateEvent`s |
 | `CoreMIDITransport` | CoreMIDI connections to real devices |
 | `SimulatedFM1` | A software FM-1 for the Simulator and tests |
@@ -83,7 +110,8 @@ swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and c
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE)
 ```
 
-[HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1.
+[HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
+and records the results so far.
 
 ## Development
 
@@ -94,13 +122,15 @@ the `ExistentialAny`, `InternalImportsByDefault` and `MemberImportVisibility` up
 
 ## Recovery
 
-If an FM-1 doesn't start after an update, some firmwares can start it in USB recovery mode: hold
-**OCT−** while switching it on. Many don't, including M-VAVE's official V15 and Felucca 1.6.1,
-and it may not help if the firmware is too damaged to start. Whenever the FM-1 is in its update loader,
-from recovery mode or an interrupted update, `FM1Updater.resume(_:events:)` can install a
-firmware. Otherwise, the only route left is the chip's ROM bootloader from a computer, which
-FM1Kit doesn't cover. Some firmware projects publish `jl-uboot-tool` rescues for it, but FM-1-RE
-says it hasn't been demonstrated on the FM-1.
+If an FM-1 doesn't start after an update, some firmwares can start it in USB recovery mode:
+hold **OCT−** while switching it on. Many firmwares don't offer this, including M-VAVE's
+official V15 and Felucca 1.6.1, and it can't help if the firmware is too damaged to start.
+
+Whenever the FM-1 is in its update loader, whether from recovery mode or an interrupted
+update, `FM1Updater.resume(_:events:)` can install a firmware. Otherwise, the only route left
+is the chip's ROM bootloader from a computer, which FM1Kit doesn't cover. Some firmware
+projects publish `jl-uboot-tool` rescues for it, but FM-1-RE says that route hasn't been
+demonstrated on the FM-1.
 
 ## Credits
 

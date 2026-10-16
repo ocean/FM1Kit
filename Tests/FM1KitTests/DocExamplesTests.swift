@@ -25,8 +25,12 @@ struct DocExamplesTests {
         let other = try UpdaterTests.package(product: "FM-1_917")
         device.prepare(for: other)
         try await updater.install(other) { event in
-            if case .writing(let fraction, _) = event {
-                print("Writing \(Int(fraction * 100))%")
+            switch event {
+            case .staging(let requests): print("Preparing… \(requests)")
+            case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
+            case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+            case .finished(let identity): print("Now running \(identity)")
+            default: break
             }
         }
 
