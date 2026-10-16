@@ -5,11 +5,23 @@ on:
     branches: [main]
   pull_request:
 
+permissions: {}
+
+# A newer push to the same branch or pull request cancels the run still going.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
+    name: Every check
     runs-on: macos-26
+    permissions:
+      contents: read # To check out the code.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install SwiftLint and Periphery
         run: brew install swiftlint periphery
       - name: Run every check

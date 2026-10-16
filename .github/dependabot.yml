@@ -1,0 +1,20 @@
+# Checks weekly for newer GitHub Actions and Swift package dependencies. Updates wait seven days
+# after release, so a broken or compromised release has time to be noticed first.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
