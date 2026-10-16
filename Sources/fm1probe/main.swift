@@ -126,41 +126,61 @@ case "monitor":
     for port in await transport.ports() {
         if let connection = try? await transport.open(port) { connections.append(connection) }
     }
+    if connections.isEmpty {
+        print("No MIDI ports to listen on. Is the FM-1 connected and switched on?")
+        exit(1)
+    }
     print("Listening on \(connections.map(\.port.name).joined(separator: ", ")) for \(seconds) s. Nothing is sent.")
     let deadline = ContinuousClock.now + .seconds(seconds)
-    await withTaskGroup(of: Void.self) { group in
+    let received = await withTaskGroup(of: Int.self) { group in
         for connection in connections {
             group.addTask {
+                var count = 0
                 while ContinuousClock.now < deadline {
                     if let message = await connection.receive(timeout: deadline - ContinuousClock.now) {
+                        count += 1
                         print("\(timestamp())  \(connection.port.name)  \(message.count) bytes  \(hex(message))")
                     }
                     if connection.isLost {
                         print("\(timestamp())  \(connection.port.name)  disconnected")
-                        return
+                        return count
                     }
                 }
+                return count
             }
         }
+        var total = 0
+        for await count in group { total += count }
+        return total
     }
     for connection in connections {
         connection.close()
     }
+    print("Stopped listening: \(received) SysEx \(received == 1 ? "message" : "messages") received.")
 
 case "watch":
     let transport = try CoreMIDITransport(clientName: "fm1probe")
     let seconds = arguments.dropFirst().first.flatMap(Int.init) ?? 60
-    @Sendable func show() async {
+    @Sendable func portSummary() async -> String {
         let names = await transport.ports().map { "\($0.name)\(FM1Updater.isProbeable($0) ? "" : " (skipped)")" }
-        print("\(timestamp())  \(names.isEmpty ? "no ports" : names.joined(separator: ", "))")
+        return names.isEmpty ? "no ports" : names.joined(separator: ", ")
     }
     print("Watching for \(seconds) s. Unplug and replug the FM-1, or switch it off and on.")
-    await show()
+    let initial = await portSummary()
+    print("\(timestamp())  \(initial)")
     let watching = Task {
-        for await _ in transport.changes() { await show() }
+        // CoreMIDI sends several notifications for one plug or unplug, so only print real changes.
+        var shown = initial
+        for await _ in transport.changes() {
+            let summary = await portSummary()
+            guard summary != shown else { continue }
+            print("\(timestamp())  \(summary)")
+            shown = summary
+        }
     }
     try? await Task.sleep(for: .seconds(seconds))
     watching.cancel()
+    print("Stopped watching after \(seconds) s.")
 
 case "inspect" where arguments.count == 2:
     let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
