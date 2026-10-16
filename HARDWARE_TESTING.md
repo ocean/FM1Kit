@@ -114,3 +114,13 @@ model and macOS version, or iPhone model and iOS version) and the cable or adapt
 - **Stage D3: passed.** After the install, `identify` reported `FM-1_015` (port name `FM-1`),
   answering in 1 ms. Holding OCT− while switching on did nothing on V15 either: the official
   firmware doesn't offer USB recovery mode.
+- **Stage D4: passed.** Installing Felucca 1.6.1 over V15, the cable was pulled after 116 write
+  requests. `install` stopped with "The update loader disconnected", and after replugging the
+  loader answered as `ota-FM-1_900` on a port named `Felucca Update`, with a blank screen and
+  the red light on. Staging took only 22 requests this time, against 75 for V15.
+- **Stage D5: passed.** `install --resume` finished the update in 57.1 s, and the FM-1 reported
+  `FM-1_916`. The log shows the loader making two passes over the image after a few header
+  reads (`0x0`–`0x400`, then 32 bytes at `0x4400`):
+  - first `0x400`–`0x93400` (1176 reads, 22.7 s);
+  - then `0x4400`–`0x93400` again (1144 reads, 29.2 s), probably checking what it wrote.
+  Progress reached 90% at the end of the first pass, then showed nothing during the second.

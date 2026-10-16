@@ -18,7 +18,8 @@ let usage = """
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
                --simulated                     run against a simulated FM-1 instead (writes nothing)
-               --log FILE                      write every message to and from the device to FILE (CSV)
+               --log FILE                      write every message to and from the device to a new
+                                               CSV file
     """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -215,6 +216,10 @@ case "install" where arguments.count >= 2:
         device = try CoreMIDITransport(clientName: "fm1probe")
     }
     let logPath = option("--log")
+    if let logPath, FileManager.default.fileExists(atPath: logPath) {
+        print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
+        exit(1)
+    }
     let transport: any MIDITransport =
         try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
     let updater = FM1Updater(transport: transport)

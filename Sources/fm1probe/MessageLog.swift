@@ -21,7 +21,9 @@ final class MessageLog: Sendable {
     private let writing = OSAllocatedUnfairLock()
     private let start = ContinuousClock.now
 
-    /// Creates the file, replacing any file already at `path`, and writes the header row.
+    /// Creates the file and writes the header row.
+    ///
+    /// The caller checks that `path` is new, so an earlier log is never replaced.
     ///
     /// - Parameter path: Where to write the log.
     /// - Throws: When the file can't be created.

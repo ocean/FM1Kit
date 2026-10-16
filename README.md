@@ -98,8 +98,9 @@ If an FM-1 doesn't start after an update, some firmwares can start it in USB rec
 **OCT−** while switching it on. Many don't, including M-VAVE's official V15 and Felucca 1.6.1,
 and it may not help if the firmware is too damaged to start. Whenever the FM-1 is in its update loader,
 from recovery mode or an interrupted update, `FM1Updater.resume(_:events:)` can install a
-firmware. Otherwise, recovery needs a computer and the chip's ROM bootloader, which FM1Kit
-doesn't cover.
+firmware. Otherwise, the only route left is the chip's ROM bootloader from a computer, which
+FM1Kit doesn't cover. Some firmware projects publish `jl-uboot-tool` rescues for it, but FM-1-RE
+says it hasn't been demonstrated on the FM-1.
 
 ## Credits
 
