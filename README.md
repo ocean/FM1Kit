@@ -72,7 +72,7 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 ### `fm1probe`
 
 A Mac command-line tool for checking a setup, and for watching an install closely. Only
-`install` writes to the device, and only after you type the package's identity to confirm:
+`install` writes to the device, and only after you type YES to confirm:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed

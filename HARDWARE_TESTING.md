@@ -62,8 +62,8 @@ checks FM1Kit's CoreMIDI transport on iOS, which can differ from macOS.
 ## Stage D: the first install
 
 Only once stage A has passed, and stage B too if the running firmware supports recovery mode.
-`fm1probe install` checks the package and the device first, then asks you to type the package's
-identity before anything is written. It prints each step with timestamps and ends with a
+`fm1probe install` checks the package and the device first, then asks you to type YES
+before anything is written. It prints each step with timestamps and ends with a
 summary of the time, the requests and the longest gap between requests in each step. With
 `--log FILE` it also writes every message to and from the device to a CSV file, including each
 read request's address and length. Run it in
@@ -77,7 +77,7 @@ a terminal rather than through an agent, so the progress shows as it happens.
 | Step | Command | What to look for |
 |---|---|---|
 | D1 | `swift run fm1probe install FM-1.fwsc --simulated` | A rehearsal against the simulated FM-1, which writes nothing. It should finish with `Installed`. |
-| D2 | `swift run fm1probe install FM-1.fwsc`, then type `FM-1_015` | Staging, the loader, writing and the restart, ending `Installed: the FM-1 is running FM-1_015`. Keep the summary. |
+| D2 | `swift run fm1probe install FM-1.fwsc`, then type `YES` | Staging, the loader, writing and the restart, ending `Installed: the FM-1 is running FM-1_015`. Keep the summary. |
 | D3 | `swift run fm1probe identify`, then switch the FM-1 off and on | It reports `FM-1_015` and starts normally. If wanted, try stage B again: V15 may support recovery mode. |
 | D4 | `swift run fm1probe install OTHER.fwsc --log d4.csv`, then unplug the cable part-way through writing | It stops while writing. Reconnect, and `fm1probe identify` reports the `ota-` loader. |
 | D5 | `swift run fm1probe install OTHER.fwsc --resume --log d5.csv` | The loader writes the package again from the start, ending `Installed`. |

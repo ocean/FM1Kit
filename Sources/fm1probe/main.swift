@@ -1,5 +1,5 @@
 // A small Mac command-line probe: talk to a real FM-1 over CoreMIDI and inspect .fwsc files.
-// Only `install` writes to the device, and only after the user types the package's identity;
+// Only `install` writes to the device, and only after the user types YES to confirm;
 // every other command sends nothing but the handshake query.
 
 import FM1Kit
@@ -257,8 +257,8 @@ case "install" where arguments.count >= 2:
             - while writing, it waits in its update loader for `fm1probe install \(path) --resume`.
 
             """)
-        print("Type \(package.product) to install it, or anything else to stop: ", terminator: "")
-        guard readLine()?.trimmingCharacters(in: .whitespaces) == package.product else {
+        print("Type YES to install it, or anything else to stop: ", terminator: "")
+        guard readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES" else {
             print("Stopped. Nothing was sent apart from the handshake query.")
             exit(1)
         }
