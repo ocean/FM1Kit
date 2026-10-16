@@ -157,8 +157,8 @@ public actor FM1Updater {
 
     /// Finishes an update on a device that's waiting in its update loader.
     ///
-    /// The loader waits after an interrupted write, and when the FM-1 is switched on with OCT−
-    /// held (USB recovery mode).
+    /// The loader waits after an interrupted write, and in USB recovery mode: when the FM-1 is
+    /// switched on with OCT− held, if its firmware supports that.
     ///
     /// - Parameters:
     ///   - package: The firmware to install.

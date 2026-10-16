@@ -7,7 +7,8 @@ Install firmware on an M-VAVE FM-1 over USB-MIDI, from iOS or macOS.
 FM1Kit speaks the FM-1's USB-MIDI update protocol: it finds the device, reads `.fwsc` firmware
 packages, answers the device's read requests while it stages and writes the new firmware, and
 checks the device reports the new firmware once it restarts. It can also finish an update that
-was cut off, or one started from USB recovery mode (holding OCT− while switching the FM-1 on).
+was cut off, or one started from USB recovery mode (holding OCT− while switching the FM-1 on,
+with a firmware that supports it).
 
 It works with CoreMIDI on any class-compliant connection: an iPhone or iPad's USB-C port, a
 Lightning device through Apple's camera adapter, or a Mac. For the iOS Simulator and tests,

@@ -47,7 +47,8 @@ The updater only sends SysEx to ports whose names look like an FM-1
 When ``FM1UpdateError/disconnected(phase:requests:)`` or
 ``FM1UpdateError/stalled(phase:requests:)`` is thrown in the `.writing` phase, or the device
 turns up reporting an identity whose ``FM1Identity/isLoader`` is `true` (for example after
-being switched on with OCT− held, for USB recovery), install the package again with
+being switched on with OCT− held, on a firmware that supports USB recovery), install the
+package again with
 ``FM1Updater/resume(_:events:)``:
 
 ```swift

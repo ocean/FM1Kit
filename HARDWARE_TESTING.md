@@ -40,6 +40,12 @@ been confirmed with FM1Kit yet. Before starting, have a known-good way to instal
 (M-VAVE's updater, or a web installer) and the official `FM-1.fwsc` downloaded. Skip this stage
 if that isn't possible.
 
+Only some firmwares start the loader when OCT− is held at power-on: FM-1-RE names the SLOOP
+family and zp12. The firmware checks the key as it starts, so it's not a feature of the chip's
+ROM, and it can't rescue a firmware too damaged to start. Felucca 1.6.1 ignores it (see
+[Results](#results)), so this stage needs a firmware that supports it. The loader is still
+tested in stage D, because every install restarts into it.
+
 | Step | Command | What to look for |
 |---|---|---|
 | B1 | `swift run fm1probe watch 60`, then switch the FM-1 off and on while holding OCT− | The loader's port name. FM-1-RE reports the loader re-enumerating as USB ID `4d4a:4155`. |
@@ -55,12 +61,14 @@ checks FM1Kit's CoreMIDI transport on iOS, which can differ from macOS.
 
 ## Stage D: the first install (a later session)
 
-Only once stages A and B have passed. This needs an `fm1probe install` command, which hasn't
+Only once stage A has passed, and stage B too if the running firmware supports recovery mode.
+This needs an `fm1probe install` command, which hasn't
 been written yet, so that a first install can be watched closely from a Mac.
 
 - Install a firmware other than the one running: the FM-1 refuses to reinstall the firmware it's
   running. The official V15 firmware is the most recoverable choice.
-- Keep the fallback installer from stage B ready.
+- Keep a known-good installer ready (M-VAVE's updater, or a web installer), with the official
+  `FM-1.fwsc`.
 - Record the total time, how many requests staging and writing take, and any stalls.
 - Then, if it went well: start another install and unplug the cable part-way through writing,
   reconnect, and check that `resume` finishes it.
@@ -69,3 +77,16 @@ been written yet, so that a first install can be watched closely from a Mac.
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
 model and macOS version, or iPhone model and iOS version) and the cable or adapter used.
+
+## Results
+
+### 2026-10-16: Mac15,6, macOS 26.6.2, FM-1 running Felucca 1.6.1 (`FM-1_916`)
+
+- **Stage A: passed.**
+  - The port is named `Felucca` and is marked `probe`.
+  - `identify` answered 50 of 50, averaging 7 to 12 ms (2 to 81 ms).
+  - `inspect` on the Felucca 1.6.1 package reports `FM-1_916`, as the device does.
+  - No unprompted SysEx arrived during 30 s of playing and turning knobs.
+  - `watch` saw every unplug, replug and power cycle. The port returns under 3 s after power-on.
+- **Stage B: not possible on this firmware.** Holding OCT− at power-on (for 6 s the second time)
+  made no difference: Felucca started normally and no loader port appeared.

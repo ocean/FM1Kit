@@ -43,8 +43,9 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """
             The FM-1 stopped after \(requests) requests while checking the package, before restarting \
-            into its update loader. It should still start normally; if it doesn't, start it in USB \
-            recovery mode and install again.
+            into its update loader. It should still start normally. If it doesn't, and its firmware \
+            supports USB recovery mode (holding OCT− while switching it on), start it that way and \
+            install again; otherwise recovering it needs a computer.
             """
         case .stalled(.writing, let requests):
             """

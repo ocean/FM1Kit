@@ -17,7 +17,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     public struct Options: Sendable {
         /// What the simulated device runs when switched on.
         public var installedIdentity = FM1Identity(model: "FM-1", version: 900)
-        /// Start in the update loader, as after holding OCT− at power-on (USB recovery mode).
+        /// Start in the update loader, as after holding OCT− at power-on with a firmware that
+        /// supports USB recovery mode.
         public var startsInRecoveryMode = false
         /// Refuse a package with the identity already running, as the real device refuses to
         /// reinstall the firmware it's running.
