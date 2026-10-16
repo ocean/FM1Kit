@@ -1,5 +1,6 @@
 // A small Mac command-line probe: talk to a real FM-1 over CoreMIDI and inspect .fwsc files.
-// It never writes to the device: the only thing it ever sends is the handshake query.
+// Only `install` writes to the device, and only after the user types the package's identity;
+// every other command sends nothing but the handshake query.
 
 import FM1Kit
 import Foundation
@@ -13,6 +14,10 @@ let usage = """
                                                sends nothing
            fm1probe watch [SECONDS]            print the ports each time devices come or go (default 60 s)
            fm1probe inspect FILE.fwsc          show a package's identity, size and hash
+           fm1probe install FILE.fwsc [options]
+                                               write a firmware to the FM-1, after asking to confirm
+               --resume                        finish an update on an FM-1 waiting in its update loader
+               --simulated                     run against a simulated FM-1 instead (writes nothing)
     """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -191,6 +196,97 @@ case "inspect" where arguments.count == 2:
     print("SHA-256:       \(package.sha256)")
     if let official = OfficialFirmware.matching(package) {
         print("Official:      \(official.name) (verified)")
+    }
+
+case "install" where arguments.count >= 2:
+    let isResume = arguments.contains("--resume")
+    let isSimulated = arguments.contains("--simulated")
+    let path = arguments[1]
+    let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
+    let transport: any MIDITransport
+    if isSimulated {
+        var options = SimulatedFM1.Options()
+        options.startsInRecoveryMode = isResume
+        let device = SimulatedFM1(options: options)
+        device.prepare(for: package)
+        transport = device
+    } else {
+        transport = try CoreMIDITransport(clientName: "fm1probe")
+    }
+    let updater = FM1Updater(transport: transport)
+
+    let official = OfficialFirmware.matching(package).map { "  (\($0.name), verified)" } ?? ""
+    print("Package:  \(package.product)\(official)")
+    guard let current = await updater.identify() else {
+        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
+        exit(1)
+    }
+    print("Device:   \(current.text)  (\(current.isLoader ? "update loader" : "firmware running"))")
+    guard current.hardwareModel == package.identity.model else {
+        print("The package is for \(package.identity.model), but the device is \(current.hardwareModel).")
+        exit(1)
+    }
+    guard isResume == current.isLoader else {
+        print(
+            isResume
+                ? "The FM-1 isn't in its update loader, so there's no update to resume. Leave out --resume."
+                : "The FM-1 is waiting in its update loader. Run again with --resume to finish the update.")
+        exit(1)
+    }
+    guard current != package.identity else {
+        print("The FM-1 is already running \(package.product), and refuses to reinstall it. Choose another package.")
+        exit(1)
+    }
+
+    if !isSimulated {
+        print(
+            """
+
+            This writes \(package.product) to the FM-1. Keep the cable connected and the FM-1 switched on
+            until it finishes. Ctrl-C stops the install:
+            - while staging, the FM-1 should still start normally afterwards;
+            - while writing, it waits in its update loader for `fm1probe install \(path) --resume`.
+
+            """)
+        print("Type \(package.product) to install it, or anything else to stop: ", terminator: "")
+        guard readLine()?.trimmingCharacters(in: .whitespaces) == package.product else {
+            print("Stopped. Nothing was sent apart from the handshake query.")
+            exit(1)
+        }
+    }
+
+    let report = InstallReport()
+    let start = ContinuousClock.now
+    let installation = Task {
+        isResume
+            ? try await updater.resume(package) { report.record($0) }
+            : try await updater.install(package) { report.record($0) }
+    }
+    // Ctrl-C cancels the install, so the updater stops cleanly between requests.
+    signal(SIGINT, SIG_IGN)
+    let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+    interrupt.setEventHandler { installation.cancel() }
+    interrupt.resume()
+
+    do {
+        let installed = try await installation.value
+        report.printSummary(total: ContinuousClock.now - start)
+        print("\nInstalled: the FM-1 is running \(installed.text).")
+    } catch is CancellationError {
+        report.printSummary(total: ContinuousClock.now - start)
+        switch report.step {
+        case .writing:
+            print("\nStopped while writing. The FM-1 waits in its update loader; finish with --resume.")
+        case .rebooting, .finished:
+            print("\nStopped after writing. Check what the FM-1 is running with `fm1probe identify`.")
+        case .starting, .staging, .waitingForLoader:
+            print("\nStopped before writing. Check what the FM-1 is running with `fm1probe identify`.")
+        }
+        exit(1)
+    } catch {
+        report.printSummary(total: ContinuousClock.now - start)
+        print("\nStopped: \(error.localizedDescription)")
+        exit(1)
     }
 
 default:

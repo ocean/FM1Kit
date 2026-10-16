@@ -71,7 +71,8 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 
 ### `fm1probe`
 
-A Mac command-line tool for checking a setup without writing anything:
+A Mac command-line tool for checking a setup, and for watching an install closely. Only
+`install` writes to the device, and only after you type the package's identity to confirm:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
@@ -79,6 +80,7 @@ swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's runn
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
+swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated)
 ```
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1.

@@ -59,19 +59,26 @@ Install FM-SWITCH on the phone, connect the FM-1 to its USB-C port (or a Lightni
 through Apple's camera adapter), and open the DEVICE tab. It sends only the handshake. This
 checks FM1Kit's CoreMIDI transport on iOS, which can differ from macOS.
 
-## Stage D: the first install (a later session)
+## Stage D: the first install
 
 Only once stage A has passed, and stage B too if the running firmware supports recovery mode.
-This needs an `fm1probe install` command, which hasn't
-been written yet, so that a first install can be watched closely from a Mac.
+`fm1probe install` checks the package and the device first, then asks you to type the package's
+identity before anything is written. It prints each step with timestamps and ends with a
+summary of the time, the requests and the longest gap between requests in each step. Run it in
+a terminal rather than through an agent, so the progress shows as it happens.
 
 - Install a firmware other than the one running: the FM-1 refuses to reinstall the firmware it's
   running. The official V15 firmware is the most recoverable choice.
 - Keep a known-good installer ready (M-VAVE's updater, or a web installer), with the official
   `FM-1.fwsc`.
-- Record the total time, how many requests staging and writing take, and any stalls.
-- Then, if it went well: start another install and unplug the cable part-way through writing,
-  reconnect, and check that `resume` finishes it.
+
+| Step | Command | What to look for |
+|---|---|---|
+| D1 | `swift run fm1probe install FM-1.fwsc --simulated` | A rehearsal against the simulated FM-1, which writes nothing. It should finish with `Installed`. |
+| D2 | `swift run fm1probe install FM-1.fwsc`, then type `FM-1_015` | Staging, the loader, writing and the restart, ending `Installed: the FM-1 is running FM-1_015`. Keep the summary. |
+| D3 | `swift run fm1probe identify`, then switch the FM-1 off and on | It reports `FM-1_015` and starts normally. If wanted, try stage B again: V15 may support recovery mode. |
+| D4 | `swift run fm1probe install OTHER.fwsc`, then unplug the cable part-way through writing | It stops while writing. Reconnect, and `fm1probe identify` reports the `ota-` loader. |
+| D5 | `swift run fm1probe install OTHER.fwsc --resume` | The loader writes the package again from the start, ending `Installed`. |
 
 ## What to report
 

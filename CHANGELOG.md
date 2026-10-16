@@ -15,8 +15,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `CoreMIDITransport` for real devices on iOS and macOS, and `SimulatedFM1` for the iOS
   Simulator and tests.
 - `fm1probe`, a Mac command-line tool that lists ports, identifies a connected FM-1 (repeatedly,
-  with timings), monitors SysEx, watches devices come and go, and inspects packages, all
-  without writing anything.
+  with timings), monitors SysEx, watches devices come and go, inspects packages, and installs
+  a firmware after asking to confirm (or rehearses one against `SimulatedFM1`).
 - Installs and resumes support task cancellation.
 - `FM1Identity` is `Codable` (as its text) and can be made from a model and version.
 - `SimulatedFM1` refuses a package with the identity it's running, as the real device does.
