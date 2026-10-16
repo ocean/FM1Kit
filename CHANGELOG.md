@@ -20,3 +20,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 - Installs and resumes support task cancellation.
 - `FM1Identity` is `Codable` (as its text) and can be made from a model and version.
 - `SimulatedFM1` refuses a package with the identity it's running, as the real device does.
+- `UpdateEvent.checking(fraction:requests:)` reports a loader reading the image a second time
+  after writing, as Felucca's loader does. `UpdateEvent.writing`'s fraction is the share of the
+  image read so far, in any order (V15's loader reads backwards), and can end below 1 because
+  some loaders don't read the whole image. `SimulatedFM1.Options` can read backwards
+  (`writesBackwards`) and check after writing (`checksAfterWriting`), as these loaders do.

@@ -12,8 +12,9 @@ struct DocExamplesTests {
 
         let installed = try await updater.install(package) { event in
             switch event {
-            case .staging(let requests): print("Checking… \(requests)")
+            case .staging(let requests): print("Preparing… \(requests)")
             case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
+            case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
             case .finished(let identity): print("Now running \(identity)")
             default: break
             }

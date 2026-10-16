@@ -10,7 +10,12 @@ public enum UpdateEvent: Sendable, Hashable {
     /// The update loader answered, and writing is about to start.
     case loaderFound(FM1Identity)
     /// The loader is writing: it has read `fraction` (0 to 1) of the image in `requests` reads.
+    ///
+    /// Some loaders don't read the whole image, so this can stop short of 1.
     case writing(fraction: Double, requests: Int)
+    /// The loader is reading the image again, probably checking what it wrote: it has re-read
+    /// `fraction` (0 to 1) of what it wrote in `requests` reads. Not every loader does this.
+    case checking(fraction: Double, requests: Int)
     /// Writing has finished and the device is restarting into its new firmware.
     case rebooting
     /// The device is running the new firmware and reports this identity.

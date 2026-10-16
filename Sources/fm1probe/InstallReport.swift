@@ -11,6 +11,7 @@ final class InstallReport: Sendable {
         case staging = "Staging"
         case waitingForLoader = "Waiting for the loader"
         case writing = "Writing"
+        case checking = "Checking"
         case rebooting = "Restarting"
         case finished = "Finished"
     }
@@ -51,11 +52,13 @@ final class InstallReport: Sendable {
             case .loaderFound(let identity):
                 return Self.begin(.writing, in: &state, note: "Loader answered as \(identity.text); writing")
             case .writing(let fraction, let requests):
-                Self.noteProgress(requests: requests, in: &state)
-                let tenth = Int(fraction * 10)
-                guard tenth > state.lastPrintedTenth else { return [] }
-                state.lastPrintedTenth = tenth
-                return ["writing: \(tenth * 10)%, \(requests) requests"]
+                let restart = state.step == .checking ? Self.begin(.writing, in: &state, note: "Writing again") : []
+                return restart + Self.noteFraction(fraction, requests: requests, in: &state)
+            case .checking(let fraction, let requests):
+                let start =
+                    state.step == .checking
+                    ? [] : Self.begin(.checking, in: &state, note: "The loader is reading the image again; checking")
+                return start + Self.noteFraction(fraction, requests: requests, in: &state)
             case .rebooting:
                 return Self.begin(.rebooting, in: &state, note: "Writing finished; restarting into the new firmware")
             case .finished(let identity):
@@ -104,10 +107,19 @@ final class InstallReport: Sendable {
         state.requests = requests
     }
 
+    /// Notes a writing or checking event, returning a line each time another tenth is reached.
+    private static func noteFraction(_ fraction: Double, requests: Int, in state: inout State) -> [String] {
+        noteProgress(requests: requests, in: &state)
+        let tenth = Int(fraction * 10)
+        guard tenth > state.lastPrintedTenth else { return [] }
+        state.lastPrintedTenth = tenth
+        return ["\(state.step.rawValue.lowercased()): \(tenth * 10)%, \(requests) requests"]
+    }
+
     /// One summary line for the current step.
     private static func describe(_ state: State, stoppedEarly: Bool) -> String {
         var line = "\(state.step.rawValue): \(formatSeconds(ContinuousClock.now - state.stepStart))"
-        if state.step == .staging || state.step == .writing {
+        if [.staging, .writing, .checking].contains(state.step) {
             let longestGap = Int(milliseconds(state.longestGap).rounded())
             line += ", \(state.requests) requests, longest gap between requests \(longestGap) ms"
         }

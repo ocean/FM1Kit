@@ -124,3 +124,14 @@ model and macOS version, or iPhone model and iOS version) and the cable or adapt
   - first `0x400`–`0x93400` (1176 reads, 22.7 s);
   - then `0x4400`–`0x93400` again (1144 reads, 29.2 s), probably checking what it wrote.
   Progress reached 90% at the end of the first pass, then showed nothing during the second.
+- **Logged installs (2026-10-16): V15 over Felucca, then Felucca over V15.** Each package
+  seems to bring its own loader: it reported `ota-FM-1_015` for V15 and `ota-FM-1_900` for
+  Felucca every time, and the two read differently. Both write the region `0x4400`–`0x93400`
+  whatever the package's size; the rest of the image is read only while staging.
+  - V15's loader: one pass, backwards from `0x93400` to `0x4400` (1144 reads, 21 s), then a
+    few reads of 10 to 16 bytes from the header. Writing reads about 84% of the image.
+  - Felucca's loader: forwards from `0x400` to `0x93400` (1176 reads), then forwards again
+    from `0x4400` (1144 reads), 55 s in all. It did the same after the D5 resume.
+  - So FM1Kit now measures writing as the share of the image read in any order, and reports
+    the second pass as a separate checking step. Replaying the three logs through the new
+    rules gives steady progress for both loaders, with checking only for Felucca's.

@@ -285,7 +285,7 @@ case "install" where arguments.count >= 2:
     } catch is CancellationError {
         report.printSummary(total: ContinuousClock.now - start)
         switch report.step {
-        case .writing:
+        case .writing, .checking:
             print("\nStopped while writing. The FM-1 waits in its update loader; finish with --resume.")
         case .rebooting, .finished:
             print("\nStopped after writing. Check what the FM-1 is running with `fm1probe identify`.")

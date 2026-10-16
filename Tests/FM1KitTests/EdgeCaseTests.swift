@@ -266,6 +266,7 @@ struct UpdaterEdgeCaseTests {
             case .waitingForLoader: "waitingForLoader"
             case .loaderFound: "loaderFound"
             case .writing: "writing"
+            case .checking: "checking"
             case .rebooting: "rebooting"
             case .finished: "finished"
             }

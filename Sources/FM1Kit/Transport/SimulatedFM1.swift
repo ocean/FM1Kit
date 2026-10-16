@@ -27,6 +27,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var stagingRequestCount = 74
         /// Read size while writing.
         public var writeChunkLength = 512
+        /// Read the image from the end backwards while writing, as M-VAVE's V15 loader does.
+        public var writesBackwards = false
+        /// Read the whole image a second time after writing, as Felucca's loader does (probably
+        /// to check what it wrote).
+        public var checksAfterWriting = false
         /// Device-side pause between requests.
         public var requestInterval: Duration = .milliseconds(4)
         /// How long a reboot takes.
@@ -193,26 +198,33 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         await reboot(into: .loader)
     }
 
-    /// Reads the whole package, then restarts running it.
+    /// Reads the whole package (in the order the options say, and twice if checking), then
+    /// restarts running it.
     private func write(_ package: FwscPackage, on connection: SimulatedConnection) async {
         let image = package.logicalImage
-        var address = 0
-        while address < image.count {
-            let length = min(options.writeChunkLength, image.count - address)
-            if let unplugAt = options.unplugDuringWriteAt,
-                Double(address) / Double(image.count) >= unplugAt,
-                !state.withLock({ $0.hasUnpluggedOnce })
-            {
-                state.withLock { $0.hasUnpluggedOnce = true }
-                log("Cable pulled at \(Int(unplugAt * 100))%; the loader stays in update mode.")
-                await reboot(into: .loader)
-                return
+        var addresses = Array(stride(from: 0, to: image.count, by: options.writeChunkLength))
+        if options.writesBackwards {
+            addresses.reverse()
+        }
+        let passes = options.checksAfterWriting ? [addresses, addresses] : [addresses]
+        for pass in passes {
+            for (index, address) in pass.enumerated() {
+                if let unplugAt = options.unplugDuringWriteAt,
+                    Double(index) / Double(pass.count) >= unplugAt,
+                    !state.withLock({ $0.hasUnpluggedOnce })
+                {
+                    state.withLock { $0.hasUnpluggedOnce = true }
+                    log("Cable pulled at \(Int(unplugAt * 100))%; the loader stays in update mode.")
+                    await reboot(into: .loader)
+                    return
+                }
+                let length = min(options.writeChunkLength, image.count - address)
+                let request = FM1ReadRequest(address: UInt32(address), length: length)
+                let expected = Array(image[address..<(address + length)])
+                guard await exchange(request, expecting: expected, on: connection) else {
+                    return
+                }
             }
-            let request = FM1ReadRequest(address: UInt32(address), length: length)
-            guard await exchange(request, expecting: Array(image[address..<(address + length)]), on: connection) else {
-                return
-            }
-            address += length
         }
         let finish = FM1ReadRequest(address: FM1Message.writeFinishAddress, length: 8)
         guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }

@@ -136,7 +136,7 @@ public actor FM1Updater {
                 image: package.logicalImage,
                 until: FM1Message.stageFinishAddress,
                 idleLimit: timing.stagingIdleLimit
-            ) { requests, _ in
+            ) { _, requests in
                 events(.staging(requests: requests))
             }
         }
@@ -189,14 +189,14 @@ public actor FM1Updater {
             events(.loaderFound(loader.identity))
             try loader.connection.send(FM1Message.upgradeCommand)
             try await Task.sleep(for: timing.afterUpgradeCommand)
-            let imageLength = Double(package.logicalImage.count)
+            var progress = WriteProgress(imageLength: package.logicalImage.count)
             writing = try await serve(
                 loader.connection,
                 image: package.logicalImage,
                 until: FM1Message.writeFinishAddress,
                 idleLimit: timing.writeIdleLimit
-            ) { requests, highestEnd in
-                events(.writing(fraction: min(Double(highestEnd) / imageLength, 1), requests: requests))
+            ) { request, _ in
+                events(progress.record(request))
             }
         }
         guard writing.finished else {
@@ -235,8 +235,7 @@ public actor FM1Updater {
     ///   - image: The package's logical image, which the requests address.
     ///   - finishAddress: The address that ends this phase.
     ///   - idleLimit: How long the device may stay silent before the phase counts as stalled.
-    ///   - progress: Called after each answered read with the number of reads so far and the
-    ///     furthest image offset sent.
+    ///   - progress: Called after each answered read with the read and the number of reads so far.
     /// - Returns: How the phase ended: finished, stalled or disconnected, with the reads answered.
     /// - Throws: ``FM1UpdateError/badRequest(address:length:)`` for a request outside the image,
     ///   or `CancellationError`.
@@ -245,10 +244,9 @@ public actor FM1Updater {
         image: [UInt8],
         until finishAddress: UInt32,
         idleLimit: Duration,
-        progress: (Int, Int) -> Void
+        progress: (FM1ReadRequest, Int) -> Void
     ) async throws -> ServeOutcome {
         var outcome = ServeOutcome()
-        var highestEnd = 0
         var lastActivity = ContinuousClock.now
         while true {
             try Task.checkCancellation()
@@ -284,8 +282,7 @@ public actor FM1Updater {
                 return outcome
             }
             outcome.requests += 1
-            highestEnd = max(highestEnd, start + request.length)
-            progress(outcome.requests, highestEnd)
+            progress(request, outcome.requests)
         }
     }
 }
