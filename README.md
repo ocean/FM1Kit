@@ -11,8 +11,9 @@ the device reports the new firmware afterwards. It can also finish an update tha
 or one started from USB recovery mode.
 
 > [!WARNING]
-> FM1Kit has been tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15 and
-> Felucca 1.6.1, pulling the cable part-way through writing, and resuming. Reports from other
+> FM1Kit has been tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15,
+> Felucca 1.6.1 and M-VAVE's open firmware V12 and switching between them, pulling the cable
+> part-way through writing and resuming, and restoring V15's factory voices. Reports from other
 > devices and hosts are very welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 > FM1Kit isn't affiliated with M-VAVE. Installing custom firmware is at your own risk.
 
@@ -25,13 +26,15 @@ or one started from USB recovery mode.
 
 ## Installation
 
-Add FM1Kit with Swift Package Manager. There's no tagged release yet, so use the `main` branch:
+Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", branch: "main"),
+    .package(url: "https://github.com/ocean/FM1Kit.git", from: "0.1.0"),
 ]
 ```
+
+Until 1.0, minor versions may change the API; [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## Usage
 
@@ -92,22 +95,27 @@ On the FM-1 tested, an install takes about 20 seconds for V15 and under 40 secon
 1.6.1. The FM-1 first checks the package while running its current firmware, then restarts
 into its update loader, which shows up as a MIDI port with a new name (such as
 `Felucca Update`) and reports itself as `ota-` followed by the firmware's name, for example
-`ota-FM-1_015` for V15. The loader may leave the screen blank. If the update is cut off, the
-FM-1 waits in its loader until an update finishes, and `resume` picks it up.
+`ota-FM-1_015` for V15. After M-VAVE's open firmware is armed, its loader instead reports the
+build it was armed with, such as `ota-FM1C_db1642b2b6fa5c2c`. The loader may leave the screen
+blank. If the update is cut off, the FM-1 waits in its loader until an update finishes, and
+`resume` picks it up.
 
 The documentation articles, [FM1Kit](Sources/FM1Kit/FM1Kit.docc/FM1Kit.md) and
 [Installing firmware](Sources/FM1Kit/FM1Kit.docc/InstallingFirmware.md), cover the update's
-two halves, recovery, keeping an update running on iOS, and testing with `SimulatedFM1`, which
-speaks the protocol in software for the iOS Simulator and tests.
+two halves, checking an install before it starts, open firmware, restoring V15's voices,
+recovery, keeping an update running on iOS, and testing with `SimulatedFM1`, which speaks the
+protocol in software for the iOS Simulator and tests.
 
 ### What's in the package
 
 | Type | What it does |
 |---|---|
 | `FwscPackage` | Reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256 |
-| `OfficialFirmware` | Recognises M-VAVE's official releases by size and checksum |
+| `OfficialFirmware` | Recognises M-VAVE's official releases (V15 and Open V12) by size and checksum |
 | `FM1Identity` | Parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader |
-| `FM1Updater` | Finds the device, installs, resumes, and reports progress as `UpdateEvent`s |
+| `FM1Updater` | Finds the device, checks and installs, resumes, restores V15's voices, and reports progress as `UpdateEvent`s |
+| `InstallCheck`, `InstallOptions` | What an install would do, and confirming a switch of firmware |
+| `FM1Capability`, `FM1BuildID` | What M-VAVE's open firmware reports, and the build ID it's armed with |
 | `CoreMIDITransport` | CoreMIDI connections to real devices |
 | `SimulatedFM1` | A software FM-1 for the Simulator and tests |
 
@@ -155,8 +163,11 @@ demonstrated on the FM-1.
 The protocol implementation is written from the
 [FM-1-RE](https://github.com/AL-255/FM-1-RE) reverse-engineering notes
 ([update protocol](https://github.com/AL-255/FM-1-RE/blob/main/docs/io/11-ota-protocol.md)),
-which are WTFPL-licensed. It contains no code from GPL-licensed installers. Thanks to M-VAVE
-for being so encouraging of the FM-1's custom firmware community.
+which are WTFPL-licensed. Arming open firmware and restoring V15's voices follow the protocol as
+M-VAVE's open-source updater ([fm1_open](https://github.com/m-vave/fm1_open)) uses it, and the
+package checks follow the container format of kagaimiq's MIT-licensed jl-misctools. FM1Kit
+contains no code from GPL-licensed installers. Thanks to M-VAVE for being so encouraging of the
+FM-1's custom firmware community, and for publishing their firmware and tools.
 
 FM1Kit doesn't include M-VAVE's firmware. Get the official firmware from
 [M-VAVE's downloads](https://www.m-vave.com/download).

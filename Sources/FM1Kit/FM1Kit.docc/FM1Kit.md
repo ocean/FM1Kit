@@ -10,6 +10,10 @@ checks the device reports the new firmware once it restarts. It can also finish 
 was cut off, or one started from USB recovery mode (holding OCT− while switching the FM-1 on,
 with a firmware that supports it).
 
+Before an install, it checks exactly one FM-1 answers and says whether the install switches to a
+different firmware, which needs confirming. It arms M-VAVE's open firmware before updating it,
+and can restore V15's 128 factory voices after installing V15.
+
 It works with CoreMIDI on any class-compliant connection: an iPhone or iPad's USB-C port, a
 Lightning device through Apple's camera adapter, or a Mac. For the iOS Simulator and tests,
 ``SimulatedFM1`` stands in for the device.

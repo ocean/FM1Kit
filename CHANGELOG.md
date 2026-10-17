@@ -5,6 +5,10 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-17
+
+The first release.
+
 ### Added
 
 - `FwscPackage`: reads `.fwsc` firmware packages, their product identity, logical image and SHA-256.
@@ -59,12 +63,12 @@ All notable changes to FM1Kit are recorded here. The project follows
   `factoryVoicesUnavailable`, `voiceRestoreNeedsV15`, `voiceRestoreRefused` and
   `voiceRestoreStalled`. `SimulatedFM1` simulates V15's voice banks (`currentVoices`), and
   `fm1probe restore-voices` runs a restore after asking to confirm. Tested on one FM-1.
+- Updates add no pauses, as M-VAVE's own updater doesn't: the device asks for each block when
+  it's ready (`UpdaterTiming.responseDelay` and `afterUpgradeCommand` are zero by default).
+- After answering a finish request, the updater keeps the port open for
+  `UpdaterTiming.finishSettle` (600 ms), answering any repeat, so the reply isn't cut off.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-### Changed
-
-- Updates add no pauses, as M-VAVE's own updater doesn't: `UpdaterTiming.responseDelay` and
-  `afterUpgradeCommand` are now zero by default (were 10 ms and 2 s).
-- After answering a finish request, the updater keeps the port open for
-  `UpdaterTiming.finishSettle` (600 ms), answering any repeat, so the reply isn't cut off.
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/ocean/FM1Kit/releases/tag/0.1.0

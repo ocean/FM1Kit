@@ -4,12 +4,13 @@ Thanks for helping. Issues and pull requests are welcome.
 
 ## Hardware reports are especially useful
 
-The update timings in `UpdaterTiming` follow the FM-1-RE protocol notes and haven't been tuned
-on many devices yet. If you install firmware with FM1Kit, please open an issue saying:
+FM1Kit has been tested on one FM-1, and `UpdaterTiming` hasn't been tuned on many devices yet.
+If you install firmware with FM1Kit, please open an issue saying:
 
 - the device's identity before and after (`swift run fm1probe identify`);
 - the host (iPhone model and iOS version, or Mac and macOS version) and the cable or adapter;
-- whether it worked, and any `UpdateEvent.log` messages or errors.
+- the firmware installed, and whether it worked: the error if not, and ideally `fm1probe
+  install`'s summary, or its `--log` file.
 
 ## Pull requests
 
