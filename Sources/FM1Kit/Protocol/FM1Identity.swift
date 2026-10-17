@@ -64,6 +64,17 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
         model.lowercased().hasPrefix(Self.loaderPrefix)
     }
 
+    /// True for M-VAVE's open firmware and builds of it: `FM-1_8` and six digits (`FM-1_8000012`
+    /// for V12), or `FM1_COMMUNITY_` and a number.
+    ///
+    /// Open firmware has to be armed before an update; see ``FM1Capability``.
+    public var isOpenFirmware: Bool {
+        (model == "FM-1" && Self.openVersions.contains(version)) || model == "FM1_COMMUNITY"
+    }
+
+    /// The versions M-VAVE's open firmware reports.
+    static let openVersions = 8_000_000...8_999_999
+
     /// The hardware model with any loader prefix removed, e.g. `FM-1`.
     public var hardwareModel: String {
         isLoader ? String(model.dropFirst(Self.loaderPrefix.count)) : model

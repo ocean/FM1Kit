@@ -20,6 +20,8 @@ let usage = """
                --simulated                     run against a simulated FM-1 instead (writes nothing)
                --log FILE                      write every message to and from the device to a new
                                                CSV file
+               --build-id HEX                  the package's build ID, for M-VAVE's open firmware
+                                               (official releases' are known)
     """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -91,6 +93,7 @@ case "identify":
         exit(1)
     }
     var anyAnswered = false
+    var answeringPorts = 0
     for port in ports {
         print("\(port.name):")
         let connection = try await transport.open(port)
@@ -118,11 +121,15 @@ case "identify":
                 "  reports: \(text)  (\(isLoader ? "update loader: mid-update or USB recovery" : "firmware running"))")
         }
         if identities.count > 1 { print("  warning: the answers disagreed") }
+        answeringPorts += 1
         let average = times.reduce(0, +) / Double(times.count)
         let fastest = Int((times.min() ?? 0).rounded())
         let slowest = Int((times.max() ?? 0).rounded())
         print("  answered \(times.count) of \(repeats); reply time \(Int(average.rounded())) ms", terminator: "")
         print(" (fastest \(fastest), slowest \(slowest))")
+    }
+    if answeringPorts > 1 {
+        print("warning: \(answeringPorts) FM-1s answered; installs refuse to start until only one is connected")
     }
     if !anyAnswered { exit(1) }
 
@@ -226,6 +233,14 @@ case "install" where arguments.count >= 2:
     let transport: any MIDITransport =
         try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
     let updater = FM1Updater(transport: transport)
+    var buildID: FM1BuildID?
+    if let text = option("--build-id") {
+        guard let id = FM1BuildID(hex: text) else {
+            print("\(text) isn't a build ID: it should be 64 hex digits.")
+            exit(1)
+        }
+        buildID = id
+    }
 
     let official = OfficialFirmware.matching(package).map { "  (\($0.name), verified)" } ?? ""
     print("Package:  \(package.product)\(official)")
@@ -245,15 +260,38 @@ case "install" where arguments.count >= 2:
                 : "The FM-1 is waiting in its update loader. Run again with --resume to finish the update.")
         exit(1)
     }
-    guard current != package.identity else {
-        print("The FM-1 is already running \(package.product), and refuses to reinstall it. Choose another package.")
-        exit(1)
+    var switchWarning = ""
+    if !isResume {
+        let check: InstallCheck
+        do {
+            check = try await updater.check(package, buildID: buildID)
+        } catch {
+            print("Stopped: \(error.localizedDescription)")
+            exit(1)
+        }
+        if let capability = check.capability {
+            print("Open:     build \(capability.buildID.hex.prefix(16)), \(capability.isReady ? "ready" : "busy")")
+        }
+        switch check.kind {
+        case .reinstall:
+            print(
+                "The FM-1 is already running \(package.product), and refuses to reinstall it. Choose another package.")
+            exit(1)
+        case .update:
+            print("Kind:     an update of the open firmware running")
+        case .switchingFirmware:
+            print("Kind:     switching to a different firmware")
+            switchWarning = """
+
+                Switching firmware can erase the FM-1's projects and samples. Back them up first.
+                """
+        }
     }
 
     if !isSimulated {
         print(
             """
-
+            \(switchWarning)
             This writes \(package.product) to the FM-1. Keep the cable connected and the FM-1 switched on
             until it finishes. Ctrl-C stops the install:
             - while staging, the FM-1 should still start normally afterwards;
@@ -268,12 +306,14 @@ case "install" where arguments.count >= 2:
     }
 
     if let logPath { print("Logging every message to \(logPath).") }
+    // Typing YES (or choosing a simulated run) confirms any switch of firmware.
+    let options = InstallOptions(confirmsSwitchingFirmware: true, buildID: buildID)
     let report = InstallReport()
     let start = ContinuousClock.now
     let installation = Task {
         isResume
             ? try await updater.resume(package) { report.record($0) }
-            : try await updater.install(package) { report.record($0) }
+            : try await updater.install(package, options: options) { report.record($0) }
     }
     // Ctrl-C cancels the install, so the updater stops cleanly between requests.
     signal(SIGINT, SIG_IGN)

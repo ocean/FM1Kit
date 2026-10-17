@@ -10,7 +10,11 @@ public struct FoundDevice: Sendable {
 ///
 /// An install goes: handshake, upgrade command, answer staging reads until the device asks for
 /// `0xE0000000`, wait for the `ota-` loader, upgrade command again, answer write reads until
-/// `0xF0000000`, then wait for the device and check it reports the package's identity.
+/// `0xF0000000`, then wait for the device and check it reports the package's identity. M-VAVE's
+/// open firmware is asked about its update support and armed first; see ``FM1Capability``.
+///
+/// The updater refuses to start while more than one FM-1 answers, and an install that switches the
+/// FM-1 to a different firmware needs confirming; see ``check(_:buildID:)``.
 ///
 /// Installs and resumes support cooperative cancellation. Cancelling while the loader is writing
 /// leaves the device in its loader, where ``resume(_:events:)`` can finish the update later.
@@ -18,6 +22,8 @@ public actor FM1Updater {
     /// Only ports whose names contain one of these are probed, so SysEx is never sent to other gear.
     public static let probeablePortNameFragments = [
         "fm-1", "fm1", "felucca", "ota", "composite", "usb-midi", "simulated",
+        // Other firmwares' update loaders, as M-VAVE's updater looks for them.
+        "sloop", "clipper", "sinco",
     ]
 
     /// Where devices are found.
@@ -48,6 +54,9 @@ public actor FM1Updater {
 
     /// Finds the first probeable port whose device answers the handshake.
     ///
+    /// Installs and resumes use ``findAll(where:)`` instead, and refuse to start when more than
+    /// one device answers.
+    ///
     /// - Parameter filter: Which identities to accept; any by default.
     /// - Returns: The device with its connection left open, or `nil` if none answered.
     public func find(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> FoundDevice? {
@@ -59,6 +68,38 @@ public actor FM1Updater {
             connection.close()
         }
         return nil
+    }
+
+    /// Finds every probeable port whose device answers the handshake.
+    ///
+    /// - Parameter filter: Which identities to accept; any by default.
+    /// - Returns: The devices with their connections left open; the caller must close them all.
+    public func findAll(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> [FoundDevice] {
+        var found: [FoundDevice] = []
+        for port in await transport.ports() where Self.isProbeable(port) {
+            guard let connection = try? await transport.open(port) else { continue }
+            if let identity = await handshake(connection), filter(identity) {
+                found.append(FoundDevice(connection: connection, identity: identity))
+            } else {
+                connection.close()
+            }
+        }
+        return found
+    }
+
+    /// Finds the only device matching `filter`.
+    ///
+    /// - Returns: The device with its connection left open, or `nil` if none answered.
+    /// - Throws: ``FM1UpdateError/multipleDevices(count:)`` when more than one answered.
+    func findOnly(where filter: @Sendable (FM1Identity) -> Bool) async throws(FM1UpdateError) -> FoundDevice? {
+        let found = await findAll(where: filter)
+        guard found.count <= 1 else {
+            for device in found {
+                device.connection.close()
+            }
+            throw .multipleDevices(count: found.count)
+        }
+        return found.first
     }
 
     /// Asks what the connected FM-1 is running.
@@ -78,7 +119,7 @@ public actor FM1Updater {
     {
         let deadline = ContinuousClock.now + limit
         while ContinuousClock.now < deadline {
-            if let device = await find(where: filter) {
+            if let device = try await findOnly(where: filter) {
                 return device
             }
             try await Task.sleep(for: timing.scanInterval)
@@ -107,28 +148,42 @@ public actor FM1Updater {
     /// Installs a package on a device that's running firmware (official or custom).
     ///
     /// If the device is already in its loader (an interrupted update, or USB recovery mode), use
-    /// ``resume(_:events:)`` instead.
+    /// ``resume(_:events:)`` instead. An install that switches firmware needs
+    /// ``InstallOptions/confirmsSwitchingFirmware``; ``check(_:buildID:)`` says whether it does.
     ///
     /// - Parameters:
     ///   - package: The firmware to install.
+    ///   - options: Whether switching firmware is confirmed, and the package's build ID.
     ///   - events: Called with progress as the update goes; it may be called from any task.
     /// - Returns: The identity the device reports once it's running the new firmware.
-    /// - Throws: ``FM1UpdateError`` when the update stops, a ``MIDITransportError`` when sending
-    ///   fails, or `CancellationError` when the task is cancelled.
+    /// - Throws: ``FM1UpdateError`` when the update stops or can't start, a ``MIDITransportError``
+    ///   when sending fails, or `CancellationError` when the task is cancelled.
     @discardableResult
-    public func install(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in })
-        async throws -> FM1Identity
-    {
-        guard let device = await find(where: { !$0.isLoader }) else {
+    public func install(
+        _ package: FwscPackage,
+        options: InstallOptions = InstallOptions(),
+        events: @escaping @Sendable (UpdateEvent) -> Void = { _ in }
+    ) async throws -> FM1Identity {
+        guard let device = try await findOnly(where: { !$0.isLoader }) else {
             throw FM1UpdateError.deviceNotFound
         }
+        let buildID = options.buildID ?? Self.knownBuildID(of: package)
         let staging: ServeOutcome
         do {
             defer { device.connection.close() }
-            guard device.identity.hardwareModel == package.identity.model else {
-                throw FM1UpdateError.modelMismatch(device: device.identity.text, package: package.product)
+            let check = try await check(package, on: device, buildID: buildID)
+            switch check.kind {
+            case .reinstall:
+                throw FM1UpdateError.alreadyInstalled(device.identity.text)
+            case .switchingFirmware where !options.confirmsSwitchingFirmware:
+                throw FM1UpdateError.switchNotConfirmed(device: device.identity.text, package: package.product)
+            case .update, .switchingFirmware:
+                break
             }
             events(.connected(device.identity))
+            if let capability = check.capability {
+                try await arm(device.connection, capability: capability, package: package, buildID: buildID)
+            }
             try device.connection.send(FM1Message.upgradeCommand)
             try await pause(timing.afterUpgradeCommand)
             staging = try await serve(
@@ -152,7 +207,7 @@ public actor FM1Updater {
         guard let loader = try await waitFor(timing.loaderSearch, where: { $0.model == loaderModel }) else {
             throw FM1UpdateError.loaderNotFound
         }
-        return try await write(package, with: loader, events: events)
+        return try await write(package, with: loader, expecting: buildID, events: events)
     }
 
     /// Finishes an update on a device that's waiting in its update loader.
@@ -171,16 +226,18 @@ public actor FM1Updater {
         async throws -> FM1Identity
     {
         let loaderModel = FM1Identity.loaderPrefix + package.identity.model
-        guard let loader = await find(where: { $0.model == loaderModel }) else {
+        guard let loader = try await findOnly(where: { $0.model == loaderModel }) else {
             throw FM1UpdateError.loaderNotFound
         }
-        return try await write(package, with: loader, events: events)
+        return try await write(package, with: loader, expecting: Self.knownBuildID(of: package), events: events)
     }
 
-    /// Answers the loader's reads, then waits for the device to return running the package.
+    /// Answers the loader's reads, then waits for the device to return running the package, and
+    /// checks the build open firmware reports when the package's build ID is known.
     private func write(
         _ package: FwscPackage,
         with loader: FoundDevice,
+        expecting buildID: FM1BuildID?,
         events: @escaping @Sendable (UpdateEvent) -> Void
     ) async throws -> FM1Identity {
         let writing: ServeOutcome
@@ -210,9 +267,13 @@ public actor FM1Updater {
         guard let returned = try await waitFor(timing.returnSearch, where: { !$0.isLoader }) else {
             throw FM1UpdateError.deviceDidNotReturn
         }
-        returned.connection.close()
+        defer { returned.connection.close() }
         guard returned.identity == package.identity else {
             throw FM1UpdateError.identityMismatch(expected: package.product, reported: returned.identity.text)
+        }
+        // Stock firmwares can't report their build, so only open firmware's is checked.
+        if let buildID, let capability = try? await capability(of: returned), capability.buildID != buildID {
+            throw FM1UpdateError.buildMismatch(expected: buildID, reported: capability.buildID)
         }
         events(.finished(returned.identity))
         return returned.identity

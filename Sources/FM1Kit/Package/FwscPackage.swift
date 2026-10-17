@@ -173,12 +173,28 @@ public struct OfficialFirmware: Sendable, Hashable {
     public let size: Int
     /// Lower-case hex SHA-256 of the file.
     public let sha256: String
+    /// The build ID open firmware is armed with to install it; see ``FM1Capability``.
+    public let buildID: FM1BuildID
 
     /// FM-1 V15 `FM-1.fwsc`, as pinned by the Felucca and firmware hub installers.
+    ///
+    /// Its build ID is its SHA-256, as in M-VAVE's updater.
     public static let v15 = Self(
         name: "FM-1 V15",
         size: 699_956,
-        sha256: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"
+        sha256: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a",
+        buildID: FM1BuildID(knownHex: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a")
+    )
+
+    /// M-VAVE's open firmware V12 (`FM-1_8000012`).
+    ///
+    /// The package embedded in M-VAVE's `FM1-Open-V12-Workbench.html` release, which M-VAVE marks
+    /// as not yet validated on hardware.
+    public static let openV12 = Self(
+        name: "FM1 Open V12",
+        size: 475_700,
+        sha256: "2dd4f2d2f020851f8797752371704a9a541aa747f4e20419d629de9aa2c66f43",
+        buildID: FM1BuildID(knownHex: "426b7fa5cf1626bceaa05e8106b9a8b0eaad7f49d8b2c157303f15be347596aa")
     )
 
     /// Lower-case hex SHA-256 of M-VAVE's update loader, which V15 and M-VAVE's open-source
@@ -186,7 +202,7 @@ public struct OfficialFirmware: Sendable, Hashable {
     public static let stockLoaderSHA256 = "ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541"
 
     /// Every release FM1Kit recognises.
-    public static let known: [Self] = [.v15]
+    public static let known: [Self] = [.v15, .openV12]
 
     /// Recognises an official release.
     ///

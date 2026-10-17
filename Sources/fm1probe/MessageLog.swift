@@ -54,11 +54,25 @@ final class MessageLog: Sendable {
             kind = "handshake"
         } else if sysex == FM1Message.upgradeCommand {
             kind = "upgrade"
+        } else if let command = Self.openFirmwareCommand(sysex) {
+            kind = command
         } else if direction == .toDevice {
             kind = "response"
         }
         let bytes = sysex.count <= Self.longestLoggedMessage ? hex(sysex) : ""
         write("\(elapsed),\(direction.rawValue),\"\(port)\",\(kind),\(request),\(sysex.count),\(bytes)")
+    }
+
+    /// Names open firmware's capability (`0x31`) and arming (`0x32`) messages, either way.
+    static func openFirmwareCommand(_ sysex: [UInt8]) -> String? {
+        guard sysex.count > 4, sysex.first == 0xF0, sysex.last == 0xF7 else { return nil }
+        let body = SevenBit.unpack(sysex.dropFirst().dropLast())
+        guard body.count > 2, body[0] == 0x00, body[1] == 0x59 else { return nil }
+        switch body[2] {
+        case 0x31: return "capability"
+        case 0x32: return "arm"
+        default: return nil
+        }
     }
 
     private func write(_ line: String) {

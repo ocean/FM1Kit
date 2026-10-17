@@ -7,7 +7,9 @@ import os
 /// It behaves like the real device as documented: it answers the handshake, pulls the image
 /// with read requests after an upgrade command, restarts into an `ota-` loader between staging
 /// and writing, and comes back reporting the installed package's identity. Like the real
-/// device, it refuses a package with the identity it's already running. Every response is
+/// device, it refuses a package with the identity it's already running. Running M-VAVE's open
+/// firmware (an identity such as `FM-1_8000012`), it answers the capability query and ignores the
+/// upgrade command until it's armed. Every response is
 /// checked byte for byte against the expected image, so encoding mistakes show up as stalls.
 ///
 /// A real FM-1 learns the image layout from the package header; this one is told the package
@@ -40,6 +42,13 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var responseTimeout: Duration = .seconds(5)
         /// Simulate the cable being pulled once the write reaches this fraction (0...1).
         public var unplugDuringWriteAt: Double?
+        /// The build open firmware reports at first; after an install, it reports the build it
+        /// was armed with, or the package's known build ID.
+        public var installedBuildID = FM1BuildID(bytes: [UInt8](repeating: 0, count: FM1BuildID.byteCount))
+        /// The updater state open firmware reports: 0 when ready, anything else when busy.
+        public var capabilityState = 0
+        /// Open firmware's answer to an arming request: 0 accepts it.
+        public var armReply: UInt8 = 0
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -59,6 +68,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var expected: FwscPackage?
         var session: Task<Void, Never>?
         var hasUnpluggedOnce = false
+        /// The build open firmware reports.
+        var buildID: FM1BuildID
+        /// The build open firmware was armed with, until it restarts.
+        var armedBuildID: FM1BuildID?
     }
 
     /// The name of the simulated device's only port.
@@ -82,7 +95,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     public init(options: Options = Options()) {
         self.options = options
         let mode: Mode = options.startsInRecoveryMode ? .loader : .firmware(options.installedIdentity)
-        state = OSAllocatedUnfairLock(initialState: State(mode: mode))
+        state = OSAllocatedUnfairLock(initialState: State(mode: mode, buildID: options.installedBuildID))
     }
 
     /// Tells the simulated device which package the host is about to install.
@@ -91,6 +104,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     ///   against it.
     public func prepare(for package: FwscPackage) {
         state.withLock { $0.expected = package }
+    }
+
+    /// The build the simulated open firmware reports.
+    public var currentBuildID: FM1BuildID {
+        state.withLock { $0.buildID }
     }
 
     /// What the simulated device would report right now, or `nil` while it's restarting.
@@ -154,10 +172,41 @@ public final class SimulatedFM1: MIDITransport, Sendable {
                 connection.toHost.deliver(identity.handshakeReply())
             }
         } else if sysex == FM1Message.upgradeCommand {
+            if currentIdentity?.isOpenFirmware == true, state.withLock({ $0.armedBuildID }) == nil {
+                log("Open firmware ignores the upgrade command until it's armed.")
+                return
+            }
             startSession(on: connection)
+        } else if let (command, payload) = FM1Message.parseCommand(sysex),
+            command == FM1Message.capabilityCommand || command == FM1Message.armCommand
+        {
+            handleOpenFirmwareCommand(command, payload: payload, from: connection)
         } else {
             connection.fromHost.deliver(sysex)
         }
+    }
+
+    /// Answers a capability query or arming request, as open firmware does; others ignore them.
+    private func handleOpenFirmwareCommand(_ command: UInt8, payload: [UInt8], from connection: SimulatedConnection) {
+        guard currentIdentity?.isOpenFirmware == true else { return }
+        if command == FM1Message.capabilityCommand {
+            let capability = FM1Capability(state: options.capabilityState, buildID: currentBuildID)
+            connection.toHost.deliver(FM1Message.command(command, payload: capability.payload()))
+            return
+        }
+        let expectedLength = state.withLock { $0.expected?.logicalImage.count }
+        guard
+            options.armReply == 0, payload.count == 6 + FM1BuildID.byteCount, payload[0] == 1,
+            Int(payload[1]) == FM1Capability.fm1Family,
+            Int(FM1Message.readLittleEndian(payload, at: 2, byteCount: 4)) == expectedLength
+        else {
+            log("Arming refused.")
+            connection.toHost.deliver(FM1Message.command(command, payload: [max(options.armReply, 1)]))
+            return
+        }
+        state.withLock { $0.armedBuildID = FM1BuildID(bytes: payload[6...]) }
+        log("Armed for build \(FM1BuildID(bytes: payload[6...]).hex.prefix(16)).")
+        connection.toHost.deliver(FM1Message.command(command, payload: FM1Capability.armAccepted))
     }
 
     /// Starts staging or writing, depending on whether the loader is running.
@@ -229,6 +278,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         let finish = FM1ReadRequest(address: FM1Message.writeFinishAddress, length: 8)
         guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }
         log("Wrote \(package.product); rebooting.")
+        // Real open firmware reports the build compiled into it: here, the one it was armed with, or
+        // else the build ID FM1Kit knows for the package.
+        let packageBuildID = FM1Updater.knownBuildID(of: package) ?? FM1BuildID(knownHex: package.sha256)
+        state.withLock { $0.buildID = $0.armedBuildID ?? packageBuildID }
         await reboot(into: .firmware(package.identity))
     }
 
@@ -256,6 +309,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         state.withLock { state in
             state.mode = .offline
             state.generation += 1
+            // Only the firmware that was armed remembers it, so arming doesn't survive the loader.
+            if case .firmware = mode { state.armedBuildID = nil }
         }
         notifyObservers()
         try? await Task.sleep(for: options.rebootDuration)

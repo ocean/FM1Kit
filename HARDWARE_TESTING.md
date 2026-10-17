@@ -82,6 +82,22 @@ a terminal rather than through an agent, so the progress shows as it happens.
 | D4 | `swift run fm1probe install OTHER.fwsc --log d4.csv`, then unplug the cable part-way through writing | It stops while writing. Reconnect, and `fm1probe identify` reports the `ota-` loader. |
 | D5 | `swift run fm1probe install OTHER.fwsc --resume --log d5.csv` | The loader writes the package again from the start, ending `Installed`. |
 
+## Stage E: M-VAVE's open firmware
+
+FM1Kit arms open firmware before an update, as M-VAVE's own updater does, but this hasn't been
+tried on hardware. M-VAVE marks Open V12 as not yet validated on hardware either, so only do
+this stage with V15 ready to install. The Open V12 package is embedded in M-VAVE's
+`FM1-Open-V12-Workbench.html` release; `fm1probe inspect` should report it as `FM1 Open V12`.
+
+| Step | Command | What to look for |
+|---|---|---|
+| E1 | `swift run fm1probe install FM-1_8000012.fwsc --log e1.csv`, from V15 | "switching to a different firmware", then a normal install: V15's firmware needs no arming, and the stock loader reports `ota-FM-1_015`. Ends `Installed: … FM-1_8000012`. |
+| E2 | `swift run fm1probe identify` | `FM-1_8000012`. |
+| E3 | `swift run fm1probe install FM-1.fwsc --log e3.csv` | An `Open:` line with the running build (`426b7fa5…`) and `ready`, then arming, staging and writing as usual, ending `Installed: … FM-1_015`. The log shows the capability query (`0x31`) and arming request (`0x32`) before the upgrade command. |
+
+Afterwards, V15's factory voices may need restoring: M-VAVE's updater rewrites them after every
+install of V15.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac

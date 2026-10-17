@@ -23,12 +23,17 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - <doc:InstallingFirmware>
 - ``FM1Updater``
 - ``FwscPackage``
+- ``InstallOptions``
+- ``InstallCheck``
+- ``InstallKind``
 
 ### Devices and identities
 
 - ``FM1Identity``
 - ``OfficialFirmware``
 - ``FoundDevice``
+- ``FM1Capability``
+- ``FM1BuildID``
 
 ### Progress and errors
 

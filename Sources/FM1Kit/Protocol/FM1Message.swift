@@ -37,6 +37,10 @@ public enum FM1Message {
     static let readCommand: UInt8 = 0x30
     /// The command the identity reply carries.
     static let identityCommand: UInt8 = 0x11
+    /// Asks M-VAVE's open firmware about its update support; see ``FM1Capability``.
+    static let capabilityCommand: UInt8 = 0x31
+    /// Arms M-VAVE's open firmware for an update, before the upgrade command.
+    static let armCommand: UInt8 = 0x32
     /// Flash type, address and length: the body fields before any data.
     static let fixedFieldsLength = 8
     /// Prefix, command and body length.
@@ -74,6 +78,25 @@ public enum FM1Message {
     /// The protocol's checksum: the complement of the bytes' sum, modulo 256.
     static func checksum(_ bytes: ArraySlice<UInt8>) -> UInt8 {
         ~UInt8(truncatingIfNeeded: bytes.reduce(0) { $0 &+ Int($1) })
+    }
+
+    /// Encodes a command with its payload: header, payload and the payload's checksum.
+    static func command(_ command: UInt8, payload: [UInt8] = []) -> [UInt8] {
+        frame(header(command: command, bodyLength: payload.count) + payload + [checksum(payload[...])])
+    }
+
+    /// Decodes any command; `nil` when the bytes aren't a complete, correctly checksummed message.
+    static func parseCommand(_ sysex: [UInt8]) -> (command: UInt8, payload: [UInt8])? {
+        guard
+            let body = unframe(sysex),
+            body.count > headerLength,
+            body.starts(with: prefix),
+            Int(readLittleEndian(body, at: Offset.bodyLength, byteCount: 3)) == body.count - headerLength - 1,
+            checksum(body[headerLength..<(body.count - 1)]) == body[body.count - 1]
+        else {
+            return nil
+        }
+        return (body[Offset.command], Array(body[headerLength..<(body.count - 1)]))
     }
 
     /// The prefix, command and body length that start every message.

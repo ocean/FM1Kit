@@ -108,7 +108,8 @@ struct LoaderReadOrderTests {
         let package = try UpdaterTests.package()
         device.prepare(for: package)
         let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
-        try await FM1Updater(transport: device, timing: UpdaterTests.fastTiming).install(package) { event in
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        try await updater.install(package, options: .confirmed) { event in
             events.withLock { $0.append(event) }
         }
         return events.withLock { $0 }

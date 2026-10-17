@@ -7,6 +7,22 @@ public import Foundation
 public enum FM1UpdateError: Error, Hashable, LocalizedError {
     /// No port that looks like an FM-1 answered the handshake.
     case deviceNotFound
+    /// More than one FM-1 answered, so the updater can't tell which to update.
+    case multipleDevices(count: Int)
+    /// The install would switch the FM-1 to a different firmware, which wasn't confirmed; see
+    /// ``InstallOptions/confirmsSwitchingFirmware``.
+    case switchNotConfirmed(device: String, package: String)
+    /// The FM-1 is already running this firmware, and refuses to reinstall it.
+    case alreadyInstalled(String)
+    /// The FM-1's open firmware didn't report its update support, so the update didn't start.
+    case capabilityUnavailable
+    /// The FM-1's open firmware is busy with another update, so this one didn't start.
+    case deviceBusy
+    /// The FM-1's open firmware refused to arm for the package, with this code (`nil` when it
+    /// didn't answer), so the update didn't start.
+    case armRefused(code: Int?)
+    /// The update finished, but the open firmware reports a different build from the package's.
+    case buildMismatch(expected: FM1BuildID, reported: FM1BuildID)
     /// The device and the package are for different hardware.
     case modelMismatch(device: String, package: String)
     /// The device stopped asking for data during `phase`, after `requests` reads.
@@ -41,6 +57,37 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         switch self {
         case .deviceNotFound:
             "No FM-1 found. Check the cable, and close any other app using it."
+        case .multipleDevices(let count):
+            "\(count) FM-1s answered. Connect only the one to update, and try again."
+        case .switchNotConfirmed(let device, let package):
+            """
+            Installing \(package) switches the FM-1 from \(device) to a different firmware, which can \
+            erase its projects and samples. Back them up, then confirm the switch.
+            """
+        case .alreadyInstalled(let identity):
+            "The FM-1 is already running \(identity), and refuses to reinstall it. Choose another firmware."
+        case .capabilityUnavailable:
+            """
+            The FM-1's open firmware didn't say whether it's ready to update, so the update didn't start. \
+            Switch it off and on again, and try again.
+            """
+        case .deviceBusy:
+            """
+            The FM-1's open firmware is busy with another update, so this one didn't start. Close any \
+            other updater, switch the FM-1 off and on again, and try again.
+            """
+        case .armRefused(let code?):
+            "The FM-1's open firmware refused this package (code \(code)), so the update didn't start."
+        case .armRefused(nil):
+            """
+            The FM-1's open firmware didn't answer when asked to prepare for the update, so the update \
+            didn't start. Switch it off and on again, and try again.
+            """
+        case .buildMismatch(let expected, let reported):
+            """
+            The update finished, but the FM-1 reports build \(reported.hex.prefix(16)) instead of \
+            \(expected.hex.prefix(16)).
+            """
         case .modelMismatch(let device, let package):
             "The device is \(device) but the package is for \(package)."
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):

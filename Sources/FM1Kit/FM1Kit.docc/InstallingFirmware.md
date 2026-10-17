@@ -11,9 +11,8 @@ device on its current firmware. Then the loader reads the package again while wr
 that half is interrupted, the device stays in the loader until an update finishes, and
 ``FM1Updater/resume(_:events:)`` picks up from there.
 
-The FM-1 refuses a package it judges to be the firmware it's already running: staging then
-stops without restarting into the loader, and the updater reports
-``FM1UpdateError/stalled(phase:requests:)`` in the `.staging` phase.
+The FM-1 refuses to reinstall the firmware it's running, so the updater doesn't try: it throws
+``FM1UpdateError/alreadyInstalled(_:)`` before sending anything but the handshake.
 
 ### Read the package
 
@@ -25,11 +24,31 @@ print(package.sha256)    // compare with the publisher's checksum before install
 
 ``OfficialFirmware/matching(_:)`` says whether a package is one of M-VAVE's own releases.
 
-### Install it
+### Check what the install would do
+
+Moving the FM-1 to a different firmware (between V15, M-VAVE's open firmware and custom
+firmwares) can erase its projects and samples, so the updater won't do it unless asked.
+``FM1Updater/check(_:buildID:)`` says what an install would do without changing the device:
 
 ```swift
 let updater = FM1Updater(transport: try CoreMIDITransport(clientName: "My App"))
-let installed = try await updater.install(package) { event in
+let check = try await updater.check(package)
+switch check.kind {
+case .update: print("A new build of the open firmware \(check.device) is running")
+case .switchingFirmware: print("Switching from \(check.device): back up projects and samples first")
+case .reinstall: print("\(check.device) is already installed")
+}
+```
+
+FM1Kit can't tell custom firmwares apart, so any install other than one open firmware build over
+another counts as ``InstallKind/switchingFirmware``. Warn the person updating, and once they've
+backed up, confirm it with ``InstallOptions/confirmsSwitchingFirmware``.
+
+### Install it
+
+```swift
+let options = InstallOptions(confirmsSwitchingFirmware: true)
+let installed = try await updater.install(package, options: options) { event in
     switch event {
     case .staging(let requests): print("Preparing… \(requests)")
     case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
@@ -42,6 +61,16 @@ let installed = try await updater.install(package) { event in
 
 The updater only sends SysEx to ports whose names look like an FM-1
 (``FM1Updater/isProbeable(_:)``), so other MIDI gear connected at the same time is left alone.
+It refuses to start while more than one FM-1 answers
+(``FM1UpdateError/multipleDevices(count:)``), so it can't update the wrong one.
+
+### M-VAVE's open firmware
+
+M-VAVE's open firmware (identities such as `FM-1_8000012`, see ``FM1Identity/isOpenFirmware``)
+must be armed with the incoming package's build ID before it will update. The updater asks it
+for its ``FM1Capability`` and arms it, using the build IDs of ``OfficialFirmware/known``, or the
+one given in ``InstallOptions/buildID``. After an install of known build, it checks the open
+firmware reports that build.
 
 ### Resume an interrupted update
 

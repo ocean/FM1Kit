@@ -33,6 +33,24 @@ All notable changes to FM1Kit are recorded here. The project follows
   `fm1probe inspect` shows both.
 - `FM1UpdateError.unexpectedFinish(phase:)`: the update stops if the device asks to finish the
   other half of the update.
+- M-VAVE's open firmware (`FM-1_8000012` and builds of it, `FM1Identity.isOpenFirmware`):
+  the updater asks it for its `FM1Capability` and arms it with the package's `FM1BuildID`
+  before the upgrade command, and checks the build it reports afterwards. New errors:
+  `capabilityUnavailable`, `deviceBusy`, `armRefused(code:)` and `buildMismatch`.
+  `OfficialFirmware` gains `buildID` and recognises Open V12 (`openV12`). `SimulatedFM1`
+  simulates open firmware. Not yet tested on hardware.
+- `FM1Updater.check(_:buildID:)` says what an install would do (`InstallKind`: an update, a
+  switch to a different firmware, or a reinstall) without changing the device.
+  `install(_:options:events:)` takes `InstallOptions`; switching firmware, which can erase
+  projects and samples, throws `switchNotConfirmed` unless `confirmsSwitchingFirmware` is set,
+  and reinstalling the running firmware throws `alreadyInstalled` before anything is sent.
+- Installs and resumes refuse to start while more than one FM-1 answers (`multipleDevices`).
+  `FM1Updater.findAll(where:)` lists every device that answers.
+- The updater also probes ports named after other firmwares' loaders: SLOOP, Clipper and SINCO.
+- `@_spi(Testing)` `FwscPackage.sampleFile(product:flashSize:loaderSize:seed:)` builds a small
+  valid package for apps' tests with `SimulatedFM1`. Never install one on a real FM-1.
+- `fm1probe install` shows what the install would do and warns before switching firmware, and
+  takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
 ### Changed
 

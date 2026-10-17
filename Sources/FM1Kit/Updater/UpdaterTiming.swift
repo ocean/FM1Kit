@@ -29,6 +29,8 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var scanInterval: Duration = .seconds(1)
     /// How long to wait for a handshake reply.
     public var handshakeWait: Duration = .seconds(1)
+    /// How long to wait for open firmware to answer a capability query or an arming request.
+    public var commandReplyWait: Duration = .milliseconds(1500)
     /// Handshake attempts per port.
     public var handshakeAttempts = 2
 

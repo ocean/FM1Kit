@@ -1,6 +1,11 @@
 import Testing
 
-@testable import FM1Kit
+@_spi(Testing) @testable import FM1Kit
+
+extension InstallOptions {
+    /// Confirms switching firmware, as the tests install other firmwares over the simulated FM-1's.
+    static let confirmed = Self(confirmsSwitchingFirmware: true)
+}
 
 /// End-to-end runs of the updater against the simulated FM-1, with timings shrunk.
 struct UpdaterTests {
@@ -30,7 +35,7 @@ struct UpdaterTests {
     }
 
     static func package(product: String = "FM-1_916") throws -> FwscPackage {
-        try FwscPackage(bytes: FwscPackage.encode(product: product))
+        try FwscPackage(data: FwscPackage.sampleFile(product: product))
     }
 
     @Test func identifiesTheDevice() async {
@@ -43,7 +48,7 @@ struct UpdaterTests {
         let package = try Self.package()
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: Self.fastTiming)
-        let installed = try await updater.install(package)
+        let installed = try await updater.install(package, options: .confirmed)
         #expect(installed.text == "FM-1_916")
         #expect(device.currentIdentity?.text == "FM-1_916")
     }
@@ -56,7 +61,7 @@ struct UpdaterTests {
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: Self.fastTiming)
 
-        await #expect(throws: FM1UpdateError.self) { try await updater.install(package) }
+        await #expect(throws: FM1UpdateError.self) { try await updater.install(package, options: .confirmed) }
         try await Task.sleep(for: .milliseconds(300))
         #expect(device.currentIdentity?.isLoader == true)
 
@@ -87,7 +92,7 @@ struct UpdaterTests {
         let updater = FM1Updater(transport: transport, timing: Self.fastTiming)
 
         await #expect(throws: FM1UpdateError.badRequest(address: beyond, length: 512)) {
-            try await updater.install(package)
+            try await updater.install(package, options: .confirmed)
         }
     }
 }

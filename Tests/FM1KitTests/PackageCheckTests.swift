@@ -1,12 +1,12 @@
 import Testing
 import os
 
-@testable import FM1Kit
+@_spi(Testing) @testable import FM1Kit
 
 /// Checking a package's container before anything reaches the device.
 struct PackageCheckTests {
     static func read(_ image: [UInt8]) throws(FwscPackage.Failure) -> FwscPackage {
-        try FwscPackage(bytes: FwscPackage.encode(logicalImage: image, product: "FM-1_916"))
+        try FwscPackage(bytes: FwscPackage.sampleFile(logicalImage: image, product: "FM-1_916"))
     }
 
     @Test func theChecksumIsCRC16XModem() {
@@ -30,71 +30,71 @@ struct PackageCheckTests {
     }
 
     @Test func aFirmwareImageNoBiggerThanTheBootAreaIsAllApplication() throws {
-        let package = try Self.read(FwscPackage.containerImage(parts: [.flash(size: 16_384), .loader()]))
+        let package = try Self.read(FwscPackage.sampleImage(parts: [.flash(size: 16_384), .loader()]))
         #expect(package.container.applicationRange == package.container.flash.range)
     }
 
     @Test func refusesADamagedHeader() {
-        var image = FwscPackage.containerImage(parts: [.flash(), .loader()])
+        var image = FwscPackage.sampleImage(parts: [.flash(), .loader()])
         image[20] ^= 1
         #expect(throws: FwscPackage.Failure.damagedHeader) { try Self.read(image) }
     }
 
     @Test func refusesADamagedTable() {
-        var image = FwscPackage.containerImage(parts: [.flash(), .loader()])
+        var image = FwscPackage.sampleImage(parts: [.flash(), .loader()])
         image[FirmwareContainer.headerLength + 9] ^= 1
         #expect(throws: FwscPackage.Failure.damagedHeader) { try Self.read(image) }
     }
 
     @Test func refusesAnotherChip() {
-        let image = FwscPackage.containerImage(parts: [.flash(), .loader()], chip: "BR25")
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader()], chip: "BR25")
         #expect(throws: FwscPackage.Failure.unexpectedChip("BR25")) { try Self.read(image) }
     }
 
     @Test func refusesADamagedPart() {
-        var image = FwscPackage.containerImage(parts: [.flash(), .loader()])
+        var image = FwscPackage.sampleImage(parts: [.flash(), .loader()])
         image[FwscPackage.firstPartOffset + 5_000] ^= 1
         #expect(throws: FwscPackage.Failure.damagedPart("flash.bin")) { try Self.read(image) }
     }
 
     @Test func doesNotCheckEncipheredParts() throws {
         // M-VAVE's packages carry enciphered extras whose checksums cover the plain bytes.
-        let extra = TestPart(type: 50, name: "USR", size: 100, storedSize: 112, isEnciphered: true)
-        _ = try Self.read(FwscPackage.containerImage(parts: [.flash(), extra, .loader()]))
+        let extra = FwscPackage.SamplePart(type: 50, name: "USR", size: 100, storedSize: 112, isEnciphered: true)
+        _ = try Self.read(FwscPackage.sampleImage(parts: [.flash(), extra, .loader()]))
     }
 
     @Test func refusesAPackageWithoutALoader() {
-        let image = FwscPackage.containerImage(parts: [.flash()])
+        let image = FwscPackage.sampleImage(parts: [.flash()])
         #expect(throws: FwscPackage.Failure.missingPart("update loader")) { try Self.read(image) }
     }
 
     @Test func refusesAFirmwareImageThatIsNotWholeSectors() {
-        let image = FwscPackage.containerImage(parts: [.flash(size: 16_385), .loader()])
+        let image = FwscPackage.sampleImage(parts: [.flash(size: 16_385), .loader()])
         #expect(throws: FwscPackage.Failure.missingPart("firmware image")) { try Self.read(image) }
     }
 
     @Test func refusesOverlappingParts() {
-        var loader = TestPart.loader()
+        var loader = FwscPackage.SamplePart.loader()
         loader.offset = FwscPackage.firstPartOffset + 100
-        let image = FwscPackage.containerImage(parts: [.flash(), loader], imageLength: 0x400 + 32_768)
+        let image = FwscPackage.sampleImage(parts: [.flash(), loader], imageLength: 0x400 + 32_768)
         #expect(throws: FwscPackage.Failure.damagedHeader) { try Self.read(image) }
     }
 
     @Test func acceptsPaddingPastTheEnd() throws {
         // Felucca 1.6.1's loader is padded to 6944 bytes but its file ends 10 bytes sooner.
-        var loader = TestPart.loader(size: 990)
+        var loader = FwscPackage.SamplePart.loader(size: 990)
         loader.storedSize = 1_000
-        let image = FwscPackage.containerImage(parts: [.flash(), loader], imageLength: 0x400 + 32_768 + 990)
+        let image = FwscPackage.sampleImage(parts: [.flash(), loader], imageLength: 0x400 + 32_768 + 990)
         _ = try Self.read(image)
     }
 
     @Test func refusesAPartPastTheEnd() {
-        let image = FwscPackage.containerImage(parts: [.flash(), .loader()], imageLength: 0x400 + 32_768 + 990)
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader()], imageLength: 0x400 + 32_768 + 990)
         #expect(throws: FwscPackage.Failure.damagedHeader) { try Self.read(image) }
     }
 
     @Test func refusesAFileTooLargeForAnFM1() {
-        let image = FwscPackage.containerImage(parts: [.flash(), .loader(size: 2_100_000)])
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader(size: 2_100_000)])
         #expect(throws: FwscPackage.Failure.tooLarge) { try Self.read(image) }
     }
 }
@@ -189,7 +189,7 @@ struct FinishTests {
         let transport = ScriptedTransport(identity: Self.firmware, script: [Self.writingFinish])
         let updater = FM1Updater(transport: transport, timing: Self.timing)
         await #expect(throws: FM1UpdateError.unexpectedFinish(phase: .staging)) {
-            try await updater.install(try UpdaterTests.package())
+            try await updater.install(try UpdaterTests.package(), options: .confirmed)
         }
         #expect(transport.connection.finishReplies == 0)
     }

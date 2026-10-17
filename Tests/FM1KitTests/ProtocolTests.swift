@@ -1,6 +1,6 @@
 import Testing
 
-@testable import FM1Kit
+@_spi(Testing) @testable import FM1Kit
 
 struct SevenBitTests {
     @Test func packsLeastSignificantBitFirst() {
@@ -83,8 +83,8 @@ struct UMPTests {
 
 struct PackageTests {
     @Test func decodesProductAndStripsMarkers() throws {
-        let image = FwscPackage.containerImage(parts: [.flash(), .loader()], seed: 7)
-        let file = FwscPackage.encode(logicalImage: image, product: "FM-1_916")
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader()], seed: 7)
+        let file = FwscPackage.sampleFile(logicalImage: image, product: "FM-1_916")
         #expect(file.count == image.count + 20)
         let package = try FwscPackage(bytes: file)
         #expect(package.product == "FM-1_916")

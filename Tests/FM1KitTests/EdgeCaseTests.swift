@@ -2,16 +2,16 @@ import Foundation
 import Testing
 import os
 
-@testable import FM1Kit
+@_spi(Testing) @testable import FM1Kit
 
 struct PackageEdgeCaseTests {
     @Test func rejectsPackagesForOtherModels() {
-        let file = FwscPackage.encode(logicalImage: [UInt8](repeating: 1, count: 2000), product: "FM-2_5")
+        let file = FwscPackage.sampleFile(logicalImage: [UInt8](repeating: 1, count: 2000), product: "FM-2_5")
         #expect(throws: FwscPackage.Failure.unexpectedModel("FM-2")) { try FwscPackage(bytes: file) }
     }
 
     @Test func rejectsUnreadableIdentities() {
-        let file = FwscPackage.encode(logicalImage: [UInt8](repeating: 1, count: 2000), product: "FM-1_abc")
+        let file = FwscPackage.sampleFile(logicalImage: [UInt8](repeating: 1, count: 2000), product: "FM-1_abc")
         #expect(throws: FwscPackage.Failure.unreadableProduct("FM-1_abc")) { try FwscPackage(bytes: file) }
     }
 
@@ -216,6 +216,7 @@ final class SilentConnection: MIDIConnection, @unchecked Sendable {
 struct UpdaterEdgeCaseTests {
     @Test(arguments: [
         ("FM-1 Midi", true), ("FM1", true), ("ota-FM-1", true), ("USB-MIDI", true),
+        ("SLOOP Update", true), ("Clipper", true), ("SINCO MIDI", true),
         ("IAC Driver Bus 1", false), ("Arturia KeyStep 37", false), ("Network Session 1", false),
     ])
     func probesOnlyPortsThatLookLikeAnFM1(name: String, probeable: Bool) {
@@ -253,7 +254,8 @@ struct UpdaterEdgeCaseTests {
         let package = try UpdaterTests.package()
         device.prepare(for: package)
         let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
-        try await FM1Updater(transport: device, timing: UpdaterTests.fastTiming).install(package) { event in
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        try await updater.install(package, options: .confirmed) { event in
             events.withLock { $0.append(event) }
         }
         let recorded = events.withLock { $0 }
@@ -329,16 +331,17 @@ struct IdentityCodingTests {
 }
 
 struct RefusedPackageTests {
-    @Test func theRunningFirmwareIsRefusedWhileStaging() async throws {
+    @Test func theRunningFirmwareIsRefusedBeforeStaging() async throws {
         var options = UpdaterTests.fastOptions
         options.installedIdentity = FM1Identity(model: "FM-1", version: 916)
         let device = SimulatedFM1(options: options)
         let package = try UpdaterTests.package(product: "FM-1_916")
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
-        await #expect(throws: FM1UpdateError.stalled(phase: .staging, requests: options.stagingRequestCount)) {
-            try await updater.install(package)
+        await #expect(throws: FM1UpdateError.alreadyInstalled("FM-1_916")) {
+            try await updater.install(package, options: .confirmed)
         }
+        #expect(device.events.isEmpty)
         #expect(device.currentIdentity == package.identity)
     }
 }

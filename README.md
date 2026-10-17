@@ -43,9 +43,15 @@ import Foundation
 let package = try FwscPackage(data: Data(contentsOf: fileURL))
 print(package.product, package.sha256)
 
-// Install it on the connected FM-1.
+// Check what installing it would do. Switching to a different firmware can erase the
+// FM-1's projects and samples, so it needs confirming once they're backed up.
 let updater = FM1Updater(transport: try CoreMIDITransport(clientName: "My App"))
-try await updater.install(package) { event in
+let check = try await updater.check(package)
+let confirmed = check.kind != .switchingFirmware || askToSwitch(from: check.device)
+
+// Install it on the connected FM-1.
+let options = InstallOptions(confirmsSwitchingFirmware: confirmed)
+try await updater.install(package, options: options) { event in
     switch event {
     case .staging(let requests): print("Preparing… \(requests)")
     case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
@@ -66,6 +72,11 @@ counts the firmware's application area, which every loader seen writes, whatever
 reads in (V15's reads backwards). Some loaders then read it a second time, probably to check
 it: Felucca's does, and FM1Kit reports that pass as `.checking`, so plan progress displays
 for an optional second step.
+
+Before installing, FM1Kit makes sure exactly one FM-1 answers, and refuses to reinstall the
+firmware it's running. It installs a different firmware only when told the person updating has
+been warned, as M-VAVE's own updater does. It also speaks M-VAVE's open firmware's update
+support (`FM-1_8000012` and builds of it), arming it with the package's build ID first.
 
 Reading a package checks its contents first: the header, the chip it's built for, a checksum
 for each part, and that it holds a firmware image and an update loader. A damaged or wrong
@@ -109,7 +120,7 @@ swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's runn
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
-swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE)
+swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 ```
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
