@@ -69,8 +69,9 @@ summary of the time, the requests and the longest gap between requests in each s
 read request's address and length. Run it in
 a terminal rather than through an agent, so the progress shows as it happens.
 
-- Install a firmware other than the one running: the FM-1 refuses to reinstall the firmware it's
-  running. The official V15 firmware is the most recoverable choice.
+- Install a firmware other than the one running: V15 is believed to refuse its own identity
+  (custom firmwares accept theirs; see stage G). The official V15 firmware is the most
+  recoverable choice.
 - Keep a known-good installer ready (M-VAVE's updater, or a web installer), with the official
   `FM-1.fwsc`.
 
@@ -118,6 +119,18 @@ Run it on V15 (`FM-1_015`) with the official `FM-1.fwsc`.
 | F4 | `swift run fm1probe identify`, then switch the FM-1 off and on and play again | Still `FM-1_015`, and the voices survive a restart. |
 
 If F2 stops part-way, some voices may be silent: run it again.
+
+## Stage G: installing the identity a custom firmware reports
+
+Felucca's update code, which Estampie inherits, doesn't compare the package's identity with its
+own, so installing the identity it reports should work: it's how a firmware that keeps one
+identity across releases is updated. This hasn't been tried on hardware. FM1Kit calls it
+`sameIdentity` and asks to confirm it; `fm1probe` counts typing YES as confirming.
+
+| Step | Command | What to look for |
+|---|---|---|
+| G1 | `swift run fm1probe identify` | An Estampie build, e.g. `FM-1_37801`. |
+| G2 | `swift run fm1probe install ESTAMPIE.fwsc --log g2.csv`, with a package of the same identity | `Kind: the identity already running`, then a normal install ending `Installed: … FM-1_37801`. If staging stalls instead, the firmware refuses its own identity after all. |
 
 ## What to report
 

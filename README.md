@@ -78,9 +78,10 @@ reads in (V15's reads backwards). Some loaders then read it a second time, proba
 it: Felucca's does, and FM1Kit reports that pass as `.checking`, so plan progress displays
 for an optional second step.
 
-Before installing, FM1Kit makes sure exactly one FM-1 answers, and refuses to reinstall the
-firmware it's running. It installs a different firmware only when told the person updating has
-been warned, as M-VAVE's own updater does. It also speaks M-VAVE's open firmware's update
+Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinstall V15 over
+itself. It installs a different firmware, or the identity a custom firmware already reports
+(a reinstall, or another release of a firmware that keeps one identity), only when told the
+person updating has confirmed it, as M-VAVE's own updater does. It also speaks M-VAVE's open firmware's update
 support (`FM-1_8000012` and builds of it), arming it with the package's build ID first.
 
 After installing V15, `restoreFactoryVoices(from:progress:)` can rewrite its four voice banks

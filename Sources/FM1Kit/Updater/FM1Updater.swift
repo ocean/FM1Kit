@@ -177,7 +177,9 @@ public actor FM1Updater {
                 throw FM1UpdateError.alreadyInstalled(device.identity.text)
             case .switchingFirmware where !options.confirmsSwitchingFirmware:
                 throw FM1UpdateError.switchNotConfirmed(device: device.identity.text, package: package.product)
-            case .update, .switchingFirmware:
+            case .sameIdentity where !options.confirmsSameIdentity:
+                throw FM1UpdateError.sameIdentityNotConfirmed(device.identity.text)
+            case .update, .switchingFirmware, .sameIdentity:
                 break
             }
             events(.connected(device.identity))

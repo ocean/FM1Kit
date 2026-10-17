@@ -12,8 +12,11 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     /// The install would switch the FM-1 to a different firmware, which wasn't confirmed; see
     /// ``InstallOptions/confirmsSwitchingFirmware``.
     case switchNotConfirmed(device: String, package: String)
-    /// The FM-1 is already running this firmware, and refuses to reinstall it.
+    /// The FM-1 is already running this firmware, which isn't reinstalled.
     case alreadyInstalled(String)
+    /// The package has the identity the FM-1's custom firmware reports, which wasn't confirmed;
+    /// see ``InstallOptions/confirmsSameIdentity``.
+    case sameIdentityNotConfirmed(String)
     /// The FM-1's open firmware didn't report its update support, so the update didn't start.
     case capabilityUnavailable
     /// The FM-1's open firmware is busy with another update, so this one didn't start.
@@ -73,7 +76,12 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             erase its projects and samples. Back them up, then confirm the switch.
             """
         case .alreadyInstalled(let identity):
-            "The FM-1 is already running \(identity), and refuses to reinstall it. Choose another firmware."
+            "The FM-1 is already running \(identity), so it isn't reinstalled. Choose another firmware."
+        case .sameIdentityNotConfirmed(let identity):
+            """
+            The FM-1 already reports \(identity), the same identity as this package. Confirm you mean to \
+            reinstall it, or to install another release of the same firmware.
+            """
         case .capabilityUnavailable:
             """
             The FM-1's open firmware didn't say whether it's ready to update, so the update didn't start. \

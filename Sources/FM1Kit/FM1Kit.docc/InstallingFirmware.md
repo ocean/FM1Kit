@@ -11,8 +11,11 @@ device on its current firmware. Then the loader reads the package again while wr
 that half is interrupted, the device stays in the loader until an update finishes, and
 ``FM1Updater/resume(_:events:)`` picks up from there.
 
-The FM-1 refuses to reinstall the firmware it's running, so the updater doesn't try: it throws
-``FM1UpdateError/alreadyInstalled(_:)`` before sending anything but the handshake.
+V15 is believed to refuse a package with its own identity, so the updater doesn't try: it throws
+``FM1UpdateError/alreadyInstalled(_:)`` before sending anything but the handshake. Custom
+firmwares accept their own identity (Felucca's update code doesn't compare it), and some keep one
+identity across releases, so installing the identity a custom firmware reports is
+``InstallKind/sameIdentity``, which needs confirming with ``InstallOptions/confirmsSameIdentity``.
 
 ### Read the package
 
@@ -37,6 +40,7 @@ switch check.kind {
 case .update: print("A new build of the open firmware \(check.device) is running")
 case .switchingFirmware: print("Switching from \(check.device): back up projects and samples first")
 case .reinstall: print("\(check.device) is already installed")
+case .sameIdentity: print("\(check.device) is running: reinstall it, or update to another release?")
 }
 ```
 

@@ -287,9 +287,10 @@ case "install" where arguments.count >= 2:
         }
         switch check.kind {
         case .reinstall:
-            print(
-                "The FM-1 is already running \(package.product), and refuses to reinstall it. Choose another package.")
+            print("The FM-1 is already running \(package.product), so it isn't reinstalled. Choose another package.")
             exit(1)
+        case .sameIdentity:
+            print("Kind:     the identity already running: a reinstall, or another release of it")
         case .update:
             print("Kind:     an update of the open firmware running")
         case .switchingFirmware:
@@ -319,8 +320,8 @@ case "install" where arguments.count >= 2:
     }
 
     if let logPath { print("Logging every message to \(logPath).") }
-    // Typing YES (or choosing a simulated run) confirms any switch of firmware.
-    let options = InstallOptions(confirmsSwitchingFirmware: true, buildID: buildID)
+    // Typing YES (or choosing a simulated run) confirms a switch of firmware or a same-identity install.
+    let options = InstallOptions(confirmsSwitchingFirmware: true, confirmsSameIdentity: true, buildID: buildID)
     let report = InstallReport()
     let start = ContinuousClock.now
     let installation = Task {

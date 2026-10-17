@@ -7,8 +7,14 @@ public enum InstallKind: Sendable, Hashable {
     /// calls this force flashing: it can erase the FM-1's projects and samples, so warn first and
     /// confirm with ``InstallOptions/confirmsSwitchingFirmware``.
     case switchingFirmware
-    /// The firmware already running, which the FM-1 refuses to reinstall.
+    /// The firmware already running, which isn't reinstalled: V15 is believed to refuse its own
+    /// identity, and open firmware is already running this build.
     case reinstall
+    /// A package with the identity a custom firmware is reporting: a reinstall, or another release
+    /// of a firmware that keeps one identity across releases (as Felucca-derived firmwares can).
+    /// FM1Kit can't tell which, nor rule out a different firmware sharing the number, so confirm
+    /// it with ``InstallOptions/confirmsSameIdentity``.
+    case sameIdentity
 }
 
 /// The connected FM-1 and what installing a package on it would do, from
@@ -35,8 +41,10 @@ public struct InstallCheck: Sendable, Hashable {
             let isSameBuild = buildID == capability.buildID
             let isSameLine = package.identity.isOpenFirmware && capability.family == FM1Capability.fm1Family
             kind = isSameBuild ? .reinstall : isSameLine ? .update : .switchingFirmware
+        } else if device == package.identity {
+            kind = device == .officialV15 ? .reinstall : .sameIdentity
         } else {
-            kind = device == package.identity ? .reinstall : .switchingFirmware
+            kind = .switchingFirmware
         }
     }
 }
@@ -48,6 +56,12 @@ public struct InstallOptions: Sendable, Hashable {
     /// Switching firmware can erase the FM-1's projects and samples. Set this only once the person
     /// updating has been warned and has backed them up.
     public var confirmsSwitchingFirmware = false
+
+    /// Allows an install of kind ``InstallKind/sameIdentity``.
+    ///
+    /// Set this once the person updating has confirmed they mean to reinstall, or update to
+    /// another release of the same firmware.
+    public var confirmsSameIdentity = false
 
     /// The package's build ID, for arming open firmware and checking the build it reports after
     /// the update.
@@ -61,9 +75,15 @@ public struct InstallOptions: Sendable, Hashable {
     ///
     /// - Parameters:
     ///   - confirmsSwitchingFirmware: Allow switching to a different firmware.
+    ///   - confirmsSameIdentity: Allow installing the identity a custom firmware is reporting.
     ///   - buildID: The package's build ID, if known.
-    public init(confirmsSwitchingFirmware: Bool = false, buildID: FM1BuildID? = nil) {
+    public init(
+        confirmsSwitchingFirmware: Bool = false,
+        confirmsSameIdentity: Bool = false,
+        buildID: FM1BuildID? = nil
+    ) {
         self.confirmsSwitchingFirmware = confirmsSwitchingFirmware
+        self.confirmsSameIdentity = confirmsSameIdentity
         self.buildID = buildID
     }
 }

@@ -5,6 +5,16 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Installing the identity a custom firmware already reports is no longer refused. Felucca's update
+  code, which Estampie inherits, doesn't compare identities, and firmwares that keep one identity
+  across releases are updated this way. The new `InstallKind.sameIdentity` needs confirming with
+  `InstallOptions.confirmsSameIdentity` (otherwise `FM1UpdateError.sameIdentityNotConfirmed`).
+  Only V15 over itself is still refused as `reinstall` (`alreadyInstalled`), and open firmware
+  still compares builds. `SimulatedFM1.Options.refusesRunningFirmware` now applies only to V15.
+  The new `InstallKind` case means exhaustive switches over it need updating.
+
 ## [0.1.0] - 2026-10-17
 
 The first release.
@@ -12,7 +22,7 @@ The first release.
 ### Added
 
 - `FwscPackage`: reads `.fwsc` firmware packages, their product identity, logical image and SHA-256.
-- `OfficialFirmware`: recognises M-VAVE's official releases (V15) by size and checksum.
+- `OfficialFirmware`: recognises M-VAVE's official releases (V15, and Open V12) by size and checksum.
 - `FM1Identity`: parses what a device or package reports, including the `ota-` update loader.
 - `FM1Updater`: installs a package over USB-MIDI, resumes an interrupted update or a device in
   USB recovery mode, and checks the device reports the new firmware afterwards.

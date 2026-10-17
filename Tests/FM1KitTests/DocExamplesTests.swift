@@ -14,6 +14,7 @@ struct DocExamplesTests {
         case .update: print("A new build of the open firmware \(check.device) is running")
         case .switchingFirmware: print("Switching from \(check.device): back up projects and samples first")
         case .reinstall: print("\(check.device) is already installed")
+        case .sameIdentity: print("\(check.device) is running: reinstall it, or update to another release?")
         }
         #expect(check.kind == .switchingFirmware)
     }

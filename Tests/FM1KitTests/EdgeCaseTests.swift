@@ -331,17 +331,35 @@ struct IdentityCodingTests {
 }
 
 struct RefusedPackageTests {
-    @Test func theRunningFirmwareIsRefusedBeforeStaging() async throws {
+    @Test func v15IsNotReinstalled() async throws {
         var options = UpdaterTests.fastOptions
-        options.installedIdentity = FM1Identity(model: "FM-1", version: 916)
+        options.installedIdentity = .officialV15
         let device = SimulatedFM1(options: options)
-        let package = try UpdaterTests.package(product: "FM-1_916")
+        let package = try UpdaterTests.package(product: "FM-1_015")
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
-        await #expect(throws: FM1UpdateError.alreadyInstalled("FM-1_916")) {
+        #expect(try await updater.check(package).kind == .reinstall)
+        await #expect(throws: FM1UpdateError.alreadyInstalled("FM-1_015")) {
             try await updater.install(package, options: .confirmed)
         }
         #expect(device.events.isEmpty)
+    }
+
+    @Test func aCustomFirmwaresOwnIdentityNeedsConfirming() async throws {
+        var options = UpdaterTests.fastOptions
+        options.installedIdentity = FM1Identity(model: "FM-1", version: 37_801)
+        let device = SimulatedFM1(options: options)
+        let package = try UpdaterTests.package(product: "FM-1_37801")
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        #expect(try await updater.check(package).kind == .sameIdentity)
+        // Confirming a switch of firmware isn't enough.
+        await #expect(throws: FM1UpdateError.sameIdentityNotConfirmed("FM-1_37801")) {
+            try await updater.install(package, options: .confirmed)
+        }
+        #expect(device.events.isEmpty)
+        let installed = try await updater.install(package, options: InstallOptions(confirmsSameIdentity: true))
+        #expect(installed == package.identity)
         #expect(device.currentIdentity == package.identity)
     }
 }

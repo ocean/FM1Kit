@@ -178,7 +178,7 @@ struct SwitchingFirmwareTests {
         let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
         let check = try await updater.check(try UpdaterTests.package(product: "FM-1_900"))
         #expect(check.device.text == "FM-1_900")
-        #expect(check.kind == .reinstall)
+        #expect(check.kind == .sameIdentity)
         #expect(device.events.isEmpty)
     }
 }

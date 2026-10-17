@@ -6,8 +6,8 @@ import os
 ///
 /// It behaves like the real device as documented: it answers the handshake, pulls the image
 /// with read requests after an upgrade command, restarts into an `ota-` loader between staging
-/// and writing, and comes back reporting the installed package's identity. Like the real
-/// device, it refuses a package with the identity it's already running. Running M-VAVE's open
+/// and writing, and comes back reporting the installed package's identity. Running V15, it
+/// refuses a package with V15's own identity, as V15 is believed to. Running M-VAVE's open
 /// firmware (an identity such as `FM-1_8000012`), it answers the capability query and ignores the
 /// upgrade command until it's armed; once armed, its loader reports the build, as in
 /// `ota-FM1C_db1642b2b6fa5c2c`. Every response is
@@ -23,8 +23,9 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         /// Start in the update loader, as after holding OCT− at power-on with a firmware that
         /// supports USB recovery mode.
         public var startsInRecoveryMode = false
-        /// Refuse a package with the identity already running, as the real device refuses to
-        /// reinstall the firmware it's running.
+        /// While running V15, refuse a package with its own identity, as V15 is believed to.
+        ///
+        /// Custom firmwares accept their own identity, as Felucca's update code does.
         public var refusesRunningFirmware = true
         /// Reads requested while staging, before the reboot into the loader.
         public var stagingRequestCount = 74
@@ -242,7 +243,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
                 return
             }
         }
-        if options.refusesRunningFirmware, currentIdentity == package.identity {
+        if options.refusesRunningFirmware, currentIdentity == package.identity, currentIdentity == .officialV15 {
             log("\(package.product) is already running, so the package is refused.")
             return
         }
