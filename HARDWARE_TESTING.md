@@ -95,8 +95,14 @@ this stage with V15 ready to install. The Open V12 package is embedded in M-VAVE
 | E2 | `swift run fm1probe identify` | `FM-1_8000012`. |
 | E3 | `swift run fm1probe install FM-1.fwsc --log e3.csv` | An `Open:` line with the running build (`426b7fa5…`) and `ready`, then arming, staging and writing as usual, ending `Installed: … FM-1_015`. The log shows the capability query (`0x31`) and arming request (`0x32`) before the upgrade command. |
 
-Afterwards, V15's factory voices may need restoring: M-VAVE's updater rewrites them after every
-install of V15.
+| E4 | Play through V15's voices, switching between several in each bank | Whether they're V15's factory sounds. If any are wrong, silent or garbled, note which banks. |
+
+E4 decides whether FM1Kit needs a factory voice restore. M-VAVE's updater rewrites the four voice
+banks after installing V15, but on this FM-1 an install of V15 after several custom firmwares
+(Ghoulbox, SLOOP, Melodee, Felucca) brought the factory voices back without one, although the
+logs show no voice data from the package reaching the device. The likeliest explanation is that
+V15 resets banks it can't read to built-in defaults. Open firmware may leave banks that V15 can
+read, in which case its voices would stay until restored, and the restore would have a real job.
 
 ## What to report
 
