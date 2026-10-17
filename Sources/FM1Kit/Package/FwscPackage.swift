@@ -7,25 +7,50 @@ public import Foundation
 /// markers spell the product identity (`FM-1_916`): marker `i` is `character + i + 1`, and
 /// `0x7D` means "unused". The image the device reads during an update (the logical image) is
 /// the file with those 20 marker bytes removed.
+///
+/// The logical image is a JieLi firmware container: a header and table of parts, each with a
+/// checksum. Reading a package checks all of them, and that it holds a firmware image and an
+/// update loader for the FM-1's AC791N chip, so a damaged or wrong file is refused before
+/// anything is sent to the device.
 public struct FwscPackage: Sendable {
     /// Why a file couldn't be read as an FM-1 package.
     public enum Failure: Error, Hashable, LocalizedError {
         /// The file is too short to hold the package header.
         case tooShort
+        /// The file is larger than any FM-1 package.
+        case tooLarge
         /// The header's markers don't spell an identity such as `FM-1_916`; this is what they spell.
         case unreadableProduct(String)
         /// The package is for another model; this is the model it names.
         case unexpectedModel(String)
+        /// The container's header or table of parts is damaged.
+        case damagedHeader
+        /// The package is for another chip; this is the chip it names.
+        case unexpectedChip(String)
+        /// A part of the package doesn't match its checksum; this is the part's name.
+        case damagedPart(String)
+        /// The package has no usable firmware image or update loader; this says which.
+        case missingPart(String)
 
         /// A description suitable for showing to the person who chose the file.
         public var errorDescription: String? {
             switch self {
             case .tooShort:
                 "This file is too short to be an FM-1 firmware package."
+            case .tooLarge:
+                "This file is too large to be an FM-1 firmware package."
             case .unreadableProduct(let text):
                 "This file doesn't carry an FM-1 product identity (it reads \"\(text)\")."
             case .unexpectedModel(let model):
                 "This package is for a \(model), not an FM-1."
+            case .damagedHeader:
+                "This package's header is damaged, so it can't be installed. Download it again."
+            case .unexpectedChip(let chip):
+                "This package is for a \(chip) chip, not the FM-1's AC791N."
+            case .damagedPart(let name):
+                "Part of this package (\(name)) is damaged, so it can't be installed. Download it again."
+            case .missingPart(let part):
+                "This package has no usable \(part), so it can't be installed."
             }
         }
     }
@@ -38,6 +63,8 @@ public struct FwscPackage: Sendable {
     static let imageBytesPerBlock = 0x2F
     /// The marker for a block that carries no identity character.
     static let unusedMarker: UInt8 = 0x7D
+    /// The largest file accepted, well beyond the FM-1's 1 MB of flash plus extras.
+    static let maximumFileLength = 2_097_152
 
     /// The hardware model every FM-1 package is built for.
     public static let expectedModel = "FM-1"
@@ -53,6 +80,15 @@ public struct FwscPackage: Sendable {
 
     /// Lower-case hex SHA-256 of the file (not the logical image).
     public let sha256: String
+
+    /// Lower-case hex SHA-256 of the update loader the package brings.
+    ///
+    /// The loader reports its own identity while it writes, which isn't always the package's:
+    /// M-VAVE's loader, ``OfficialFirmware/stockLoaderSHA256``, always reports `ota-FM-1_015`.
+    public let loaderSHA256: String
+
+    /// The parts of the logical image.
+    let container: FirmwareContainer
 
     /// Reads a package from a file's contents.
     ///
@@ -70,6 +106,9 @@ public struct FwscPackage: Sendable {
         guard bytes.count > Self.blockCount * Self.blockSize else {
             throw .tooShort
         }
+        guard bytes.count <= Self.maximumFileLength else {
+            throw .tooLarge
+        }
         let product = Self.decodeProduct(bytes)
         guard let identity = FM1Identity(text: product), product.allSatisfy({ $0.isASCII && !$0.isWhitespace }) else {
             throw .unreadableProduct(product)
@@ -77,10 +116,13 @@ public struct FwscPackage: Sendable {
         guard identity.model == Self.expectedModel else {
             throw .unexpectedModel(identity.model)
         }
+        let image = Self.stripMarkers(bytes)
+        container = try FirmwareContainer(image: image)
         fileBytes = bytes
         self.identity = identity
-        logicalImage = Self.stripMarkers(bytes)
+        logicalImage = image
         sha256 = Self.sha256Hex(bytes)
+        loaderSHA256 = Self.sha256Hex(image[container.loader.range])
     }
 
     /// The identity as text, e.g. `FM-1_916`.
@@ -122,7 +164,8 @@ public struct FwscPackage: Sendable {
 /// Official M-VAVE firmware releases, recognised by size and SHA-256.
 ///
 /// FM1Kit doesn't include these files: get them from M-VAVE's downloads
-/// (<https://www.m-vave.com/download>) and check them here.
+/// (<https://www.m-vave.com/download>), or V15 from M-VAVE's open-source repository
+/// (<https://github.com/m-vave/fm1_open>, Apache-2.0), and check them here.
 public struct OfficialFirmware: Sendable, Hashable {
     /// A display name, e.g. "FM-1 V15".
     public let name: String
@@ -137,6 +180,10 @@ public struct OfficialFirmware: Sendable, Hashable {
         size: 699_956,
         sha256: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"
     )
+
+    /// Lower-case hex SHA-256 of M-VAVE's update loader, which V15 and M-VAVE's open-source
+    /// firmware both bring; see ``FwscPackage/loaderSHA256``.
+    public static let stockLoaderSHA256 = "ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541"
 
     /// Every release FM1Kit recognises.
     public static let known: [Self] = [.v15]

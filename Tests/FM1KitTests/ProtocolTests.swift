@@ -83,7 +83,7 @@ struct UMPTests {
 
 struct PackageTests {
     @Test func decodesProductAndStripsMarkers() throws {
-        let image = (0..<5000).map { UInt8(truncatingIfNeeded: $0 &* 7) }
+        let image = FwscPackage.containerImage(parts: [.flash(), .loader()], seed: 7)
         let file = FwscPackage.encode(logicalImage: image, product: "FM-1_916")
         #expect(file.count == image.count + 20)
         let package = try FwscPackage(bytes: file)

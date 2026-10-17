@@ -196,6 +196,9 @@ case "inspect" where arguments.count == 2:
     print("File size:     \(package.fileBytes.count) bytes")
     print("Logical image: \(package.logicalImage.count) bytes")
     print("SHA-256:       \(package.sha256)")
+    print("Contents:      header, parts and checksums all intact")
+    let isStockLoader = package.loaderSHA256 == OfficialFirmware.stockLoaderSHA256
+    print("Loader:        \(package.loaderSHA256)\(isStockLoader ? " (M-VAVE's, reports ota-FM-1_015)" : "")")
     if let official = OfficialFirmware.matching(package) {
         print("Official:      \(official.name) (verified)")
     }

@@ -61,17 +61,19 @@ if let identity = await updater.identify(), identity.isLoader {
 }
 ```
 
-Each firmware brings its own update loader, and loaders write differently, so plan progress
-displays around both of these:
+Each firmware brings its own update loader, and loaders write differently. Writing progress
+counts the firmware's application area, which every loader seen writes, whatever order it
+reads in (V15's reads backwards). Some loaders then read it a second time, probably to check
+it: Felucca's does, and FM1Kit reports that pass as `.checking`, so plan progress displays
+for an optional second step.
 
-- Writing can finish below 100%. M-VAVE's V15 loader writes only part of its image (about
-  84%); the rest is read while staging.
-- Some loaders read the image a second time after writing, probably to check it. Felucca's
-  does, and FM1Kit reports that pass as `.checking`.
+Reading a package checks its contents first: the header, the chip it's built for, a checksum
+for each part, and that it holds a firmware image and an update loader. A damaged or wrong
+file is refused before anything is sent to the FM-1.
 
 ### What an install looks like
 
-On the FM-1 tested, an install took about 35 seconds for V15 and about a minute for Felucca
+On the FM-1 tested, an install takes about 20 seconds for V15 and under 40 seconds for Felucca
 1.6.1. The FM-1 first checks the package while running its current firmware, then restarts
 into its update loader, which shows up as a MIDI port with a new name (such as
 `Felucca Update`) and reports itself as `ota-` followed by the firmware's name, for example

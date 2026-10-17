@@ -10,7 +10,7 @@ struct WriteProgressTests {
 
     /// Feeds reads of whole blocks to a fresh tracker and returns the events.
     static func events(forBlocks blocks: [Int], imageLength: Int = imageLength) -> [UpdateEvent] {
-        var progress = WriteProgress(imageLength: imageLength)
+        var progress = WriteProgress(region: 0..<imageLength)
         return blocks.map { progress.record(FM1ReadRequest(address: UInt32($0 * block), length: block)) }
     }
 
@@ -48,7 +48,7 @@ struct WriteProgressTests {
 
     @Test func shortRereadsAtTheEndAreStillWriting() {
         // V15's loader ends with a few reads of 10 to 16 bytes from the header.
-        var progress = WriteProgress(imageLength: Self.imageLength)
+        var progress = WriteProgress(region: 0..<Self.imageLength)
         for block in (0..<64).reversed() {
             _ = progress.record(FM1ReadRequest(address: UInt32(block * Self.block), length: Self.block))
         }
@@ -92,7 +92,7 @@ struct WriteProgressTests {
     }
 
     @Test func aShortFinalReadIsCounted() {
-        var progress = WriteProgress(imageLength: 1000)
+        var progress = WriteProgress(region: 0..<1000)
         _ = progress.record(FM1ReadRequest(address: 0, length: 512))
         #expect(progress.record(FM1ReadRequest(address: 512, length: 488)) == .writing(fraction: 1, requests: 2))
     }

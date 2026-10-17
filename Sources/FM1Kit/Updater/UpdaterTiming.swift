@@ -1,10 +1,12 @@
 /// Timings for an update session.
 ///
-/// The standard values follow the FM-1-RE protocol notes and the vendor updater's behaviour.
-/// They haven't yet been tuned against a wide range of hardware, so they're adjustable.
+/// The standard values follow the FM-1-RE protocol notes and M-VAVE's own browser updater, which
+/// answers each read as soon as the device asks and adds no pauses. They haven't yet been tuned
+/// against a wide range of hardware, so they're adjustable.
 public struct UpdaterTiming: Sendable, Hashable {
-    /// Pause after an upgrade command before the device starts asking for data.
-    public var afterUpgradeCommand: Duration = .seconds(2)
+    /// Pause after an upgrade command before answering the device's requests; none by default,
+    /// as requests that arrive meanwhile wait in the connection.
+    public var afterUpgradeCommand: Duration = .zero
     /// Give up staging when the device has been silent this long.
     public var stagingIdleLimit: Duration = .seconds(8)
     /// Pause after staging while the device reboots into the loader.
@@ -17,8 +19,12 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var firmwareBoot: Duration = .seconds(3)
     /// How long to look for the device after writing.
     public var returnSearch: Duration = .seconds(40)
-    /// Pause before each response, giving the device time between packets.
-    public var responseDelay: Duration = .milliseconds(10)
+    /// Pause before each response; none by default, as the device asks for each block only
+    /// when it's ready for it.
+    public var responseDelay: Duration = .zero
+    /// How long to keep the connection open after answering a finish request, answering any
+    /// repeat, before closing it.
+    public var finishSettle: Duration = .milliseconds(600)
     /// Time between port scans while waiting for a device.
     public var scanInterval: Duration = .seconds(1)
     /// How long to wait for a handshake reply.

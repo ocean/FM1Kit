@@ -7,6 +7,7 @@ struct UpdaterTests {
     static var fastTiming: UpdaterTiming {
         var timing = UpdaterTiming()
         timing.afterUpgradeCommand = .milliseconds(20)
+        timing.finishSettle = .milliseconds(20)
         timing.stagingIdleLimit = .seconds(2)
         timing.loaderBoot = .milliseconds(20)
         timing.loaderSearch = .seconds(3)
@@ -28,9 +29,8 @@ struct UpdaterTests {
         return options
     }
 
-    static func package(product: String = "FM-1_916", size: Int = 20_000) throws -> FwscPackage {
-        let image = (0..<size).map { UInt8(truncatingIfNeeded: $0 &* 13 &+ 5) }
-        return try FwscPackage(bytes: FwscPackage.encode(logicalImage: image, product: product))
+    static func package(product: String = "FM-1_916") throws -> FwscPackage {
+        try FwscPackage(bytes: FwscPackage.encode(product: product))
     }
 
     @Test func identifiesTheDevice() async {
@@ -78,12 +78,16 @@ struct UpdaterTests {
 
     @Test func refusesARequestBeyondTheImage() async throws {
         // The device expects a bigger image than the host has, so it asks past the end.
-        let device = SimulatedFM1(options: Self.fastOptions)
-        device.prepare(for: try Self.package(size: 40_000))
-        let updater = FM1Updater(transport: device, timing: Self.fastTiming)
+        let package = try Self.package()
+        let beyond = UInt32(package.logicalImage.count - 256)
+        let transport = ScriptedTransport(
+            identity: FinishTests.firmware,
+            script: [FM1ReadRequest(address: beyond, length: 512).encoded()]
+        )
+        let updater = FM1Updater(transport: transport, timing: Self.fastTiming)
 
-        await #expect(throws: FM1UpdateError.badRequest(address: 1536, length: 512)) {
-            try await updater.install(try Self.package(size: 2_000))
+        await #expect(throws: FM1UpdateError.badRequest(address: beyond, length: 512)) {
+            try await updater.install(package)
         }
     }
 }

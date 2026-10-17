@@ -21,6 +21,9 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case identityMismatch(expected: String, reported: String)
     /// The device asked for a range outside the package, so the update was stopped unanswered.
     case badRequest(address: UInt32, length: Int)
+    /// The device asked to finish the other half of the update during `phase`, so the update was
+    /// stopped unanswered.
+    case unexpectedFinish(phase: Phase)
 
     /// Which half of an update failed.
     ///
@@ -67,6 +70,18 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             """
             The FM-1 asked for data outside the package (\(length) bytes at 0x\(String(address, radix: 16))), \
             so the update was stopped without answering. Check the package is complete.
+            """
+        case .unexpectedFinish(.staging):
+            """
+            The FM-1 asked to finish writing while it was still checking the package, so the update was \
+            stopped. Switch it off and on again. If it starts in its update loader, resume the update; \
+            otherwise install again.
+            """
+        case .unexpectedFinish(.writing):
+            """
+            The update loader asked to finish checking the package while it was writing, so the update \
+            was stopped. Keep the FM-1 connected and resume the update; it stays in update mode until \
+            one finishes.
             """
         }
     }

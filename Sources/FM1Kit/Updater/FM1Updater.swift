@@ -130,11 +130,11 @@ public actor FM1Updater {
             }
             events(.connected(device.identity))
             try device.connection.send(FM1Message.upgradeCommand)
-            try await Task.sleep(for: timing.afterUpgradeCommand)
+            try await pause(timing.afterUpgradeCommand)
             staging = try await serve(
                 device.connection,
                 image: package.logicalImage,
-                until: FM1Message.stageFinishAddress,
+                phase: .staging,
                 idleLimit: timing.stagingIdleLimit
             ) { _, requests in
                 events(.staging(requests: requests))
@@ -188,12 +188,12 @@ public actor FM1Updater {
             defer { loader.connection.close() }
             events(.loaderFound(loader.identity))
             try loader.connection.send(FM1Message.upgradeCommand)
-            try await Task.sleep(for: timing.afterUpgradeCommand)
-            var progress = WriteProgress(imageLength: package.logicalImage.count)
+            try await pause(timing.afterUpgradeCommand)
+            var progress = WriteProgress(region: package.container.applicationRange)
             writing = try await serve(
                 loader.connection,
                 image: package.logicalImage,
-                until: FM1Message.writeFinishAddress,
+                phase: .writing,
                 idleLimit: timing.writeIdleLimit
             ) { request, _ in
                 events(progress.record(request))
@@ -228,24 +228,29 @@ public actor FM1Updater {
         var lost = false
     }
 
-    /// Answers read requests until the device asks for `finishAddress`, goes quiet, or disappears.
+    /// Answers read requests until the device asks to finish `phase`, goes quiet, or disappears.
+    ///
+    /// Each reply goes as soon as the device asks: it asks for the next block only when it's
+    /// ready, so no pause is needed beyond ``UpdaterTiming/responseDelay`` (none by default).
     ///
     /// - Parameters:
     ///   - connection: The open connection to the device.
     ///   - image: The package's logical image, which the requests address.
-    ///   - finishAddress: The address that ends this phase.
+    ///   - phase: The half of the update being served, which decides the finish address.
     ///   - idleLimit: How long the device may stay silent before the phase counts as stalled.
     ///   - progress: Called after each answered read with the read and the number of reads so far.
     /// - Returns: How the phase ended: finished, stalled or disconnected, with the reads answered.
     /// - Throws: ``FM1UpdateError/badRequest(address:length:)`` for a request outside the image,
-    ///   or `CancellationError`.
+    ///   ``FM1UpdateError/unexpectedFinish(phase:)`` for a request to finish the other half, or
+    ///   `CancellationError`.
     func serve(
         _ connection: any MIDIConnection,
         image: [UInt8],
-        until finishAddress: UInt32,
+        phase: FM1UpdateError.Phase,
         idleLimit: Duration,
         progress: (FM1ReadRequest, Int) -> Void
     ) async throws -> ServeOutcome {
+        let finishAddress = phase == .staging ? FM1Message.stageFinishAddress : FM1Message.writeFinishAddress
         var outcome = ServeOutcome()
         var lastActivity = ContinuousClock.now
         while true {
@@ -264,25 +269,45 @@ public actor FM1Updater {
             lastActivity = ContinuousClock.now
 
             if request.isFinish {
+                guard request.address == finishAddress, request.length == FM1Message.finishPayload.count else {
+                    throw FM1UpdateError.unexpectedFinish(phase: phase)
+                }
                 // The device moves on once it has asked; a lost reply shows up as a failed reconnect.
                 try? connection.send(request.finishResponse())
-                if request.address == finishAddress {
-                    outcome.finished = true
-                    return outcome
-                }
-                continue
+                await settle(connection, answering: request)
+                outcome.finished = true
+                return outcome
             }
             let start = Int(request.address)
             guard request.length <= FM1Message.maximumReadLength, start + request.length <= image.count else {
                 throw FM1UpdateError.badRequest(address: request.address, length: request.length)
             }
-            try await Task.sleep(for: timing.responseDelay)
+            try await pause(timing.responseDelay)
             guard (try? connection.send(request.response(with: image[start..<(start + request.length)]))) != nil else {
                 outcome.lost = true
                 return outcome
             }
             outcome.requests += 1
             progress(request, outcome.requests)
+        }
+    }
+
+    /// Keeps a connection open for ``UpdaterTiming/finishSettle`` after a finish reply, answering
+    /// any repeat of the request, so closing the port doesn't cut the reply off.
+    func settle(_ connection: any MIDIConnection, answering finish: FM1ReadRequest) async {
+        let deadline = ContinuousClock.now + timing.finishSettle
+        while !connection.isLost, ContinuousClock.now < deadline {
+            guard let message = await connection.receive(timeout: deadline - ContinuousClock.now) else { continue }
+            if FM1ReadRequest(sysex: message) == finish {
+                try? connection.send(finish.finishResponse())
+            }
+        }
+    }
+
+    /// Sleeps for `duration`, or not at all when it's zero.
+    private func pause(_ duration: Duration) async throws {
+        if duration > .zero {
+            try await Task.sleep(for: duration)
         }
     }
 }

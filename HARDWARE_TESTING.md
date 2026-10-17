@@ -135,3 +135,29 @@ model and macOS version, or iPhone model and iOS version) and the cable or adapt
   - So FM1Kit now measures writing as the share of the image read in any order, and reports
     the second pass as a separate checking step. Replaying the three logs through the new
     rules gives steady progress for both loaders, with checking only for Felucca's.
+  - Reading the packages' containers (2026-10-17) explains the region: both packages' firmware
+    image (`flash.bin`) runs from `0x400` to `0x93400`, and `0x4400` onwards is its application
+    area, after a 16 KB boot area. V15's loader writes only the application area; Felucca's
+    rewrites the boot area first. Progress now counts the application area, so replaying the
+    logs takes both loaders' writing (and Felucca's checking) steadily to 100%.
+
+### 2026-10-17: the same Mac and FM-1, with no pauses and the package checks
+
+Two logged installs, V15 over Felucca 1.6.1 and then Felucca 1.6.1 over V15, with FM1Kit's
+pauses removed (no delay before each reply, none after the upgrade commands), the container
+checks, careful finish handling, and progress counted over the application area. Both
+finished, and progress looked right throughout. Times run from typing YES to the new firmware
+answering:
+
+| | V15 over Felucca | Felucca over V15 |
+|---|---|---|
+| Staging | 1.3 s, 75 requests (was 4.2 s) | 0.3 s, 22 requests |
+| Loader answered | `ota-FM-1_015` after 5.5 s | `ota-FM-1_900` after 5.5 s |
+| Writing | 9.6 s, 1167 requests (was 24.4 s) | 27.7 s, 2323 requests over both passes |
+| Longest gap between requests | 338 ms | 72 ms |
+| Whole install | 20.3 s (was 34.7 s) | 37.2 s (was about 55 s) |
+
+- Each log shows its loader reading every byte of the application area (`0x4400`–`0x93400`).
+- Each half ended with a single finish request; no repeats arrived during the settle.
+- The firmware answered with the new identity (`FM-1_015`, then `FM-1_916`) on the first
+  scan after the restart.
