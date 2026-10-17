@@ -11,6 +11,15 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
     /// What the update loader puts before the model, as in `ota-FM-1_009`.
     public static let loaderPrefix = "ota-"
 
+    /// What M-VAVE's official V15 reports: `FM-1_015`.
+    ///
+    /// Build it from this text rather than from its parts: `FM1Identity(model: "FM-1", version: 15)`
+    /// is `FM-1_15`, which a real V15 never reports.
+    public static let officialV15: FM1Identity = {
+        guard let identity = Self(text: "FM-1_015") else { preconditionFailure("FM-1_015 is an identity.") }
+        return identity
+    }()
+
     /// The full text, e.g. `FM-1_916`.
     public let text: String
 

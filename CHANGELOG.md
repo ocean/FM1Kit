@@ -38,7 +38,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   before the upgrade command, and checks the build it reports afterwards. New errors:
   `capabilityUnavailable`, `deviceBusy`, `armRefused(code:)` and `buildMismatch`.
   `OfficialFirmware` gains `buildID` and recognises Open V12 (`openV12`). `SimulatedFM1`
-  simulates open firmware. Not yet tested on hardware.
+  simulates open firmware. Tested on one FM-1: installing Open V12 over V15, and arming it to
+  install V15 back.
 - `FM1Updater.check(_:buildID:)` says what an install would do (`InstallKind`: an update, a
   switch to a different firmware, or a reinstall) without changing the device.
   `install(_:options:events:)` takes `InstallOptions`; switching firmware, which can erase
@@ -52,6 +53,12 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `FM1Identity` reads the identity an armed open firmware's update loader reports, such as
   `ota-FM1C_db1642b2b6fa5c2c` (`armedBuildPrefix`), so the updater finds that loader; an install
   checks it names the build it was armed with.
+- `FM1Updater.restoreFactoryVoices(from:progress:)` rewrites V15's four voice banks with its 128
+  factory voices from the official V15 package, as M-VAVE's updater does after installing V15
+  (`FwscPackage.hasFactoryVoices`, `FM1Identity.officialV15`). New errors:
+  `factoryVoicesUnavailable`, `voiceRestoreNeedsV15`, `voiceRestoreRefused` and
+  `voiceRestoreStalled`. `SimulatedFM1` simulates V15's voice banks (`currentVoices`), and
+  `fm1probe restore-voices` runs a restore after asking to confirm. Tested on one FM-1.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 

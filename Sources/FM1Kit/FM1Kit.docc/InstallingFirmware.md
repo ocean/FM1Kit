@@ -72,6 +72,25 @@ for its ``FM1Capability`` and arms it, using the build IDs of ``OfficialFirmware
 one given in ``InstallOptions/buildID``. After an install of known build, it checks the open
 firmware reports that build.
 
+### Restore V15's factory voices
+
+Installing V15 over other firmware can leave voice banks holding the earlier firmware's voices,
+some of them silent. M-VAVE's updater rewrites all four banks after installing V15, from the V15
+package; ``FM1Updater/restoreFactoryVoices(from:progress:)`` does the same, on an FM-1 running
+V15 (``FM1Identity/officialV15``), with the official package (``FwscPackage/hasFactoryVoices``):
+
+```swift
+if await updater.identify() == .officialV15, package.hasFactoryVoices {
+    try await updater.restoreFactoryVoices(from: package) { fraction in
+        print("Restoring voices \(Int(fraction * 100))%")
+    }
+}
+```
+
+It replaces every voice in the four banks, including any the person made, and V15 can't read
+them back, so warn first. If it's interrupted, some voices may be wrong or silent until it's run
+again.
+
 ### Resume an interrupted update
 
 When ``FM1UpdateError/disconnected(phase:requests:)`` or

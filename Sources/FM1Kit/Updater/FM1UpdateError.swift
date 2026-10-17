@@ -23,6 +23,14 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case armRefused(code: Int?)
     /// The update finished, but the open firmware reports a different build from the package's.
     case buildMismatch(expected: FM1BuildID, reported: FM1BuildID)
+    /// The package isn't M-VAVE's official V15, so it has no factory voices to restore.
+    case factoryVoicesUnavailable
+    /// Restoring the factory voices needs the FM-1 running V15, but it reports this.
+    case voiceRestoreNeedsV15(device: String)
+    /// V15 refused a step of the voice restore with this code, after `bytesWritten` of the voices.
+    case voiceRestoreRefused(code: Int, bytesWritten: Int)
+    /// V15 stopped answering during the voice restore, after `bytesWritten` of the voices.
+    case voiceRestoreStalled(bytesWritten: Int)
     /// The device and the package are for different hardware.
     case modelMismatch(device: String, package: String)
     /// The device stopped asking for data during `phase`, after `requests` reads.
@@ -87,6 +95,21 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             """
             The update finished, but the FM-1 reports build \(reported.hex.prefix(16)) instead of \
             \(expected.hex.prefix(16)).
+            """
+        case .factoryVoicesUnavailable:
+            "This package isn't M-VAVE's official V15, so it can't restore the factory voices."
+        case .voiceRestoreNeedsV15(let device):
+            "Restoring the factory voices needs the FM-1 running V15 (FM-1_015), but it reports \(device)."
+        case .voiceRestoreRefused(let code, let written):
+            """
+            The FM-1 refused to restore the factory voices (code \(code)) after \(written) of 16384 bytes. \
+            Some voices may be wrong or silent until a restore finishes: keep the FM-1 on V15 and try again.
+            """
+        case .voiceRestoreStalled(let written):
+            """
+            The FM-1 stopped answering while restoring the factory voices, after \(written) of 16384 bytes. \
+            Some voices may be wrong or silent until a restore finishes: reconnect the FM-1, keep it on V15, \
+            and run the restore again.
             """
         case .modelMismatch(let device, let package):
             "The device is \(device) but the package is for \(package)."

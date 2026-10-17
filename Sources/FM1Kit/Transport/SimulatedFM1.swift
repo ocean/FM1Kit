@@ -50,6 +50,13 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var capabilityState = 0
         /// Open firmware's answer to an arming request: 0 accepts it.
         public var armReply: UInt8 = 0
+        /// The voice banks V15 starts with: 16 KB, or a pattern standing for an earlier
+        /// firmware's leftovers when `nil`.
+        public var initialVoices: [UInt8]?
+        /// V15's answer to each voice erase or write: 0 accepts it.
+        public var voiceReply: UInt8 = 0
+        /// Stop answering voice erases and writes after this many, as if the cable were pulled.
+        public var stopsAnsweringVoicesAfter: Int?
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -73,6 +80,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var buildID: FM1BuildID
         /// The build open firmware was armed with, until it restarts.
         var armedBuildID: FM1BuildID?
+        /// V15's four voice banks.
+        var voices: [UInt8]
+        /// Voice erases and writes answered so far.
+        var voiceSteps = 0
     }
 
     /// The name of the simulated device's only port.
@@ -96,7 +107,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     public init(options: Options = Options()) {
         self.options = options
         let mode: Mode = options.startsInRecoveryMode ? .loader : .firmware(options.installedIdentity)
-        state = OSAllocatedUnfairLock(initialState: State(mode: mode, buildID: options.installedBuildID))
+        let voices =
+            options.initialVoices
+            ?? (0..<FwscPackage.factoryVoicesLength).map { UInt8(truncatingIfNeeded: $0 &* 7) }
+        state = OSAllocatedUnfairLock(
+            initialState: State(mode: mode, buildID: options.installedBuildID, voices: voices))
     }
 
     /// Tells the simulated device which package the host is about to install.
@@ -105,6 +120,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     ///   against it.
     public func prepare(for package: FwscPackage) {
         state.withLock { $0.expected = package }
+    }
+
+    /// The simulated V15's four voice banks.
+    public var currentVoices: [UInt8] {
+        state.withLock { $0.voices }
     }
 
     /// The build the simulated open firmware reports.
@@ -185,32 +205,13 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             command == FM1Message.capabilityCommand || command == FM1Message.armCommand
         {
             handleOpenFirmwareCommand(command, payload: payload, from: connection)
+        } else if let (command, payload) = FM1Message.parseCommand(sysex),
+            command == FM1Message.voiceEraseCommand || command == FM1Message.voiceWriteCommand
+        {
+            handleVoiceCommand(command, payload: payload, from: connection)
         } else {
             connection.fromHost.deliver(sysex)
         }
-    }
-
-    /// Answers a capability query or arming request, as open firmware does; others ignore them.
-    private func handleOpenFirmwareCommand(_ command: UInt8, payload: [UInt8], from connection: SimulatedConnection) {
-        guard currentIdentity?.isOpenFirmware == true else { return }
-        if command == FM1Message.capabilityCommand {
-            let capability = FM1Capability(state: options.capabilityState, buildID: currentBuildID)
-            connection.toHost.deliver(FM1Message.command(command, payload: capability.payload()))
-            return
-        }
-        let expectedLength = state.withLock { $0.expected?.logicalImage.count }
-        guard
-            options.armReply == 0, payload.count == 6 + FM1BuildID.byteCount, payload[0] == 1,
-            Int(payload[1]) == FM1Capability.fm1Family,
-            Int(FM1Message.readLittleEndian(payload, at: 2, byteCount: 4)) == expectedLength
-        else {
-            log("Arming refused.")
-            connection.toHost.deliver(FM1Message.command(command, payload: [max(options.armReply, 1)]))
-            return
-        }
-        state.withLock { $0.armedBuildID = FM1BuildID(bytes: payload[6...]) }
-        log("Armed for build \(FM1BuildID(bytes: payload[6...]).hex.prefix(16)).")
-        connection.toHost.deliver(FM1Message.command(command, payload: FM1Capability.armAccepted))
     }
 
     /// Starts staging or writing, depending on whether the loader is running.
@@ -333,7 +334,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     }
 
     /// Adds a line to ``events``.
-    private func log(_ text: String) {
+    func log(_ text: String) {
         eventLog.withLock { $0.append(text) }
     }
 }

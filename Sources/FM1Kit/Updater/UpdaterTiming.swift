@@ -31,6 +31,8 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var handshakeWait: Duration = .seconds(1)
     /// How long to wait for open firmware to answer a capability query or an arming request.
     public var commandReplyWait: Duration = .milliseconds(1500)
+    /// How long to wait for V15 to acknowledge each step of a voice restore.
+    public var voiceReplyWait: Duration = .seconds(10)
     /// Handshake attempts per port.
     public var handshakeAttempts = 2
 

@@ -78,6 +78,10 @@ firmware it's running. It installs a different firmware only when told the perso
 been warned, as M-VAVE's own updater does. It also speaks M-VAVE's open firmware's update
 support (`FM-1_8000012` and builds of it), arming it with the package's build ID first.
 
+After installing V15, `restoreFactoryVoices(from:progress:)` can rewrite its four voice banks
+with the 128 factory voices from the V15 package, as M-VAVE's updater does: installing V15 over
+custom firmware can leave a bank holding the old firmware's voices.
+
 Reading a package checks its contents first: the header, the chip it's built for, a checksum
 for each part, and that it holds a firmware image and an update loader. A damaged or wrong
 file is refused before anything is sent to the FM-1.
@@ -112,7 +116,7 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 ### `fm1probe`
 
 A Mac command-line tool for checking a setup, and for watching an install closely. Only
-`install` writes to the device, and only after you type YES to confirm:
+`install` and `restore-voices` write to the device, and only after you type YES to confirm:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
@@ -121,6 +125,7 @@ swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
+swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 ```
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,

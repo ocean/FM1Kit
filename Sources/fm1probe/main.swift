@@ -22,6 +22,12 @@ let usage = """
                                                CSV file
                --build-id HEX                  the package's build ID, for M-VAVE's open firmware
                                                (official releases' are known)
+           fm1probe restore-voices FM-1.fwsc [options]
+                                               rewrite V15's four voice banks with its factory voices,
+                                               from the official V15 package, after asking to confirm
+               --simulated                     run against a simulated FM-1 running V15 (writes nothing)
+               --log FILE                      write every message to and from the device to a new
+                                               CSV file
     """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -209,6 +215,13 @@ case "inspect" where arguments.count == 2:
     if let official = OfficialFirmware.matching(package) {
         print("Official:      \(official.name) (verified)")
     }
+    if package.hasFactoryVoices {
+        print("Voices:        V15's 128 factory voices (fm1probe restore-voices can restore them)")
+    }
+
+case "restore-voices" where arguments.count >= 2:
+    try await restoreVoices(
+        path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
 
 case "install" where arguments.count >= 2:
     let isResume = arguments.contains("--resume")

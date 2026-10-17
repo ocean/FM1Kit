@@ -41,6 +41,16 @@ public enum FM1Message {
     static let capabilityCommand: UInt8 = 0x31
     /// Arms M-VAVE's open firmware for an update, before the upgrade command.
     static let armCommand: UInt8 = 0x32
+    /// Erases a 4 KB voice bank on V15: area, then address (u32).
+    static let voiceEraseCommand: UInt8 = 0x21
+    /// Writes 512 bytes of a voice bank on V15: area, address (u32), length (u24), then data.
+    static let voiceWriteCommand: UInt8 = 0x22
+    /// V15's acknowledgement of a voice erase or write: a payload of 0 means done.
+    static let acknowledgementCommand: UInt8 = 0x00
+    /// The area V15's voice banks are addressed in.
+    static let voiceArea: UInt8 = 5
+    /// How much of a voice bank each write carries.
+    static let voiceWriteLength = 512
     /// Flash type, address and length: the body fields before any data.
     static let fixedFieldsLength = 8
     /// Prefix, command and body length.

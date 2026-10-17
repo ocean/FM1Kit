@@ -104,6 +104,21 @@ logs show no voice data from the package reaching the device. The likeliest expl
 V15 resets banks it can't read to built-in defaults. Open firmware may leave banks that V15 can
 read, in which case its voices would stay until restored, and the restore would have a real job.
 
+## Stage F: restoring V15's factory voices
+
+M-VAVE's updater rewrites V15's voice banks after installing V15, and FM1Kit now can too. It
+replaces every voice in the four banks and can't read them back, so the only check is listening.
+Run it on V15 (`FM-1_015`) with the official `FM-1.fwsc`.
+
+| Step | Command | What to look for |
+|---|---|---|
+| F1 | `swift run fm1probe restore-voices FM-1.fwsc --simulated` | A rehearsal against a simulated V15: 0% to 100%, then `Restored`. |
+| F2 | `swift run fm1probe restore-voices FM-1.fwsc --log f2.csv`, then type `YES` | 0% to 100% in a few seconds, then `Restored V15's factory voices`. The log shows 4 erases (`0x21`) and 32 writes (`0x22`), each acknowledged. |
+| F3 | Play voices 000–127, switching between several in each bank | All factory sounds, including 096–127, which held earlier firmwares' voices in stage E. |
+| F4 | `swift run fm1probe identify`, then switch the FM-1 off and on and play again | Still `FM-1_015`, and the voices survive a restart. |
+
+If F2 stops part-way, some voices may be silent: run it again.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -208,3 +223,15 @@ The same Mac and FM-1, starting from our own custom firmware Estampie (`FM-1_378
   fourth bank of 32) were odd: some from an early Baudgirl voice set, and at least 12 silent or
   making only a ringing noise. So V15 doesn't reset every bank an earlier firmware left behind,
   and FM1Kit needs a factory voice restore, as M-VAVE's updater does after installing V15.
+
+### 2026-10-17: stage F, restoring V15's factory voices
+
+The same Mac and FM-1, on V15 with the fourth voice bank still holding earlier firmwares' voices
+(stage E4).
+
+- **F1 and F2 passed.** `fm1probe restore-voices` restored the voices in 0.7 s: 4 erases and 32
+  writes of 512 bytes, each acknowledged with 0, and the FM-1 reported `FM-1_015` before and
+  after. Writes were acknowledged within 4 ms; the slowest acknowledgements (139 and 386 ms) were
+  probably flash erases.
+- **F3 passed.** All the voices sounded right afterwards, including 096–127.
+

@@ -54,7 +54,7 @@ final class MessageLog: Sendable {
             kind = "handshake"
         } else if sysex == FM1Message.upgradeCommand {
             kind = "upgrade"
-        } else if let command = Self.openFirmwareCommand(sysex) {
+        } else if let command = Self.commandName(sysex) {
             kind = command
         } else if direction == .toDevice {
             kind = "response"
@@ -63,12 +63,16 @@ final class MessageLog: Sendable {
         write("\(elapsed),\(direction.rawValue),\"\(port)\",\(kind),\(request),\(sysex.count),\(bytes)")
     }
 
-    /// Names open firmware's capability (`0x31`) and arming (`0x32`) messages, either way.
-    static func openFirmwareCommand(_ sysex: [UInt8]) -> String? {
+    /// Names open firmware's capability (`0x31`) and arming (`0x32`) messages, and V15's voice
+    /// erases (`0x21`), writes (`0x22`) and their acknowledgements (`0x00`), either way.
+    static func commandName(_ sysex: [UInt8]) -> String? {
         guard sysex.count > 4, sysex.first == 0xF0, sysex.last == 0xF7 else { return nil }
         let body = SevenBit.unpack(sysex.dropFirst().dropLast())
         guard body.count > 2, body[0] == 0x00, body[1] == 0x59 else { return nil }
         switch body[2] {
+        case 0x00: return "acknowledgement"
+        case 0x21: return "voice erase"
+        case 0x22: return "voice write"
         case 0x31: return "capability"
         case 0x32: return "arm"
         default: return nil

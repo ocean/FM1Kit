@@ -54,6 +54,8 @@ struct FirmwareContainer {
     static let chip = "AC791N"
     static let flashType = 0
     static let loaderType = 100
+    static let userDataType = 50
+    static let userDataName = "USR"
     /// The firmware image's valid sizes: whole 4 KB flash sectors, up to the chip's flash.
     static let flashSizes = 16_384...1_044_480
     static let flashSectorSize = 4096
@@ -66,6 +68,8 @@ struct FirmwareContainer {
     let flash: Entry
     /// The update loader that writes it.
     let loader: Entry
+    /// M-VAVE's user data part (`USR`), which holds V15's factory voices, if the package has one.
+    let userData: Entry?
 
     /// Reads and checks the container in a package's logical image.
     ///
@@ -128,6 +132,7 @@ struct FirmwareContainer {
         }
         self.flash = flash
         self.loader = loader
+        userData = entries.first { $0.type == Self.userDataType && $0.name == Self.userDataName }
     }
 
     /// The firmware image's application area, after its boot area.
@@ -150,12 +155,13 @@ struct FirmwareContainer {
         return value
     }
 
-    /// Deciphers (or enciphers: it's symmetric) a header or table entry.
+    /// Deciphers (or enciphers: it's symmetric) a header or table entry, or a block of an
+    /// enciphered part.
     ///
-    /// Each byte is XORed with the low byte of a 16-bit key that starts at 0xFFFF and steps like
-    /// the CRC-16 register.
-    static func decipher(_ bytes: some Collection<UInt8>) -> [UInt8] {
-        var key: UInt16 = 0xFFFF
+    /// Each byte is XORed with the low byte of a 16-bit key that starts at `key` (0xFFFF for the
+    /// header and table) and steps like the CRC-16 register.
+    static func decipher(_ bytes: some Collection<UInt8>, key start: UInt16 = 0xFFFF) -> [UInt8] {
+        var key = start
         return bytes.map { byte in
             defer { key = key & 0x8000 == 0 ? key << 1 : (key << 1) ^ 0x1021 }
             return byte ^ UInt8(truncatingIfNeeded: key)

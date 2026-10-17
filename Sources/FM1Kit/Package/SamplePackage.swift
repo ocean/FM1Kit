@@ -15,7 +15,8 @@ extension FwscPackage {
         public var size: Int
         /// The space the part takes up; its size when `nil`.
         public var storedSize: Int?
-        /// Mark the part as enciphered, so its checksum isn't checked.
+        /// Mark the part as enciphered, as the `USR` part holding V15's voices is: its checksum
+        /// covers its deciphered bytes, and only the voice restore checks it.
         public var isEnciphered = false
         /// Where the part starts; straight after the previous part when `nil`.
         public var offset: Int?
@@ -96,7 +97,9 @@ extension FwscPackage {
             let end = min(offset + part.size, length)
             var fields = [UInt8](repeating: 0, count: FirmwareContainer.entryLength)
             put(part.type, into: &fields, at: 0, byteCount: 2)
-            let checksum = part.isEnciphered ? 0xBEEF : Int(FirmwareContainer.crc16(image[offset..<end]))
+            // An enciphered part's checksum covers its bytes deciphered as the `USR` part is.
+            let plain = part.isEnciphered ? decipherUserData(image, range: offset..<end) : Array(image[offset..<end])
+            let checksum = Int(FirmwareContainer.crc16(plain))
             put(checksum, into: &fields, at: 4, byteCount: 2)
             put(offset, into: &fields, at: 8, byteCount: 4)
             put(part.size, into: &fields, at: 12, byteCount: 4)
