@@ -49,6 +49,9 @@ All notable changes to FM1Kit are recorded here. The project follows
 - The updater also probes ports named after other firmwares' loaders: SLOOP, Clipper and SINCO.
 - `@_spi(Testing)` `FwscPackage.sampleFile(product:flashSize:loaderSize:seed:)` builds a small
   valid package for apps' tests with `SimulatedFM1`. Never install one on a real FM-1.
+- `FM1Identity` reads the identity an armed open firmware's update loader reports, such as
+  `ota-FM1C_db1642b2b6fa5c2c` (`armedBuildPrefix`), so the updater finds that loader; an install
+  checks it names the build it was armed with.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 

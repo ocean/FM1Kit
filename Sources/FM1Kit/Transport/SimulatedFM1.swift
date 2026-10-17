@@ -9,7 +9,8 @@ import os
 /// and writing, and comes back reporting the installed package's identity. Like the real
 /// device, it refuses a package with the identity it's already running. Running M-VAVE's open
 /// firmware (an identity such as `FM-1_8000012`), it answers the capability query and ignores the
-/// upgrade command until it's armed. Every response is
+/// upgrade command until it's armed; once armed, its loader reports the build, as in
+/// `ota-FM1C_db1642b2b6fa5c2c`. Every response is
 /// checked byte for byte against the expected image, so encoding mistakes show up as stalls.
 ///
 /// A real FM-1 learns the image layout from the package header; this one is told the package
@@ -115,7 +116,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     public var currentIdentity: FM1Identity? {
         switch state.withLock({ $0.mode }) {
         case .firmware(let identity): identity
-        case .loader: Self.loaderIdentity
+        case .loader:
+            // After open firmware is armed, its loader names the build it was armed with.
+            state.withLock { $0.armedBuildID }.flatMap { FM1Identity(text: "ota-FM1C_\($0.hex.prefix(16))") }
+                ?? Self.loaderIdentity
         case .offline: nil
         }
     }

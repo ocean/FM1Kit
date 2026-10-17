@@ -54,6 +54,23 @@ struct OpenFirmwareTests {
         #expect(FM1Identity(text: "ota-FM-1_015")?.isOpenFirmware == false)
     }
 
+    @Test func readsAnArmedOpenFirmwareLoader() throws {
+        // The reply a real FM-1 sent after Open V12 was armed with V15's build ID (2026-10-17).
+        let reply: [UInt8] = [
+            0xF0, 0x00, 0x32, 0x45, 0x58, 0x01, 0x00, 0x40, 0x37, 0x74, 0x42, 0x35, 0x31, 0x54, 0x29, 0x4C, 0x21,
+            0x5F, 0x48, 0x09, 0x0B, 0x63, 0x06, 0x0D, 0x19, 0x62, 0x64, 0x08, 0x33, 0x63, 0x2C, 0x58, 0x1A, 0x63,
+            0x64, 0x0C, 0x03, 0x00, 0x20, 0x1D, 0xF7,
+        ]
+        let identity = try #require(FM1Identity(handshakeReply: reply))
+        #expect(identity.text == "ota-FM1C_db1642b2b6fa5c2c")
+        #expect(identity.isLoader)
+        #expect(identity.hardwareModel == "FM-1")
+        #expect(identity.isLoader(for: "FM-1"))
+        #expect(identity.armedBuildPrefix == String(OfficialFirmware.v15.buildID.hex.prefix(16)))
+        #expect(FM1Identity(text: "ota-FM1C_db1642b2") == nil)
+        #expect(FM1Identity(text: "FM-1_916")?.armedBuildPrefix == nil)
+    }
+
     @Test func armsOpenFirmwareAndChecksTheBuildAfterwards() async throws {
         let device = Self.device()
         let package = try UpdaterTests.package(product: "FM-1_8000013")

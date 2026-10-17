@@ -203,8 +203,13 @@ public actor FM1Updater {
 
         events(.waitingForLoader)
         try await Task.sleep(for: timing.loaderBoot)
-        let loaderModel = FM1Identity.loaderPrefix + package.identity.model
-        guard let loader = try await waitFor(timing.loaderSearch, where: { $0.model == loaderModel }) else {
+        // An armed open firmware's loader names the build it was armed with, which must be this one.
+        let model = package.identity.model
+        let armedPrefix = String((buildID ?? FM1BuildID(knownHex: package.sha256)).hex.prefix(16))
+        let isThisUpdate: @Sendable (FM1Identity) -> Bool = { identity in
+            identity.isLoader(for: model) && (identity.armedBuildPrefix ?? armedPrefix) == armedPrefix
+        }
+        guard let loader = try await waitFor(timing.loaderSearch, where: isThisUpdate) else {
             throw FM1UpdateError.loaderNotFound
         }
         return try await write(package, with: loader, expecting: buildID, events: events)
@@ -225,8 +230,8 @@ public actor FM1Updater {
     public func resume(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in })
         async throws -> FM1Identity
     {
-        let loaderModel = FM1Identity.loaderPrefix + package.identity.model
-        guard let loader = try await findOnly(where: { $0.model == loaderModel }) else {
+        let model = package.identity.model
+        guard let loader = try await findOnly(where: { $0.isLoader(for: model) }) else {
             throw FM1UpdateError.loaderNotFound
         }
         return try await write(package, with: loader, expecting: Self.knownBuildID(of: package), events: events)

@@ -183,3 +183,28 @@ answering:
 - Each half ended with a single finish request; no repeats arrived during the settle.
 - The firmware answered with the new identity (`FM-1_015`, then `FM-1_916`) on the first
   scan after the restart.
+
+### 2026-10-17: stage E, M-VAVE's open firmware
+
+The same Mac and FM-1, starting from our own custom firmware Estampie (`FM-1_37801`).
+
+- **Estampie → V15:** 20.8 s, as fast as the morning's installs.
+- **E1: V15 → Open V12 passed** in 20.8 s. Staging took 47 requests; the stock loader answered
+  as `ota-FM-1_015` and wrote Open V12's smaller application area in 900 requests.
+- **E2 passed:** the FM-1 reported `FM-1_8000012` on a port named `FM1 Community`, and played,
+  with sounds and sequencer tracks already set up.
+- **E3: Open → V15 failed, then resumed.**
+  - Open answered the capability query (build `426b7fa5…`, ready) and accepted arming.
+  - Staging took 47 requests, and the loader appeared about 6 s later on `USB Composite Device`.
+  - It reported `ota-FM1C_db1642b2b6fa5c2c`: `ota-FM1C_` and the first 16 hex digits of the build
+    it was armed with (V15's SHA-256). FM1Kit only recognised loaders reporting digits after the
+    underscore, so it gave up after 30 s with "The update loader didn't appear". The screen was
+    blank and the FM-1 waited in the loader.
+  - FM1Kit now reads that identity as an FM-1 update loader, and on an install checks the build
+    it names. `install --resume` then wrote V15 in 14.5 s (1192 requests, rewriting the boot area
+    backwards before the application area) and the FM-1 reported `FM-1_015`.
+  - A full Open → V15 install in one go, with the fix, hasn't been tried yet.
+- **E4: bank 4 wasn't restored.** On V15, voices 000–095 were factory sounds, but 096–127 (the
+  fourth bank of 32) were odd: some from an early Baudgirl voice set, and at least 12 silent or
+  making only a ringing noise. So V15 doesn't reset every bank an earlier firmware left behind,
+  and FM1Kit needs a factory voice restore, as M-VAVE's updater does after installing V15.
