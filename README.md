@@ -151,6 +151,9 @@ swift run fm1probe backup FOLDER         # save open firmware's projects and sam
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
 and records the results so far.
 
+[llms.txt](llms.txt) and [llms-full.txt](llms-full.txt) describe the package for language
+models. They're published with FM1Kit's page at <https://fm-1.drewr.dev/fm1kit/>.
+
 ## Development
 
 `scripts/check.sh` runs everything CI runs: `swift format` and SwiftLint in strict mode, a build

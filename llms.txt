@@ -1,0 +1,19 @@
+# FM1Kit
+
+> A Swift package (MIT) for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. It reads `.fwsc` packages, installs and resumes updates, restores V15's factory voices and backs up M-VAVE's open firmware. Not affiliated with M-VAVE.
+
+Part of Drew Robinson's FM-1 projects (https://fm-1.drewr.dev/). Latest release: 0.2.0. Requires iOS 17 or macOS 14 and Swift 6.1 or later.
+
+## Docs
+
+- [FM1Kit in full](https://fm-1.drewr.dev/fm1kit/llms-full.txt): what it does, usage, types, safety rules, fm1probe, recovery
+- [README](https://raw.githubusercontent.com/ocean/FM1Kit/main/README.md): installation, usage and what's in the package
+- [Installing firmware](https://raw.githubusercontent.com/ocean/FM1Kit/main/Sources/FM1Kit/FM1Kit.docc/InstallingFirmware.md): the DocC article on checking, installing, open firmware, factory voices, resuming, iOS and testing
+- [Overview and topics](https://raw.githubusercontent.com/ocean/FM1Kit/main/Sources/FM1Kit/FM1Kit.docc/FM1Kit.md): the DocC landing page, listing every public type
+- [Changelog](https://raw.githubusercontent.com/ocean/FM1Kit/main/CHANGELOG.md): what changed in each release
+
+## Optional
+
+- [Hardware testing](https://raw.githubusercontent.com/ocean/FM1Kit/main/HARDWARE_TESTING.md): the plan for checking FM1Kit on a real FM-1, and the results so far
+- [Contributing](https://raw.githubusercontent.com/ocean/FM1Kit/main/CONTRIBUTING.md): reporting hardware results and contributing changes
+- [Source](https://github.com/ocean/FM1Kit)

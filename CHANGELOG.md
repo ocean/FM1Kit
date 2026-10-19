@@ -17,6 +17,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `fm1probe backup FOLDER` (with `--simulated` and `--log FILE`).
 - `SimulatedFM1` answers the project library while running open firmware
   (`Options.projectSlots`, `workspace`, `currentSlot`, `sampleBank`).
+- `llms.txt` and `llms-full.txt` describe the package for language models; FM1Kit's page on
+  fm-1.drewr.dev publishes them from each release.
 
 ### Fixed
 

@@ -1,0 +1,124 @@
+# FM1Kit
+
+> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.2.0, not affiliated with M-VAVE.
+
+Part of Drew Robinson's FM-1 projects: https://fm-1.drewr.dev/ (see /llms-full.txt there for the others). Source, DocC documentation and changelog: https://github.com/ocean/FM1Kit
+
+## What it does
+
+FM1Kit speaks the FM-1's firmware update protocol. It reads `.fwsc` firmware packages, finds the device, answers its read requests while it stages and writes the new firmware, and checks the device reports the new firmware afterwards. It can also finish an update that was cut off, or one started from USB recovery mode. It arms M-VAVE's open firmware before updating it, and after installing V15 it can rewrite the four voice banks with V15's 128 factory voices. Before switching away from open firmware, it can back up open firmware's projects and sample bank.
+
+It sticks to the device. Finding and downloading firmwares is left to the app using it (FM-SWITCH does that: https://fm-1.drewr.dev/fm-switch/).
+
+Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca 1.6.1, Estampie 0.1 and M-VAVE's open firmware V12, switching between them, pulling the cable part-way through writing and resuming, and restoring V15's factory voices.
+
+## Requirements
+
+- iOS 17 or macOS 14
+- Swift 6.1 or later (Xcode 16.3 or later)
+- An FM-1 connected by USB: an iPhone or iPad's USB-C port, a Lightning device through Apple's camera adapter, or a Mac
+
+## Installation
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.2.0")),
+]
+```
+
+Until 1.0, minor versions may change the API, so this takes 0.2.x fixes but not 0.3.0.
+
+## Usage
+
+```swift
+import FM1Kit
+import Foundation
+
+// Read a firmware package and see what it is.
+let package = try FwscPackage(data: Data(contentsOf: fileURL))
+print(package.product, package.sha256)
+
+// Check what installing it would do. Switching to a different firmware can erase the
+// FM-1's projects and samples, so it needs confirming once they're backed up.
+let updater = FM1Updater(transport: try CoreMIDITransport(clientName: "My App"))
+let check = try await updater.check(package)
+let confirmed = check.kind != .switchingFirmware || askToSwitch(from: check.device)
+
+// Install it on the connected FM-1.
+let options = InstallOptions(confirmsSwitchingFirmware: confirmed)
+try await updater.install(package, options: options) { event in
+    switch event {
+    case .staging(let requests): print("Preparing… \(requests)")
+    case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
+    case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+    case .finished(let identity): print("Now running \(identity)")
+    default: break
+    }
+}
+
+// Finish an update that was cut off, or one started in USB recovery mode.
+if let identity = await updater.identify(), identity.isLoader {
+    try await updater.resume(package)
+}
+```
+
+`check.kind` is an `InstallKind`: `update` (a different build of the open firmware running), `switchingFirmware` (confirmed with `InstallOptions.confirmsSwitchingFirmware`), `sameIdentity` (the identity a custom firmware already reports, confirmed with `InstallOptions.confirmsSameIdentity`), or `reinstall` (V15 over itself, or the open firmware build already running), which isn't installed.
+
+Each firmware brings its own update loader, and loaders write differently. Writing progress counts the firmware's application area, which every loader seen writes, whatever order it reads in (V15's reads backwards). Some loaders (Felucca's) then read it a second time, which FM1Kit reports as `.checking`, so progress displays should allow for an optional second step.
+
+## Restoring V15's factory voices
+
+Installing V15 over custom firmware can leave a voice bank holding the old firmware's voices. After installing V15, `FM1Updater.restoreFactoryVoices(from:progress:)` rewrites its four voice banks with the 128 factory voices from the V15 package, as M-VAVE's updater does.
+
+## Backing up open firmware
+
+`FM1Updater.backUpOpenFirmware(progress:)` reads an FM-1 running M-VAVE's open firmware through its project library: the 16 project slots, the project being edited (including unsaved changes) and the sample bank. The firmware can only read the project being edited, so each slot is loaded in turn and the workspace is put back afterwards. No slot is saved and the sample bank isn't written, but the FM-1's current project changes while it runs, so the person shouldn't play or edit until it finishes.
+
+`OpenFirmwareBackup.write(to:)` saves the backup as `workspace.fm1`, `slot-NN.fm1` for each slot that isn't empty, `samples.fm1s` and a `backup.json` describing them. The `.fm1` and `.fm1s` files are the formats M-VAVE's workbench reads, so it can restore them. FM1Kit can't restore a backup yet, and Open V13's per-slot tuning tables aren't included yet.
+
+Other firmwares (V15, Felucca, Estampie and the rest) have no known way to read their data, and each firmware stores it in its own format, so only open firmware can be backed up, and a backup is only for putting back on open firmware.
+
+## Types
+
+- `FwscPackage` (struct): reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256. Checks the header, target chip, per-part checksums, and that it holds a firmware image and an update loader, refusing a damaged or wrong file before anything is sent.
+- `OfficialFirmware` (struct): recognises M-VAVE's official releases (V15 and Open V12) by size and checksum.
+- `FM1Identity` (struct): parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader.
+- `FM1Updater` (actor): finds the device, checks and installs, resumes, restores V15's voices, backs up open firmware, and reports progress as `UpdateEvent`s.
+- `InstallCheck`, `InstallKind`, `InstallOptions`: what an install would do, and confirming a switch of firmware or an install of the identity already running.
+- `UpdateEvent` (enum): connected, staging, waiting for the loader, loader found, writing, checking, rebooting and finished.
+- `FM1UpdateError` (enum): why an install, resume or backup stopped, with a description for each.
+- `FM1Capability`, `FM1BuildID` (structs): what M-VAVE's open firmware reports, and the build ID it's armed with before an update.
+- `OpenFirmwareBackup`, `OpenFirmwareProject` (structs): a backup of open firmware's projects and samples, and its `.fm1` project files.
+- `CoreMIDITransport` (class): CoreMIDI connections to real devices.
+- `SimulatedFM1` (class): a software FM-1 that speaks the update protocol and open firmware's project library, for the iOS Simulator and tests.
+
+## Safety rules it enforces
+
+Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinstall V15 over itself. It installs a different firmware, or the identity a custom firmware already reports (a reinstall, or another release of a firmware that keeps one identity), only when told the person updating has confirmed it, as M-VAVE's own updater does. Switching firmware can erase the FM-1's projects and samples. Open firmware is armed with the package's build ID before it's updated.
+
+## fm1probe
+
+A Mac command-line tool for checking a setup and watching an install closely. Only `install` and `restore-voices` write to the device, and `backup` changes which project open firmware shows while it reads; each asks you to type YES first:
+
+```sh
+swift run fm1probe ports                 # list MIDI ports and which would be probed
+swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's running, 20 times
+swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
+swift run fm1probe watch 60              # show ports as devices come and go
+swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
+swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
+swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
+swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
+```
+
+## What an install looks like
+
+About 20 seconds for V15 and under 40 for Felucca 1.6.1. The FM-1 first checks the package while running its current firmware, then restarts into its update loader, which shows up as a MIDI port with a new name (such as `Felucca Update`) and reports itself as `ota-` followed by the firmware's name, for example `ota-FM-1_015` for V15. After open firmware is armed, its loader instead reports the build it was armed with, such as `ota-FM1C_db1642b2b6fa5c2c`. The loader may leave the screen blank. If the update is cut off, the FM-1 waits in its loader until an update finishes, and `resume` picks it up.
+
+## Recovery
+
+Some firmwares can start in USB recovery mode: hold OCT− while switching on. Many don't offer it, including V15 and Felucca 1.6.1, and it can't help if the firmware is too damaged to start. Whenever the FM-1 is in its update loader, `FM1Updater.resume(_:events:)` can install a firmware. Beyond that is the chip's ROM bootloader from a computer, which FM1Kit doesn't cover.
+
+## Credits and licence
+
+The protocol is written from the FM-1-RE reverse-engineering notes (https://github.com/AL-255/FM-1-RE, WTFPL). Arming open firmware, restoring V15's voices and backing up open firmware follow the protocols as M-VAVE's open-source firmware and updater (fm1_open, https://github.com/m-vave/fm1_open) use them; package checks follow kagaimiq's MIT-licensed jl-misctools. FM1Kit contains no code from GPL-licensed installers and doesn't include M-VAVE's firmware (get it from https://www.m-vave.com/download). MIT licence.
