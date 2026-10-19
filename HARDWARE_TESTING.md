@@ -123,14 +123,14 @@ If F2 stops part-way, some voices may be silent: run it again.
 ## Stage G: installing the identity a custom firmware reports
 
 Felucca's update code, which Estampie inherits, doesn't compare the package's identity with its
-own, so installing the identity it reports should work: it's how a firmware that keeps one
-identity across releases is updated. This hasn't been tried on hardware. FM1Kit calls it
+own, so installing the identity it reports works: it's how a firmware that keeps one identity
+across releases is updated (stage G passed on 2026-10-19). FM1Kit calls it
 `sameIdentity` and asks to confirm it; `fm1probe` counts typing YES as confirming.
 
 | Step | Command | What to look for |
 |---|---|---|
-| G1 | `swift run fm1probe identify` | An Estampie build, e.g. `FM-1_37801`. |
-| G2 | `swift run fm1probe install ESTAMPIE.fwsc --log g2.csv`, with a package of the same identity | `Kind: the identity already running`, then a normal install ending `Installed: … FM-1_37801`. If staging stalls instead, the firmware refuses its own identity after all. |
+| G1 | `swift run fm1probe identify` | An Estampie build, e.g. `FM-1_378001` (install one first if the FM-1 is on another firmware). |
+| G2 | `swift run fm1probe install ESTAMPIE.fwsc --log g2.csv`, with a package of the same identity | `Kind: the identity already running`, then a normal install ending `Installed: … FM-1_378001`. If staging stalls instead, the firmware refuses its own identity after all. |
 
 ## What to report
 
@@ -248,3 +248,14 @@ The same Mac and FM-1, on V15 with the fourth voice bank still holding earlier f
   probably flash erases.
 - **F3 passed.** All the voices sounded right afterwards, including 096–127.
 
+### 2026-10-19: stage G, installing the identity a custom firmware reports
+
+The same Mac and FM-1, starting on V15.
+
+- **G1 passed.** Installing Estampie 0.1 (`FM-1_378001`) over V15 was a firmware switch, as
+  expected: 37.3 s in all (staging 2.8 s, writing 10.5 s, checking 18.0 s), ending
+  `Installed: the FM-1 is running FM-1_378001.`
+- **G2 passed.** Installing the same package over `FM-1_378001` showed `Kind: the identity
+  already running`, and Estampie staged it normally: 31.3 s in all (staging 3.2 s, writing
+  10.5 s, checking 11.4 s), ending `Installed: the FM-1 is running FM-1_378001.` So Estampie,
+  like Felucca, doesn't compare identities, and `sameIdentity` installs work.

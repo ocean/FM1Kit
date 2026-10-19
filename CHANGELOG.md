@@ -5,6 +5,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-19
+
 ### Changed
 
 - Installing the identity a custom firmware already reports is no longer refused. Felucca's update
@@ -13,7 +15,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   `InstallOptions.confirmsSameIdentity` (otherwise `FM1UpdateError.sameIdentityNotConfirmed`).
   Only V15 over itself is still refused as `reinstall` (`alreadyInstalled`), and open firmware
   still compares builds. `SimulatedFM1.Options.refusesRunningFirmware` now applies only to V15.
-  The new `InstallKind` case means exhaustive switches over it need updating.
+  The new `InstallKind` case means exhaustive switches over it need updating. Tested on hardware
+  by installing Estampie 0.1 (`FM-1_378001`) over itself.
 
 ## [0.1.0] - 2026-10-17
 
@@ -80,5 +83,6 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/ocean/FM1Kit/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/ocean/FM1Kit/releases/tag/0.1.0
