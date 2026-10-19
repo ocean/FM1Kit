@@ -44,8 +44,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var responseTimeout: Duration = .seconds(5)
         /// Simulate the cable being pulled once the write reaches this fraction (0...1).
         public var unplugDuringWriteAt: Double?
-        /// The build open firmware reports at first; after an install, it reports the build it
-        /// was armed with, or the package's known build ID.
+        /// The build open firmware reports at first; after an install, the armed or known build.
         public var installedBuildID = FM1BuildID(bytes: [UInt8](repeating: 0, count: FM1BuildID.byteCount))
         /// The updater state open firmware reports: 0 when ready, anything else when busy.
         public var capabilityState = 0
@@ -58,6 +57,18 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var voiceReply: UInt8 = 0
         /// Stop answering voice erases and writes after this many, as if the cable were pulled.
         public var stopsAnsweringVoicesAfter: Int?
+        /// Open firmware's saved project slots, by index from 0; the others are empty.
+        public var projectSlots: [Int: ProjectSlot] = [:]
+        /// Open firmware's workspace: the project being edited.
+        public var workspace = OpenFirmwareProject.sampleWorkspace
+        /// The slot open firmware's workspace was loaded from, from 0.
+        public var currentSlot = 0
+        /// Open firmware's sample bank, or `nil` when it's empty.
+        public var sampleBank: [UInt8]?
+        /// The sample bank state open firmware reports while it has one: 2 when it's ready.
+        public var sampleState: UInt8 = 2
+        /// Stop answering project library requests after this many, as if the cable were pulled.
+        public var stopsAnsweringLibraryAfter: Int?
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -85,6 +96,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var voices: [UInt8]
         /// Voice erases and writes answered so far.
         var voiceSteps = 0
+        /// Open firmware's project library.
+        var library: LibraryState
     }
 
     /// The name of the simulated device's only port.
@@ -111,8 +124,9 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         let voices =
             options.initialVoices
             ?? (0..<FwscPackage.factoryVoicesLength).map { UInt8(truncatingIfNeeded: $0 &* 7) }
-        state = OSAllocatedUnfairLock(
-            initialState: State(mode: mode, buildID: options.installedBuildID, voices: voices))
+        let library = LibraryState(workspace: options.workspace, currentSlot: options.currentSlot)
+        let initial = State(mode: mode, buildID: options.installedBuildID, voices: voices, library: library)
+        state = OSAllocatedUnfairLock(initialState: initial)
     }
 
     /// Tells the simulated device which package the host is about to install.
@@ -206,6 +220,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             command == FM1Message.capabilityCommand || command == FM1Message.armCommand
         {
             handleOpenFirmwareCommand(command, payload: payload, from: connection)
+        } else if let request = ProjectLibraryMessage.parse(sysex) {
+            handleLibraryRequest(request, from: connection)
         } else if let (command, payload) = FM1Message.parseCommand(sysex),
             command == FM1Message.voiceEraseCommand || command == FM1Message.voiceWriteCommand
         {
@@ -220,6 +236,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         state.withLock { state in
             guard state.session == nil, let expected = state.expected else { return }
             let isLoader = state.mode == .loader
+            let generation = state.generation
             state.session = Task { [weak self] in
                 guard let self else { return }
                 if isLoader {
@@ -227,7 +244,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
                 } else {
                     await stage(expected, on: connection)
                 }
-                self.state.withLock { $0.session = nil }
+                self.state.withLock { if $0.generation == generation { $0.session = nil } }
             }
         }
     }
@@ -323,6 +340,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         state.withLock { state in
             state.mode = mode
             state.generation += 1
+            // The rebooting session is over (its task mustn't clear the next), so the next can start.
+            state.session = nil
         }
         notifyObservers()
     }

@@ -34,6 +34,16 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case voiceRestoreRefused(code: Int, bytesWritten: Int)
     /// V15 stopped answering during the voice restore, after `bytesWritten` of the voices.
     case voiceRestoreStalled(bytesWritten: Int)
+    /// Backups need the FM-1 running M-VAVE's open firmware, but it reports this.
+    case backupNeedsOpenFirmware(device: String)
+    /// The FM-1's open firmware didn't answer as its project library should.
+    case projectLibraryUnavailable
+    /// The FM-1's sample bank is being written or checked, so it can't be read yet.
+    case sampleBankBusy
+    /// The FM-1's open firmware refused a backup request with this status.
+    case backupRefused(code: Int)
+    /// The FM-1's open firmware stopped answering during a backup.
+    case backupStalled
     /// The device and the package are for different hardware.
     case modelMismatch(device: String, package: String)
     /// The device stopped asking for data during `phase`, after `requests` reads.
@@ -118,6 +128,29 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             The FM-1 stopped answering while restoring the factory voices, after \(written) of 16384 bytes. \
             Some voices may be wrong or silent until a restore finishes: reconnect the FM-1, keep it on V15, \
             and run the restore again.
+            """
+        case .backupNeedsOpenFirmware(let device):
+            """
+            Only M-VAVE's open firmware can be backed up, but the FM-1 reports \(device). Other \
+            firmwares have no known way to read their projects or samples.
+            """
+        case .projectLibraryUnavailable:
+            """
+            The FM-1's open firmware didn't answer as expected, so it couldn't be backed up. Check \
+            the cable and that no other app is using the FM-1, then try again.
+            """
+        case .sampleBankBusy:
+            "The FM-1 is still storing its sample bank. Wait until it finishes, then try again."
+        case .backupRefused(let code):
+            """
+            The FM-1 refused part of the backup (status \(code)). If it's showing a different \
+            project, load yours again; its saved slots haven't changed.
+            """
+        case .backupStalled:
+            """
+            The FM-1 stopped answering during the backup. Reconnect it and try again. If it's \
+            showing a different project, load yours again: its saved slots haven't changed, but \
+            unsaved changes may be lost.
             """
         case .modelMismatch(let device, let package):
             "The device is \(device) but the package is for \(package)."

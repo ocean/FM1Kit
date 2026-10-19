@@ -1,6 +1,7 @@
 // A small Mac command-line probe: talk to a real FM-1 over CoreMIDI and inspect .fwsc files.
-// Only `install` writes to the device, and only after the user types YES to confirm;
-// every other command sends nothing but the handshake query.
+// Only `install` and `restore-voices` write to the device, and `backup` changes which project it's
+// showing while it reads; each asks the user to type YES first. Every other command sends nothing
+// but the handshake query.
 
 import FM1Kit
 import Foundation
@@ -26,6 +27,12 @@ let usage = """
                                                rewrite V15's four voice banks with its factory voices,
                                                from the official V15 package, after asking to confirm
                --simulated                     run against a simulated FM-1 running V15 (writes nothing)
+               --log FILE                      write every message to and from the device to a new
+                                               CSV file
+           fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
+                                               M-VAVE's open firmware to a new folder, after asking
+                                               to confirm
+               --simulated                     run against a simulated FM-1 running open firmware
                --log FILE                      write every message to and from the device to a new
                                                CSV file
     """
@@ -222,6 +229,9 @@ case "inspect" where arguments.count == 2:
 case "restore-voices" where arguments.count >= 2:
     try await restoreVoices(
         path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
+
+case "backup" where arguments.count >= 2:
+    try await backUp(folderPath: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
 
 case "install" where arguments.count >= 2:
     let isResume = arguments.contains("--resume")

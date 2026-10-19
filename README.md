@@ -88,6 +88,12 @@ After installing V15, `restoreFactoryVoices(from:progress:)` can rewrite its fou
 with the 128 factory voices from the V15 package, as M-VAVE's updater does: installing V15 over
 custom firmware can leave a bank holding the old firmware's voices.
 
+Before switching away from M-VAVE's open firmware, `backUpOpenFirmware(progress:)` reads its 16
+project slots, the project being edited and its sample bank, and `OpenFirmwareBackup.write(to:)`
+saves them as the `.fm1` and `.fm1s` files M-VAVE's workbench restores. Other firmwares have no
+known way to read their data, and each firmware stores it in its own format, so a backup is only
+for putting back on open firmware.
+
 Reading a package checks its contents first: the header, the chip it's built for, a checksum
 for each part, and that it holds a firmware image and an update loader. A damaged or wrong
 file is refused before anything is sent to the FM-1.
@@ -119,6 +125,7 @@ protocol in software for the iOS Simulator and tests.
 | `FM1Updater` | Finds the device, checks and installs, resumes, restores V15's voices, and reports progress as `UpdateEvent`s |
 | `InstallCheck`, `InstallOptions` | What an install would do, and confirming a switch of firmware |
 | `FM1Capability`, `FM1BuildID` | What M-VAVE's open firmware reports, and the build ID it's armed with |
+| `OpenFirmwareBackup`, `OpenFirmwareProject` | A backup of open firmware's projects and samples, and its project files |
 | `CoreMIDITransport` | CoreMIDI connections to real devices |
 | `SimulatedFM1` | A software FM-1 for the Simulator and tests |
 
@@ -127,7 +134,8 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 ### `fm1probe`
 
 A Mac command-line tool for checking a setup, and for watching an install closely. Only
-`install` and `restore-voices` write to the device, and only after you type YES to confirm:
+`install` and `restore-voices` write to the device, and `backup` changes which project open
+firmware shows while it reads; each asks you to type YES first:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
@@ -137,6 +145,7 @@ swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
+swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
 ```
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
@@ -166,9 +175,10 @@ demonstrated on the FM-1.
 The protocol implementation is written from the
 [FM-1-RE](https://github.com/AL-255/FM-1-RE) reverse-engineering notes
 ([update protocol](https://github.com/AL-255/FM-1-RE/blob/main/docs/io/11-ota-protocol.md)),
-which are WTFPL-licensed. Arming open firmware and restoring V15's voices follow the protocol as
-M-VAVE's open-source updater ([fm1_open](https://github.com/m-vave/fm1_open)) uses it, and the
-package checks follow the container format of kagaimiq's MIT-licensed jl-misctools. FM1Kit
+which are WTFPL-licensed. Arming open firmware, restoring V15's voices and backing up open
+firmware follow the protocols as M-VAVE's open-source firmware and updater
+([fm1_open](https://github.com/m-vave/fm1_open)) use them, and the package checks follow the
+container format of kagaimiq's MIT-licensed jl-misctools. FM1Kit
 contains no code from GPL-licensed installers. Thanks to M-VAVE for being so encouraging of the
 FM-1's custom firmware community, and for publishing their firmware and tools.
 

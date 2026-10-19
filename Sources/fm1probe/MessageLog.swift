@@ -67,6 +67,15 @@ final class MessageLog: Sendable {
     /// erases (`0x21`), writes (`0x22`) and their acknowledgements (`0x00`), either way.
     static func commandName(_ sysex: [UInt8]) -> String? {
         guard sysex.count > 4, sysex.first == 0xF0, sysex.last == 0xF7 else { return nil }
+        // Open firmware's project library: F0 7D 46 4D 02, then the command (bit 6 set in replies).
+        if sysex.count > 5, Array(sysex[1...4]) == [0x7D, 0x46, 0x4D, 0x02] {
+            let command = sysex[5] & 0x3F
+            let names: [UInt8: String] = [
+                0: "info", 1: "open read", 2: "read", 3: "open write", 4: "write", 5: "finish write",
+                6: "close", 8: "load slot", 9: "slot name", 11: "sample info", 15: "read samples",
+            ]
+            return "library " + (names[command] ?? "command \(command)") + (sysex[5] & 0x40 != 0 ? " reply" : "")
+        }
         let body = SevenBit.unpack(sysex.dropFirst().dropLast())
         guard body.count > 2, body[0] == 0x00, body[1] == 0x59 else { return nil }
         switch body[2] {

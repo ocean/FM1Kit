@@ -132,6 +132,29 @@ across releases is updated (stage G passed on 2026-10-19). FM1Kit calls it
 | G1 | `swift run fm1probe identify` | An Estampie build, e.g. `FM-1_378001` (install one first if the FM-1 is on another firmware). |
 | G2 | `swift run fm1probe install ESTAMPIE.fwsc --log g2.csv`, with a package of the same identity | `Kind: the identity already running`, then a normal install ending `Installed: … FM-1_378001`. If staging stalls instead, the firmware refuses its own identity after all. |
 
+## Stage H: backing up open firmware, then V15 in one go
+
+Two things on one trip through open firmware. `fm1probe backup` reads open firmware's 16
+project slots, the project being edited and the sample bank through its project library. That
+library can only read the project being edited, so the backup loads each slot in turn, then
+puts the edited project back, unsaved changes included; it never saves a slot or writes the
+sample bank. Then V15 goes back on in one go: stage E3 needed `--resume` because FM1Kit didn't
+recognise the armed loader's `ota-FM1C_…` identity, which it now does. Start on V15.
+
+| Step | Command | What to look for |
+|---|---|---|
+| H1 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc --log .artifacts/tmp/h1.csv` | A switch, ending `Installed: … FM-1_8000012`. |
+| H2 | On the FM-1, change a project and save it to slot 2, then change its tempo without saving | Note the slot 2 name and the unsaved tempo. |
+| H3 | `swift run fm1probe backup .artifacts/tmp/h3-sim --simulated` | A rehearsal: 0% to 100%, slot 1 `SIMULATED`, 4096 bytes of samples. |
+| H4 | `swift run fm1probe backup .artifacts/tmp/h4-backup --log .artifacts/tmp/h4.csv`, then type `YES` | 0% to 100%, then the 16 slots with their names (slot 2 as saved) and the sample bank's size. The sample bank is up to 456 KB, read 64 bytes at a time, so this may take a minute. |
+| H5 | Look at the FM-1 | The same project as before H4, still with the unsaved tempo. |
+| H6 | Open `FM1-Open-V12-Workbench.html` in Chrome, and choose `slot-02.fm1` as a project file and `samples.fm1s` as a sample bank file (don't import or write them) | The workbench accepts both files. |
+| H7 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_015.fwsc --log .artifacts/tmp/h7.csv` | `Open:` with build `426b7fa5…`, then `Loader answered as ota-FM1C_db1642b2b6fa5c2c; writing`, and `Installed: … FM-1_015` without `--resume`. |
+| H8 | `swift run fm1probe restore-voices .artifacts/tmp/fm1open-v12/FM-1_015.fwsc`, then type `YES` | `Restored`, and factory voices in all four banks. |
+
+If H4 stops part-way, the FM-1 may be showing another slot's project: load slot 2 again. Its
+saved slots don't change. If H7 stops after staging, `install … --resume` finishes it, as in E3.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac

@@ -5,6 +5,24 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `FM1Updater.backUpOpenFirmware(progress:)` backs up an FM-1 running M-VAVE's open firmware:
+  its 16 project slots, the project being edited (with unsaved changes) and its sample bank,
+  through the firmware's project library. Open firmware can only read the project being
+  edited, so each slot is loaded in turn and the workspace is put back afterwards; no slot is
+  saved and the sample bank isn't written. `OpenFirmwareBackup.write(to:)` saves the backup as
+  the `.fm1` project and `.fm1s` sample files M-VAVE's workbench restores, with a
+  `backup.json` describing them. Open V13's per-slot tuning tables aren't included yet.
+- `fm1probe backup FOLDER` (with `--simulated` and `--log FILE`).
+- `SimulatedFM1` answers the project library while running open firmware
+  (`Options.projectSlots`, `workspace`, `currentSlot`, `sampleBank`).
+
+### Fixed
+
+- `SimulatedFM1` could ignore the upgrade command from a host that found its loader very
+  quickly after staging, which made an open firmware test fail now and then.
+
 ## [0.2.0] - 2026-10-19
 
 ### Changed
