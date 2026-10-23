@@ -139,7 +139,8 @@ project slots, the project being edited and the sample bank through its project 
 library can only read the project being edited, so the backup loads each slot in turn, then
 puts the edited project back, unsaved changes included; it never saves a slot or writes the
 sample bank. Then V15 goes back on in one go: stage E3 needed `--resume` because FM1Kit didn't
-recognise the armed loader's `ota-FM1C_…` identity, which it now does. Start on V15.
+recognise the armed loader's `ota-FM1C_…` identity, which it now does (stage H passed on
+2026-10-23). Start on V15.
 
 | Step | Command | What to look for |
 |---|---|---|
@@ -282,3 +283,29 @@ The same Mac and FM-1, starting on V15.
   already running`, and Estampie staged it normally: 31.3 s in all (staging 3.2 s, writing
   10.5 s, checking 11.4 s), ending `Installed: the FM-1 is running FM-1_378001.` So Estampie,
   like Felucca, doesn't compare identities, and `sameIdentity` installs work.
+
+### 2026-10-23: stage H, backing up open firmware, then V15 in one go
+
+The same Mac and FM-1, starting on V15.
+
+- **H1 passed.** Installing Open V12 over V15 was a firmware switch, and the FM-1 reported
+  `FM-1_8000012` 22.4 s after the start.
+- **H2:** a factory preset song was edited and saved to user slot 2 as `H2 TEST` at tempo 146,
+  then its tempo was changed to 100 without saving.
+- **H3 passed.** The rehearsal wrote the workspace, slot 1 (`SIMULATED`), 4096 bytes of samples
+  and `backup.json`.
+- **H4 passed** in 0.3 s. All 16 slots were read: slot 2 `H2 TEST`, the rest empty. The sample
+  bank was empty, so there was no `samples.fm1s`. The saved workspace and `slot-02.fm1` differed
+  in one byte only, the tempo: 100 against 146. Putting the workspace back reloaded slot 2 and
+  wrote the unsaved workspace over it (64 writes), and the firmware accepted its CRC-32.
+- **H5 passed.** The FM-1 still showed `H2 TEST` with the unsaved tempo of 100.
+- **H6 passed.** M-VAVE's V12 workbench read `slot-02.fm1` as `H2 TEST`; it shows no further
+  details. It also wrote it back to the FM-1, which accepted it, so the workbench can restore
+  FM1Kit's project files. There was no sample bank to try.
+- **H7 passed.** Installing V15 over Open V12 needed no `--resume`: the armed loader answered as
+  `ota-FM1C_db1642b2b6fa5c2c`, and the FM-1 reported `FM-1_015` 24.3 s after the start.
+- **H8 passed.** `restore-voices` restored V15's factory voices in 0.7 s.
+
+Twice that day, a single `identify` soon after connecting or switching got no answer, on V15
+and on open firmware, while repeats all answered within 2 ms. Installs retry the handshake, so
+they weren't affected.

@@ -13,8 +13,9 @@ or one started from USB recovery mode.
 > [!WARNING]
 > FM1Kit has been tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15,
 > Felucca 1.6.1 and M-VAVE's open firmware V12 and switching between them, pulling the cable
-> part-way through writing and resuming, and restoring V15's factory voices. Reports from other
-> devices and hosts are very welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+> part-way through writing and resuming, restoring V15's factory voices, and backing up open
+> firmware. Reports from other devices and hosts are very welcome (see
+> [CONTRIBUTING.md](CONTRIBUTING.md)).
 > FM1Kit isn't affiliated with M-VAVE. Installing custom firmware is at your own risk.
 
 ## Requirements
@@ -30,12 +31,12 @@ Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.2.0")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.3.0")),
 ]
 ```
 
-Until 1.0, minor versions may change the API, so this takes 0.2.x fixes but not 0.3.0
-(`from: "0.2.0"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
+Until 1.0, minor versions may change the API, so this takes 0.3.x fixes but not 0.4.0
+(`from: "0.3.0"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
 changes.
 
 ## Usage

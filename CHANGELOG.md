@@ -5,6 +5,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
 ### Added
 
 - `FM1Updater.backUpOpenFirmware(progress:)` backs up an FM-1 running M-VAVE's open firmware:
@@ -103,6 +105,7 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/ocean/FM1Kit/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/ocean/FM1Kit/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/ocean/FM1Kit/releases/tag/0.1.0
