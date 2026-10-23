@@ -3,7 +3,7 @@
     "accessLevel": "private"
   },
   "indentBlankLines": false,
-  "indentConditionalCompilationBlocks": true,
+  "indentConditionalCompilationBlocks": false,
   "indentSwitchCaseLabels": false,
   "indentation": {
     "spaces": 4

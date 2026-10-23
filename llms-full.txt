@@ -78,6 +78,20 @@ Installing V15 over custom firmware can leave a voice bank holding the old firmw
 
 Other firmwares (V15, Felucca, Estampie and the rest) have no known way to read their data, and each firmware stores it in its own format, so only open firmware can be backed up, and a backup is only for putting back on open firmware.
 
+## Installing m-bootloader
+
+m-bootloader (https://github.com/jvitkauskas/m-bootloader, MIT) replaces M-VAVE's bootloader with one that has a recovery menu (hold PLAY while switching on), the chip's USB download mode (hold REC), and checks the firmware before starting it. `BootloaderInstaller` reads its `fm1-uboot.fwsc` package, which holds only an installer, and `FM1Updater.installBootloader(_:events:)` installs it from V15 over USB-MIDI, keeping the firmware. FM1Kit can't read the bootloader back over USB-MIDI, so the FM-1's screen confirms the result. Installing V15 later puts M-VAVE's bootloader back. Using download mode needs a computer (M-Flasher).
+
+## Friendly progress, advice and device summaries
+
+- `InstallProgress` folds an install's `UpdateEvent`s into one bar from 0 to 1 that never goes backwards, with four stages: getting ready, installing, checking and restarting.
+- `FM1Advice(for: error)` turns any error into a headline, an explanation, whether the FM-1 is still fine as it is, one action (try again, resume, reconnect, switch off and on, confirm, choose another firmware, hold keys at power-on, needs a computer, dismiss) and technical details.
+- `FM1Updater.summary()` returns an `FM1DeviceSummary`: the firmware's name and version for V15 and open firmware, whether it's waiting part-way through an update, and its USB serial number (V15 and open firmware report one; Felucca doesn't).
+
+## FM1Rescue: download mode (macOS only)
+
+The package's second library uses the chip's USB download mode, which works even when the firmware won't start. In download mode the FM-1 is a USB disk (4C4A:8057, "WL82 UBOOT1.00"); taking it from macOS's disk driver needs root, so FM1Rescue is macOS-only and empty on iOS. `FM1Updater.enterDownloadMode()` asks V15 or Felucca to switch with the MIDI message F0 22 24 35 7D F7 (with m-bootloader, holding REC while switching on does the same). `USBDownloadModeConnection.open()` captures the device with IOUSBHost and speaks USB mass storage's Bulk-Only Transport. `FlashSession` uploads m-bootloader's flash loader (bundled, MIT) into the chip's RAM and reads the flash, and `backUp(progress:)` reads the 1 MB twice and checks both against the chip's CRC-32. `FlashBackup.write(to:)` saves it as M-Flasher does (a .bin and a .json with the flash chip's unique ID), and `FlashBackup.mBootloader` says whether m-bootloader is in the boot area. Writing in download mode isn't supported yet. `SimulatedDownloadMode` simulates the chip.
+
 ## Types
 
 - `FwscPackage` (struct): reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256. Checks the header, target chip, per-part checksums, and that it holds a firmware image and an update loader, refusing a damaged or wrong file before anything is sent.
@@ -89,6 +103,8 @@ Other firmwares (V15, Felucca, Estampie and the rest) have no known way to read 
 - `FM1UpdateError` (enum): why an install, resume or backup stopped, with a description for each.
 - `FM1Capability`, `FM1BuildID` (structs): what M-VAVE's open firmware reports, and the build ID it's armed with before an update.
 - `OpenFirmwareBackup`, `OpenFirmwareProject` (structs): a backup of open firmware's projects and samples, and its `.fm1` project files.
+- `BootloaderInstaller`, `BootloaderImage` (structs): m-bootloader's installer package, and the bootloader it carries (or a `.boot` file).
+- `InstallProgress`, `FM1Advice`, `FM1DeviceSummary` (structs): one progress bar, plain advice for any error, and the connected FM-1 in plain terms.
 - `CoreMIDITransport` (class): CoreMIDI connections to real devices.
 - `SimulatedFM1` (class): a software FM-1 that speaks the update protocol and open firmware's project library, for the iOS Simulator and tests.
 
@@ -98,7 +114,7 @@ Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinsta
 
 ## fm1probe
 
-A Mac command-line tool for checking a setup and watching an install closely. Only `install` and `restore-voices` write to the device, and `backup` changes which project open firmware shows while it reads; each asks you to type YES first:
+A Mac command-line tool for checking a setup and watching an install closely. Only `install`, `install-bootloader` and `restore-voices` write to the device, and `backup` changes which project open firmware shows while it reads; each asks you to type YES first:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
@@ -109,6 +125,9 @@ swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and c
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
+swift run fm1probe install-bootloader fm1-uboot.fwsc  # install m-bootloader from V15
+swift run fm1probe download-mode         # ask V15 or Felucca to restart into download mode
+sudo .build/debug/fm1probe flash-backup FOLDER  # read the whole flash in download mode (after swift build)
 ```
 
 ## What an install looks like

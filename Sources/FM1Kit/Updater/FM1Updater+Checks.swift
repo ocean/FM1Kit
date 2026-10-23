@@ -26,6 +26,7 @@ extension FM1Updater {
     func check(_ package: FwscPackage, on device: FoundDevice, buildID: FM1BuildID?)
         async throws(FM1UpdateError) -> InstallCheck
     {
+        guard package.isFirmware else { throw .notFirmware(package.product) }
         let capability = try await capability(of: device)
         guard
             device.identity.hardwareModel == package.identity.model

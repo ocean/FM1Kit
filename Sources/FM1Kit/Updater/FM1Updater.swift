@@ -232,6 +232,7 @@ public actor FM1Updater {
     public func resume(_ package: FwscPackage, events: @escaping @Sendable (UpdateEvent) -> Void = { _ in })
         async throws -> FM1Identity
     {
+        guard package.isFirmware else { throw FM1UpdateError.notFirmware(package.product) }
         let model = package.identity.model
         guard let loader = try await findOnly(where: { $0.isLoader(for: model) }) else {
             throw FM1UpdateError.loaderNotFound
@@ -323,12 +324,13 @@ public actor FM1Updater {
         var lastActivity = ContinuousClock.now
         while true {
             try Task.checkCancellation()
+            // Checked on every pass: other messages from the device don't count as activity.
+            if ContinuousClock.now - lastActivity > idleLimit {
+                return outcome
+            }
             guard let message = await connection.receive(timeout: .seconds(1)) else {
                 if connection.isLost {
                     outcome.lost = true
-                    return outcome
-                }
-                if ContinuousClock.now - lastActivity > idleLimit {
                     return outcome
                 }
                 continue
@@ -373,7 +375,7 @@ public actor FM1Updater {
     }
 
     /// Sleeps for `duration`, or not at all when it's zero.
-    private func pause(_ duration: Duration) async throws {
+    func pause(_ duration: Duration) async throws {
         if duration > .zero {
             try await Task.sleep(for: duration)
         }

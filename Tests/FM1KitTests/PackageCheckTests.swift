@@ -22,8 +22,8 @@ struct PackageCheckTests {
     @Test func readsTheFirmwareImageAndLoader() throws {
         let package = try UpdaterTests.package()
         let container = package.container
-        #expect(container.flash.offset == FwscPackage.firstPartOffset)
-        #expect(container.flash.size == 32_768)
+        #expect(container.flash?.offset == FwscPackage.firstPartOffset)
+        #expect(container.flash?.size == 32_768)
         #expect(container.loader.name == "ota.bin")
         #expect(package.loaderSHA256 == FwscPackage.sha256Hex(package.logicalImage[container.loader.range]))
         #expect(container.applicationRange == (0x400 + 0x4000)..<(0x400 + 32_768))
@@ -31,7 +31,7 @@ struct PackageCheckTests {
 
     @Test func aFirmwareImageNoBiggerThanTheBootAreaIsAllApplication() throws {
         let package = try Self.read(FwscPackage.sampleImage(parts: [.flash(size: 16_384), .loader()]))
-        #expect(package.container.applicationRange == package.container.flash.range)
+        #expect(package.container.applicationRange == package.container.flash?.range)
     }
 
     @Test func refusesADamagedHeader() {

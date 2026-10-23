@@ -69,6 +69,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var sampleState: UInt8 = 2
         /// Stop answering project library requests after this many, as if the cable were pulled.
         public var stopsAnsweringLibraryAfter: Int?
+        /// The USB serial number the device reports, or `nil` for none, as Felucca reports.
+        public var serialNumber: String? = "SIMULATED-FM-1"
+        /// The m-bootloader version installed at first, or `nil` for M-VAVE's bootloader.
+        public var bootloaderVersion: String?
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -98,6 +102,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var voiceSteps = 0
         /// Open firmware's project library.
         var library: LibraryState
+        /// The m-bootloader version installed, or `nil` for M-VAVE's bootloader.
+        var bootloaderVersion: String?
     }
 
     /// The name of the simulated device's only port.
@@ -108,7 +114,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     /// How this device behaves.
     public let options: Options
     let state: OSAllocatedUnfairLock<State>
-    private let observers = OSAllocatedUnfairLock(initialState: [UUID: AsyncStream<Void>.Continuation]())
+    let observers = OSAllocatedUnfairLock(initialState: [UUID: AsyncStream<Void>.Continuation]())
 
     private let eventLog = OSAllocatedUnfairLock(initialState: [String]())
 
@@ -125,7 +131,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             options.initialVoices
             ?? (0..<FwscPackage.factoryVoicesLength).map { UInt8(truncatingIfNeeded: $0 &* 7) }
         let library = LibraryState(workspace: options.workspace, currentSlot: options.currentSlot)
-        let initial = State(mode: mode, buildID: options.installedBuildID, voices: voices, library: library)
+        var initial = State(mode: mode, buildID: options.installedBuildID, voices: voices, library: library)
+        initial.bootloaderVersion = options.bootloaderVersion
         state = OSAllocatedUnfairLock(initialState: initial)
     }
 
@@ -142,6 +149,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         state.withLock { $0.voices }
     }
 
+    /// The m-bootloader version the simulated FM-1 has, or `nil` for M-VAVE's bootloader.
+    public var installedBootloaderVersion: String? {
+        state.withLock { $0.bootloaderVersion }
+    }
+
     /// The build the simulated open firmware reports.
     public var currentBuildID: FM1BuildID {
         state.withLock { $0.buildID }
@@ -156,44 +168,6 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             state.withLock { $0.armedBuildID }.flatMap { FM1Identity(text: "ota-FM1C_\($0.hex.prefix(16))") }
                 ?? Self.loaderIdentity
         case .offline: nil
-        }
-    }
-
-    // MARK: - MIDITransport.
-
-    /// The device's one port, unless it's restarting.
-    ///
-    /// - Returns: One port named ``portName``, or none.
-    public func ports() async -> [MIDIPortDescriptor] {
-        let (mode, generation) = state.withLock { ($0.mode, $0.generation) }
-        guard mode != .offline else { return [] }
-        return [MIDIPortDescriptor(id: "simulated-\(generation)", name: Self.portName)]
-    }
-
-    /// Opens the device's port.
-    ///
-    /// - Parameter port: The port from ``ports()``.
-    /// - Returns: A connection that lasts until the device restarts.
-    /// - Throws: ``MIDITransportError/portGone`` if the device has restarted since `port` was listed.
-    public func open(_ port: MIDIPortDescriptor) async throws -> any MIDIConnection {
-        let generation = state.withLock { $0.generation }
-        guard port.id == "simulated-\(generation)", state.withLock({ $0.mode }) != .offline else {
-            throw MIDITransportError.portGone
-        }
-        return SimulatedConnection(device: self, port: port, generation: generation)
-    }
-
-    /// Reports each time the device disconnects or reconnects as it restarts.
-    ///
-    /// - Returns: A stream that ends when the caller stops iterating it.
-    public func changes() -> AsyncStream<Void> {
-        let id = UUID()
-        let observers = observers
-        return AsyncStream { continuation in
-            observers.withLock { $0[id] = continuation }
-            continuation.onTermination = { _ in
-                observers.withLock { $0[id] = nil }
-            }
         }
     }
 
@@ -266,6 +240,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         }
         let finish = FM1ReadRequest(address: FM1Message.stageFinishAddress, length: 8)
         guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }
+        guard package.isFirmware else {
+            await runInstaller(package)
+            return
+        }
         log("Staged \(package.product); rebooting into the loader.")
         await reboot(into: .loader)
     }
@@ -304,7 +282,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         // Real open firmware reports the build compiled into it: here, the one it was armed with, or
         // else the build ID FM1Kit knows for the package.
         let packageBuildID = FM1Updater.knownBuildID(of: package) ?? FM1BuildID(knownHex: package.sha256)
-        state.withLock { $0.buildID = $0.armedBuildID ?? packageBuildID }
+        state.withLock { state in
+            state.buildID = state.armedBuildID ?? packageBuildID
+            // V15's package writes the whole boot area, putting M-VAVE's bootloader back.
+            if package.identity == .officialV15 { state.bootloaderVersion = nil }
+        }
         await reboot(into: .firmware(package.identity))
     }
 
@@ -328,7 +310,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     }
 
     /// Disappears from the port list, then comes back in `mode`.
-    private func reboot(into mode: Mode) async {
+    func reboot(into mode: Mode) async {
         state.withLock { state in
             state.mode = .offline
             state.generation += 1

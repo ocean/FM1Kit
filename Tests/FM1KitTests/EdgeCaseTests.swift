@@ -363,3 +363,35 @@ struct RefusedPackageTests {
         #expect(device.currentIdentity == package.identity)
     }
 }
+
+/// A device that keeps sending SysEx that isn't a read request, as B1's firmware does.
+private final class ChattyConnection: MIDIConnection {
+    let port = MIDIPortDescriptor(id: "chatty", name: "FM-1 ESTAMPIE")
+    let isLost = false
+
+    func send(_: [UInt8]) {}
+
+    func receive(timeout _: Duration) async -> [UInt8]? {
+        try? await Task.sleep(for: .milliseconds(20))
+        return [0xF0, 0x00, 0x32, 0x45, 0x01, 0xF7]
+    }
+
+    func drain() {}
+    func close() {}
+}
+
+struct StagingIdleTests {
+    @Test func otherMessagesDontKeepAStalledPhaseWaiting() async throws {
+        let updater = FM1Updater(transport: SimulatedFM1())
+        let start = ContinuousClock.now
+        let outcome = try await updater.serve(
+            ChattyConnection(),
+            image: [UInt8](repeating: 0, count: 1024),
+            phase: .staging,
+            idleLimit: .milliseconds(300)
+        ) { _, _ in }
+        #expect(!outcome.finished)
+        #expect(outcome.requests == 0)
+        #expect(ContinuousClock.now - start < .seconds(2))
+    }
+}

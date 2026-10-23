@@ -5,6 +5,42 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `FM1Updater.installBootloader(_:events:)` installs m-bootloader from its `fm1-uboot.fwsc`
+  package on an FM-1 running V15, keeping the firmware. `BootloaderInstaller` reads the package,
+  decompresses its installer and checks every checksum, as the bootloader does before running
+  it, and finds the bootloader it writes; `BootloaderImage` reads and checks m-bootloader's
+  `.boot` files. FM1Kit can't read the bootloader back over USB-MIDI, so the FM-1's screen
+  confirms the result.
+- `FwscPackage.isFirmware`: packages that hold only an installer are now read, and
+  `install`, `resume` and `check` refuse them (`FM1UpdateError.notFirmware`).
+- `InstallProgress`: an install's events as one bar that never goes backwards, with four stages.
+- `FM1Advice` (and `FM1UpdateError.advice`): any error as a headline, an explanation, whether
+  the FM-1 is still fine, one action and technical details.
+- `FM1Updater.summary()` and `FM1DeviceSummary`: the connected FM-1's firmware name and version
+  (for V15 and open firmware), whether it's waiting mid-update, and its USB serial number
+  (`MIDIPortDescriptor.serialNumber`).
+- `SimulatedFM1` reports a serial number and runs bootloader installers
+  (`Options.serialNumber`, `bootloaderVersion`; `installedBootloaderVersion`), and installing
+  V15 on it puts M-VAVE's bootloader back, as on a real FM-1.
+- `fm1probe install-bootloader`, `inspect` for installers and `.boot` files, and serial numbers
+  in `identify`.
+- A second library, `FM1Rescue` (macOS only; empty on iOS), for the chip's USB download mode:
+  `FM1Updater.enterDownloadMode()` asks V15 or Felucca to switch with a MIDI message;
+  `USBDownloadModeConnection` takes the FM-1 from macOS's disk driver (needs root) and speaks USB
+  mass storage to it; `FlashSession` uploads m-bootloader's flash loader (bundled, MIT) and
+  reads the flash; `FlashSession.backUp(progress:)` reads it twice and checks both reads against
+  the chip's CRC-32; `FlashBackup.write(to:)` saves it as M-Flasher does. Nothing is written to
+  the flash yet. `SimulatedDownloadMode` stands in for the chip.
+- `fm1probe download-mode` and `fm1probe flash-backup FOLDER`, with `--trace` to print every USB
+  transfer.
+
+### Fixed
+
+- An install could wait forever when the FM-1 stopped asking for data but kept sending other
+  SysEx: only read requests now count as activity, so it stops as stalled after the idle limit.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

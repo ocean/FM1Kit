@@ -46,6 +46,14 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case backupStalled
     /// The device and the package are for different hardware.
     case modelMismatch(device: String, package: String)
+    /// The package brings an installer rather than firmware, so it can't be installed as one;
+    /// see ``BootloaderInstaller``.
+    case notFirmware(String)
+    /// Installing m-bootloader needs the FM-1 running V15, the only firmware it has been
+    /// installed from so far, but it reports this.
+    case bootloaderInstallNeedsV15(device: String)
+    /// The FM-1 took the bootloader installer but didn't restart to run it.
+    case installerDidNotStart
     /// The device stopped asking for data during `phase`, after `requests` reads.
     case stalled(phase: Phase, requests: Int)
     /// The device disconnected during `phase`, after `requests` reads.
@@ -154,6 +162,18 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             """
         case .modelMismatch(let device, let package):
             "The device is \(device) but the package is for \(package)."
+        case .notFirmware(let product):
+            "\(product) installs a bootloader, not firmware, so it can't be installed as firmware."
+        case .bootloaderInstallNeedsV15(let device):
+            """
+            Installing m-bootloader needs the FM-1 running M-VAVE's V15 (FM-1_015), but it reports \
+            \(device). Install V15 first, then the bootloader.
+            """
+        case .installerDidNotStart:
+            """
+            The FM-1 took the bootloader installer but didn't restart to run it, so the bootloader \
+            wasn't installed. Switch the FM-1 off and on again; it should start normally.
+            """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """
             The FM-1 stopped after \(requests) requests while checking the package, before restarting \

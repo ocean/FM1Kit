@@ -74,12 +74,14 @@ extension FwscPackage {
     ///   - chip: The chip the container names.
     ///   - imageLength: The image's length; just after the last part when `nil`.
     ///   - seed: Varies the pattern.
+    ///   - contents: Bytes for some parts in place of the pattern, by their index in `parts`.
     /// - Returns: The logical image, with a valid header and table.
     public static func sampleImage(
         parts: [SamplePart],
         chip: String = "AC791N",
         imageLength: Int? = nil,
-        seed: Int = 13
+        seed: Int = 13,
+        contents: [Int: [UInt8]] = [:]
     ) -> [UInt8] {
         var offsets: [Int] = []
         var next = firstPartOffset
@@ -90,6 +92,9 @@ extension FwscPackage {
         }
         let length = imageLength ?? next
         var image = (0..<length).map { UInt8(truncatingIfNeeded: $0 &* seed &+ 5) }
+        for (index, bytes) in contents {
+            image.replaceSubrange(offsets[index]..<(offsets[index] + bytes.count), with: bytes)
+        }
 
         var table: [UInt8] = []
         for (part, offset) in zip(parts, offsets) {

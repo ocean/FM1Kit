@@ -64,8 +64,9 @@ struct FirmwareContainer {
     /// The boot area at the start of the firmware image, before the application.
     static let bootAreaLength = 0x4000
 
-    /// The firmware image the loader writes to flash.
-    let flash: Entry
+    /// The firmware image the loader writes to flash, or `nil` for a package that only brings an
+    /// installer, such as m-bootloader's.
+    let flash: Entry?
     /// The update loader that writes it.
     let loader: Entry
     /// M-VAVE's user data part (`USR`), which holds V15's factory voices, if the package has one.
@@ -75,7 +76,8 @@ struct FirmwareContainer {
     ///
     /// - Parameter image: The logical image, with the identity markers removed.
     /// - Throws: ``FwscPackage/Failure`` when the header, table or a part is damaged, the chip
-    ///   isn't the FM-1's, or the firmware image or update loader is missing.
+    ///   isn't the FM-1's, the update loader is missing, or a firmware image is missing alongside
+    ///   other parts. A package holding only an update loader is an installer, with no firmware.
     init(image: [UInt8]) throws(FwscPackage.Failure) {
         guard image.count >= Self.headerLength else { throw .damagedHeader }
         let header = Self.decipher(image[0..<Self.headerLength])
@@ -119,9 +121,12 @@ struct FirmwareContainer {
 
         let flashes = entries.filter { $0.type == Self.flashType }
         let loaders = entries.filter { $0.type == Self.loaderType }
+        // A package of nothing but its loader brings an installer, which the bootloader runs.
+        let isInstaller = flashes.isEmpty && entries.count == 1 && loaders.count == 1
+        let flash = flashes.first
         guard
-            flashes.count == 1, let flash = flashes.first, !flash.isEnciphered,
-            Self.flashSizes.contains(flash.size), flash.size.isMultiple(of: Self.flashSectorSize)
+            isInstaller
+                || (flashes.count == 1 && flash.map { !$0.isEnciphered && Self.isFlashSize($0.size) } == true)
         else {
             throw .missingPart("firmware image")
         }
@@ -139,8 +144,16 @@ struct FirmwareContainer {
     ///
     /// Every loader seen so far writes this area; some also rewrite the boot area first. An
     /// image no bigger than the boot area counts as all application.
+    /// An installer package has no firmware image, so its range is empty.
     var applicationRange: Range<Int> {
-        flash.size > Self.bootAreaLength ? (flash.offset + Self.bootAreaLength)..<flash.range.upperBound : flash.range
+        guard let flash else { return 0..<0 }
+        return flash.size > Self.bootAreaLength
+            ? (flash.offset + Self.bootAreaLength)..<flash.range.upperBound : flash.range
+    }
+
+    /// True for a firmware image's size: whole 4 KB flash sectors, up to the chip's flash.
+    static func isFlashSize(_ size: Int) -> Bool {
+        flashSizes.contains(size) && size.isMultiple(of: flashSectorSize)
     }
 
     /// The CRC-16 the container uses (polynomial 0x1021, starting from 0).

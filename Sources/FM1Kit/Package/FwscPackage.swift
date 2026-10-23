@@ -11,7 +11,8 @@ public import Foundation
 /// The logical image is a JieLi firmware container: a header and table of parts, each with a
 /// checksum. Reading a package checks all of them, and that it holds a firmware image and an
 /// update loader for the FM-1's AC791N chip, so a damaged or wrong file is refused before
-/// anything is sent to the device.
+/// anything is sent to the device. A package holding only an update loader brings an installer
+/// rather than firmware (``isFirmware`` is false), as m-bootloader's do.
 public struct FwscPackage: Sendable {
     /// Why a file couldn't be read as an FM-1 package.
     public enum Failure: Error, Hashable, LocalizedError {
@@ -127,6 +128,12 @@ public struct FwscPackage: Sendable {
 
     /// The identity as text, e.g. `FM-1_916`.
     public var product: String { identity.text }
+
+    /// True when the package brings a firmware to install; false for one that only brings an
+    /// installer, such as m-bootloader's (see ``BootloaderInstaller``).
+    ///
+    /// ``FM1Updater/install(_:options:events:)`` installs only firmware.
+    public var isFirmware: Bool { container.flash != nil }
 
     /// The identity the header's markers spell; `bytes` must hold the whole header.
     static func decodeProduct(_ bytes: [UInt8]) -> String {

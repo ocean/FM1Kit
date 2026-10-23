@@ -156,6 +156,54 @@ recognise the armed loader's `ota-FM1C_…` identity, which it now does (stage H
 If H4 stops part-way, the FM-1 may be showing another slot's project: load slot 2 again. Its
 saved slots don't change. If H7 stops after staging, `install … --resume` finishes it, as in E3.
 
+## Stage I: a full flash backup in download mode
+
+`fm1probe download-mode` asks V15 to restart into the chip's USB download mode with a MIDI
+message, and `fm1probe flash-backup` then reads the whole 1 MB of flash there with
+m-bootloader's flash loader, which it uploads into the chip's RAM. Nothing is written to the
+flash, and switching the FM-1 off and on leaves download mode. Reading needs root, to take the
+FM-1 from macOS's disk driver, so build first and run the built tool with `sudo`. Start on V15.
+
+| Step | Command | What to look for |
+|---|---|---|
+| I1 | `swift build`, then `swift run fm1probe flash-backup .artifacts/tmp/i1-sim --simulated` | A rehearsal: loader 1.2, chip key `0x980F`, two reads, then a `.bin` and `.json` saved. |
+| I2 | `swift run fm1probe download-mode` | `The FM-1 is in download mode`. Its screen may freeze or go blank. If macOS offers to initialise or eject a disk, choose Ignore. |
+| I3 | `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/i3-backup` | Loader 1.2, chip key `0x980F`, a 1 MB flash and a unit ID; reading 0% to 100%; `both reads and the chip's CRC-32 match`; `Bootloader: M-VAVE's` (`unreadable` would mean FM1Kit can't parse the stock one yet: note it); the files saved. macOS may ask once to let Terminal use a removable volume: allow it. |
+| I4 | `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/i3-backup` again | The loader already running is reused, and a second pair of files with the same SHA-256. |
+| I5 | Switch the FM-1 off and on, then `swift run fm1probe identify` | V15 starts as before: `FM-1_015`. |
+
+If I3 stops with an access error, note the message: macOS's rules for taking a USB disk from its
+driver are the part not yet tried. M-Flasher's backup of the same FM-1 should have the same
+SHA-256, if you have one.
+
+## Stage J: installing m-bootloader over USB-MIDI
+
+`fm1probe install-bootloader` installs [m-bootloader](https://github.com/jvitkauskas/m-bootloader)
+from its `fm1-uboot.fwsc` package, as M-VAVE's M-UPGRADE does: V15 stages the package like an
+update and restarts, and the installer inside rewrites only the 16 KB boot area, shows
+`INSTALLED` and restarts into V15. Start on V15, with m-bootloader 1.2's release files in
+`.artifacts/tmp/m-bootloader-release/`.
+
+Before J3, decide whether to take the risk: if the FM-1 loses power while the installer writes
+the boot area (a second or two), it may not start, and only a USB_KEY dongle (a Raspberry Pi
+Pico on the USB data lines) can recover it. Stage I's full backup means nothing else is lost; an
+official V15 install rewrites the same area.
+
+| Step | Command | What to look for |
+|---|---|---|
+| J1 | `swift run fm1probe inspect .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc` | `Installs: m-bootloader 1.2-22e2559 for fm1`, and its bootloader's SHA-256 `9e5ec0e3…`, the same as `fm1-uboot.boot`'s. |
+| J2 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --simulated` | A rehearsal: staging, restarting, `back: FM-1_015`. |
+| J3 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/j3.csv`, then type `YES` | Staging, then the FM-1's screen: `FM-1 M-BOOTLOADER`, `INSTALLING`, then `INSTALLED` and `RESTARTING`; then `back: FM-1_015`. Note what the screen showed. |
+| J4 | Switch the FM-1 off, then hold PLAY while switching it on | m-bootloader's menu, showing version `1.2-22e2559`; choose to boot the firmware, and V15 starts. |
+| J5 | `swift run fm1probe identify` | `FM-1_015`, and the same serial number as before. |
+| J6 | Switch the FM-1 off, then hold REC while switching it on; then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/j6-backup` | m-bootloader's download mode, then `Bootloader: m-bootloader 1.2-22e2559`: the flash itself confirms the install. Switch it off and on afterwards. |
+
+If J3 stops while staging, the FM-1 should still start V15 normally. The installer's screen
+can also show `ALREADY INSTALLED`, or a failure. `NO FLASH`, `READ FAILED` and
+`BOOT AREA UNKNOWN` come before it writes anything, so the FM-1 restarts into V15 with M-VAVE's
+bootloader. `WRITE FAILED` means a sector of the boot area couldn't be written after three
+tries, so the FM-1 may not start: note everything on the screen and report it.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -309,3 +357,49 @@ The same Mac and FM-1, starting on V15.
 Twice that day, a single `identify` soon after connecting or switching got no answer, on V15
 and on open firmware, while repeats all answered within 2 ms. Installs retry the handshake, so
 they weren't affected.
+
+### 2026-10-23: stage I, a full flash backup in download mode
+
+The same Mac and FM-1. The first runs were made on SikkenWorks' B1 drawbar organ firmware
+(based on Felucca, reporting `FM-1_2147` on a port named `FM-1 ESTAMPIE`), which had been
+installed with M-VAVE's updater; the rest on V15.
+
+- **B1 refused every install** with its own update screen: `STAGE 9`, `RESULT -25`. B1 brings
+  its own update code, which accepts only stock V15 (pinned by SHA-256) and its own app-only
+  packages; −25 means it couldn't read the staged package back. It fails before writing
+  anything, so the FM-1 still started B1. It was left by holding OCT− while switching it on,
+  which starts the chip's download mode.
+- **The first I3 failed** with `command 0xfb06: an invalid status block`. IOUSBHost reports a
+  stalled pipe as `0xE0005000`, not the older `0xE000404F` FM1Kit looked for, so the status of
+  each refused command was left unread and answered the next one. Fixed, and `--trace` added.
+- **I3 passed on B1:** loader 1.2 at 96 MHz, chip key `0x980F`, flash `0x856014`, unit ID
+  `4150353835313708`, both reads and the chip's CRC-32 matched in 3.1 s, `Bootloader: M-VAVE's`.
+  M-Flasher 0.5.1's backup of the same flash nine minutes later, just before it wrote V15 back,
+  had the same SHA-256 (`b6b8a8ab…`).
+- **I2 passed on V15:** `download-mode` switched it with the MIDI message.
+- **I3 passed on V15** in 3.2 s, SHA-256 `25091df3…`. **I4 passed** in 3.1 s with the same
+  SHA-256.
+- **I5 passed:** V15 started as before, `FM-1_015`, with the same serial number.
+
+Firmwares that haven't been tried on a real FM-1 shouldn't be offered for installing: B1 can only
+be left through download mode.
+
+### 2026-10-23: stage J, installing m-bootloader over USB-MIDI
+
+The same Mac and FM-1, starting on V15 with M-VAVE's bootloader.
+
+- **J1 passed:** `Installs: m-bootloader 1.2-22e2559 for fm1`, bootloader SHA-256 `9e5ec0e3…`.
+- **J2 passed:** the rehearsal was back on `FM-1_015` after 4.1 s.
+- **J3 passed.** V15 read the 18 KB package in 37 requests of 512 bytes (fm1probe's `staging`
+  figures count requests), asked to finish and restarted. The FM-1 showed m-bootloader's green
+  start-up screen, then V15's home screen; `back: FM-1_015` 5.7 s after the start.
+- **J4 passed:** holding PLAY opened m-bootloader's menu, showing `1.2-22e2559`, and V15 started
+  from it.
+- **J5 passed:** `FM-1_015`, with the same serial number.
+- **J6 passed.** Holding REC started download mode with a blank screen, and the backup read
+  `Bootloader: m-bootloader 1.2-22e2559` in 3.2 s.
+
+Against stage I's V15 backup, the flash differed in three places: the boot area (14,104 bytes
+between `0x20` and `0x38CF`); the staged installer, left in V15's empty staging area at
+`0xE3000`–`0xE80AC`; and 50 bytes of V15's settings at `0x93000`, which V15 rewrote while
+starting the update, after copying the sector to `0xE8000`. The firmware itself was untouched.

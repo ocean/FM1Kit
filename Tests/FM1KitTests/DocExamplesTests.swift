@@ -1,6 +1,7 @@
 import Testing
+import os
 
-@testable import FM1Kit
+@_spi(Testing) @testable import FM1Kit
 
 /// The README's and documentation's examples, run against the simulated FM-1 so they keep compiling.
 struct DocExamplesTests {
@@ -54,5 +55,51 @@ struct DocExamplesTests {
             try await updater.resume(package)
         }
         #expect(OfficialFirmware.matching(package) == nil)
+    }
+
+    @Test func progressAndAdviceExampleRuns() async throws {
+        let package = try UpdaterTests.package()
+        let device = SimulatedFM1(options: UpdaterTests.fastOptions)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        let options = InstallOptions(confirmsSwitchingFirmware: true)
+        let progress = OSAllocatedUnfairLock(initialState: InstallProgress())
+
+        // The device isn't told to expect the package, so it stops answering while staging.
+        do {
+            try await updater.install(package, options: options) { event in
+                progress.withLock { $0.record(event) }
+            }
+            Issue.record("The install should have stopped.")
+        } catch {
+            let advice = FM1Advice(for: error)
+            #expect(advice.action == .tryAgain)
+            #expect(advice.isDeviceFine)
+        }
+        #expect(progress.withLock { $0.stage } == .gettingReady)
+    }
+
+    @Test func summaryExampleRuns() async throws {
+        let updater = FM1Updater(
+            transport: SimulatedFM1(options: UpdaterTests.fastOptions), timing: UpdaterTests.fastTiming)
+        if let summary = try await updater.summary() {
+            print(summary.firmwareName ?? summary.identity.text)
+            if summary.isWaitingMidUpdate { print("Offer to finish the update") }
+            print(summary.serialNumber ?? "no serial number")
+            #expect(summary.serialNumber == "SIMULATED-FM-1")
+        } else {
+            Issue.record("The simulated FM-1 should answer.")
+        }
+    }
+
+    @Test func bootloaderExampleRuns() async throws {
+        var options = UpdaterTests.fastOptions
+        options.installedIdentity = .officialV15
+        let device = SimulatedFM1(options: options)
+        let installer = try BootloaderInstaller(package: FwscPackage(data: FwscPackage.sampleBootloaderInstallerFile()))
+        device.prepare(for: installer.package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        print(installer.bootloader.version)
+        try await updater.installBootloader(installer)
+        #expect(device.installedBootloaderVersion == installer.bootloader.version)
     }
 }

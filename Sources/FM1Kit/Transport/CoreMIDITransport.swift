@@ -85,7 +85,7 @@ public final class CoreMIDITransport: MIDITransport, @unchecked Sendable {
                 ?? destinations.first { Self.name(of: $0) == name }
             guard let destination else { continue }
             let id = "\(Self.uniqueID(of: source)):\(Self.uniqueID(of: destination))"
-            descriptors.append(MIDIPortDescriptor(id: id, name: name))
+            descriptors.append(MIDIPortDescriptor(id: id, name: name, serialNumber: Self.serialNumber(of: entity)))
         }
         return descriptors
     }
@@ -126,6 +126,19 @@ public final class CoreMIDITransport: MIDITransport, @unchecked Sendable {
             return name.takeRetainedValue() as String
         }
         return "Unknown"
+    }
+
+    /// The serial number of the USB device an entity belongs to, if it reports one.
+    static func serialNumber(of entity: MIDIEntityRef) -> String? {
+        var device = MIDIDeviceRef()
+        guard entity != 0, MIDIEntityGetDevice(entity, &device) == noErr else { return nil }
+        var value: Unmanaged<CFString>?
+        // The USB-MIDI driver sets this property; CoreMIDI has no named constant for it.
+        guard MIDIObjectGetStringProperty(device, "SerialNumber" as CFString, &value) == noErr, let value else {
+            return nil
+        }
+        let serial = value.takeRetainedValue() as String
+        return serial.isEmpty ? nil : serial
     }
 
     /// The object's unique ID, or 0 when it has none.

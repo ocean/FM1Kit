@@ -13,7 +13,11 @@ with a firmware that supports it).
 Before an install, it checks exactly one FM-1 answers and says whether the install switches to a
 different firmware, which needs confirming. It arms M-VAVE's open firmware before updating it,
 and can restore V15's 128 factory voices after installing V15. Before switching away from open
-firmware, it can back up its projects and sample bank.
+firmware, it can back up its projects and sample bank. It can install m-bootloader, which adds a
+recovery menu and download mode, from V15.
+
+For apps aimed at everyone, ``InstallProgress``, ``FM1Advice`` and ``FM1DeviceSummary`` put
+progress, problems and the connected FM-1 in plain terms.
 
 It works with CoreMIDI on any class-compliant connection: an iPhone or iPad's USB-C port, a
 Lightning device through Apple's camera adapter, or a Mac. For the iOS Simulator and tests,
@@ -45,8 +49,17 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - ``OpenFirmwareBackup``
 - ``OpenFirmwareProject``
 
+### m-bootloader
+
+- ``BootloaderInstaller``
+- ``BootloaderImage``
+
 ### Progress and errors
 
+- ``InstallProgress``
+- ``FM1Advice``
+- ``FM1Key``
+- ``FM1DeviceSummary``
 - ``UpdateEvent``
 - ``FM1UpdateError``
 - ``UpdaterTiming``

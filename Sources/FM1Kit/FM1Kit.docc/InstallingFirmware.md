@@ -63,6 +63,29 @@ let installed = try await updater.install(package, options: options) { event in
 }
 ```
 
+### Show one progress bar, and plain advice
+
+``UpdateEvent``s follow the protocol closely. ``InstallProgress`` folds them into one bar that
+never goes backwards, with four friendly stages: getting ready, installing, checking (only some
+firmwares) and restarting. When something goes wrong, ``FM1Advice`` turns any error into a
+headline, an explanation, whether the FM-1 is still fine as it is, and the one thing to do next:
+
+```swift
+var progress = InstallProgress()
+do {
+    try await updater.install(package, options: options) { event in
+        Task { @MainActor in
+            progress.record(event)
+            show(progress.stage.title, progress.fraction)
+        }
+    }
+} catch {
+    let advice = FM1Advice(for: error)
+    // advice.headline: "The install was interrupted"; advice.action: .resume
+    showProblem(advice.headline, advice.explanation, button: advice.action)
+}
+```
+
 The updater only sends SysEx to ports whose names look like an FM-1
 (``FM1Updater/isProbeable(_:)``), so other MIDI gear connected at the same time is left alone.
 It refuses to start while more than one FM-1 answers
@@ -75,6 +98,40 @@ must be armed with the incoming package's build ID before it will update. The up
 for its ``FM1Capability`` and arms it, using the build IDs of ``OfficialFirmware/known``, or the
 one given in ``InstallOptions/buildID``. After an install of known build, it checks the open
 firmware reports that build.
+
+### Describe the connected FM-1
+
+``FM1Updater/summary()`` says what's connected in a person's terms, sending only the handshake:
+the firmware's name and version for those FM1Kit knows (V15 and M-VAVE's open firmware),
+whether it's waiting part-way through an update, and its USB serial number when its firmware
+reports one, so an app can remember things about each FM-1:
+
+```swift
+if let summary = try await updater.summary() {
+    print(summary.firmwareName ?? summary.identity.text)   // "M-VAVE V15"
+    if summary.isWaitingMidUpdate { print("Offer to finish the update") }
+    print(summary.serialNumber ?? "no serial number")
+}
+```
+
+### Install m-bootloader
+
+m-bootloader (<https://github.com/jvitkauskas/m-bootloader>, MIT) replaces the bootloader
+M-VAVE ships: holding PLAY while switching on opens its recovery menu, holding REC starts the
+chip's USB download mode, and it opens the menu by itself when the firmware fails its checksum.
+Its `fm1-uboot.fwsc` installs it over USB-MIDI: V15 takes the package like an update, and the
+installer inside rewrites only the boot area and restarts into V15.
+
+```swift
+let installer = try BootloaderInstaller(package: FwscPackage(data: Data(contentsOf: installerURL)))
+print(installer.bootloader.version)   // e.g. "1.2-22e2559"
+try await updater.installBootloader(installer)
+```
+
+FM1Kit can't read the bootloader back over USB-MIDI, so ask the person what the screen showed,
+or to hold PLAY while switching on and look for the menu. Installing V15 later puts M-VAVE's
+bootloader back. Download mode needs a computer: restoring an FM-1 from it isn't possible from
+an iPhone or iPad.
 
 ### Restore V15's factory voices
 

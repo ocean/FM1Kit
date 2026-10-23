@@ -7,15 +7,22 @@ public struct MIDIPortDescriptor: Hashable, Sendable, Identifiable {
     public let id: String
     /// The port's name as the system reports it, e.g. "FM-1 Midi".
     public let name: String
+    /// The USB device's serial number, when its firmware reports one.
+    ///
+    /// M-VAVE's V15 and open firmware report the same number for a unit, so it can tell one
+    /// FM-1 from another; Felucca reports none.
+    public let serialNumber: String?
 
     /// Describes a port pair.
     ///
     /// - Parameters:
     ///   - id: An identifier the transport can open the pair by.
     ///   - name: The name to show and to match against ``FM1Updater/probeablePortNameFragments``.
-    public init(id: String, name: String) {
+    ///   - serialNumber: The USB device's serial number, if it reports one.
+    public init(id: String, name: String, serialNumber: String? = nil) {
         self.id = id
         self.name = name
+        self.serialNumber = serialNumber
     }
 }
 

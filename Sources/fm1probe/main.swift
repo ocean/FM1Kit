@@ -1,7 +1,8 @@
 // A small Mac command-line probe: talk to a real FM-1 over CoreMIDI and inspect .fwsc files.
-// Only `install` and `restore-voices` write to the device, and `backup` changes which project it's
-// showing while it reads; each asks the user to type YES first. Every other command sends nothing
-// but the handshake query.
+// Only `install`, `install-bootloader` and `restore-voices` write to the device, and `backup`
+// changes which project it's showing while it reads; each asks the user to type YES first.
+// `download-mode` asks the FM-1 to restart into the chip's download mode, and `flash-backup` reads
+// its flash there; neither writes. Every other command sends nothing but the handshake query.
 
 import FM1Kit
 import Foundation
@@ -14,7 +15,8 @@ let usage = """
            fm1probe monitor [SECONDS]          print every SysEx message any port sends (default 30 s);
                                                sends nothing
            fm1probe watch [SECONDS]            print the ports each time devices come or go (default 60 s)
-           fm1probe inspect FILE.fwsc          show a package's identity, size and hash
+           fm1probe inspect FILE               show a package's identity, size and hash, or which
+                                               m-bootloader a .boot file or installer package holds
            fm1probe install FILE.fwsc [options]
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
@@ -29,6 +31,19 @@ let usage = """
                --simulated                     run against a simulated FM-1 running V15 (writes nothing)
                --log FILE                      write every message to and from the device to a new
                                                CSV file
+           fm1probe install-bootloader fm1-uboot.fwsc [options]
+                                               install m-bootloader from its installer package on an
+                                               FM-1 running V15, after asking to confirm
+               --simulated                     run against a simulated FM-1 running V15 (writes nothing)
+               --log FILE                      write every message to and from the device to a new
+                                               CSV file
+           fm1probe download-mode              ask the FM-1 (V15 or Felucca) to restart into the chip's
+                                               USB download mode; nothing is written
+           fm1probe flash-backup FOLDER [options]
+                                               read the whole flash of an FM-1 in download mode, twice,
+                                               and save it as M-Flasher does; needs sudo
+               --simulated                     read a simulated FM-1 instead
+               --trace                         print every USB transfer
            fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
                                                M-VAVE's open firmware to a new folder, after asking
                                                to confirm
@@ -109,6 +124,7 @@ case "identify":
     var answeringPorts = 0
     for port in ports {
         print("\(port.name):")
+        if let serial = port.serialNumber { print("  serial: \(serial)") }
         let connection = try await transport.open(port)
         var times: [Double] = []
         var identities: Set<String> = []
@@ -210,21 +226,7 @@ case "watch":
     print("Stopped watching after \(seconds) s.")
 
 case "inspect" where arguments.count == 2:
-    let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
-    let package = try FwscPackage(data: data)
-    print("Product:       \(package.product)")
-    print("File size:     \(package.fileBytes.count) bytes")
-    print("Logical image: \(package.logicalImage.count) bytes")
-    print("SHA-256:       \(package.sha256)")
-    print("Contents:      header, parts and checksums all intact")
-    let isStockLoader = package.loaderSHA256 == OfficialFirmware.stockLoaderSHA256
-    print("Loader:        \(package.loaderSHA256)\(isStockLoader ? " (M-VAVE's, reports ota-FM-1_015)" : "")")
-    if let official = OfficialFirmware.matching(package) {
-        print("Official:      \(official.name) (verified)")
-    }
-    if package.hasFactoryVoices {
-        print("Voices:        V15's 128 factory voices (fm1probe restore-voices can restore them)")
-    }
+    try inspect(path: arguments[1])
 
 case "restore-voices" where arguments.count >= 2:
     try await restoreVoices(
@@ -233,11 +235,26 @@ case "restore-voices" where arguments.count >= 2:
 case "backup" where arguments.count >= 2:
     try await backUp(folderPath: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
 
+case "download-mode":
+    try await enterDownloadMode()
+
+case "flash-backup" where arguments.count >= 2:
+    try backUpFlash(
+        folderPath: arguments[1], isSimulated: arguments.contains("--simulated"), traces: arguments.contains("--trace"))
+
+case "install-bootloader" where arguments.count >= 2:
+    try await installBootloader(
+        path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
+
 case "install" where arguments.count >= 2:
     let isResume = arguments.contains("--resume")
     let isSimulated = arguments.contains("--simulated")
     let path = arguments[1]
     let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
+    guard package.isFirmware else {
+        print("\(path) installs a bootloader, not firmware. Use `fm1probe install-bootloader \(path)`.")
+        exit(1)
+    }
     let device: any MIDITransport
     if isSimulated {
         var options = SimulatedFM1.Options()
