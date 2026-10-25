@@ -5,6 +5,15 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-25
+
+### Added
+
+- `FwscPackage.usesFeluccaUpdateCode`: whether a firmware package's code uses Felucca's update
+  code (AMB-1, HYP-1, DUB-1, Estampie, LOF-1, Felucca), which refuses V15 over USB-MIDI while
+  m-bootloader is installed, so apps can warn before installing one. `fm1probe inspect` shows it.
+  Reading a package's firmware code moved from FM1Rescue into FM1Kit, so it works on iOS too.
+
 ## [0.4.1] - 2026-10-25
 
 ### Added
@@ -192,7 +201,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.2...HEAD
+[0.4.2]: https://github.com/ocean/FM1Kit/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/ocean/FM1Kit/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/ocean/FM1Kit/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/ocean/FM1Kit/compare/0.2.0...0.3.0

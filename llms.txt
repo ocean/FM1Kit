@@ -2,7 +2,7 @@
 
 > A Swift package (MIT) for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. It reads `.fwsc` packages, installs and resumes updates, restores V15's factory voices, backs up M-VAVE's open firmware and installs m-bootloader; on macOS it also backs up, restores and writes the whole flash in the chip's USB download mode. Not affiliated with M-VAVE.
 
-Part of Drew Robinson's FM-1 projects (https://fm-1.drewr.dev/). Latest release: 0.4.1. Requires iOS 17 or macOS 14 and Swift 6.1 or later.
+Part of Drew Robinson's FM-1 projects (https://fm-1.drewr.dev/). Latest release: 0.4.2. Requires iOS 17 or macOS 14 and Swift 6.1 or later.
 
 ## Docs
 

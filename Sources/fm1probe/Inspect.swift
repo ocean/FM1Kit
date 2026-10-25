@@ -34,6 +34,10 @@ func inspect(path: String) throws {
     if package.hasFactoryVoices {
         print("Voices:        V15's 128 factory voices (fm1probe restore-voices can restore them)")
     }
+    if package.usesFeluccaUpdateCode {
+        print("Update code:   Felucca's platform: once installed, it refuses V15 over USB-MIDI while")
+        print("               m-bootloader is installed (install V15 in download mode then)")
+    }
     if !package.isFirmware {
         do {
             let installer = try BootloaderInstaller(package: package)

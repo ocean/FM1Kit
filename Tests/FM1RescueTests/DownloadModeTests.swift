@@ -148,6 +148,14 @@ struct FirmwareCheckTests {
         #expect(Self.backup(Self.flash(storing: amb)).firmware.description == "AMB-1 1.3 (FM-1_7010300)")
     }
 
+    @Test func findsFeluccasUpdateCodeInAPackage() throws {
+        let felucca = Array("..FM-1_7010300..FELUCCA-LOADER-1..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+        #expect(try SampleFlash.package(SampleFlash.flash(code: felucca)).usesFeluccaUpdateCode)
+        #expect(try !SampleFlash.package(SampleFlash.flash()).usesFeluccaUpdateCode)
+        let installer = try FwscPackage(data: FwscPackage.sampleBootloaderInstallerFile(carrying: .sample()))
+        #expect(!installer.usesFeluccaUpdateCode)
+    }
+
     @Test func doesntNameAForkThatSharesItsIdentity() {
         let hyp = Array("..FM-1_7010300..FM-1_015..HYP-1 1.3..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
         let firmware = Self.backup(Self.flash(storing: hyp)).firmware

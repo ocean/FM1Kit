@@ -137,7 +137,7 @@ Firmwares built on Felucca's platform, such as AMB-1, HYP-1, DUB-1 and Estampie,
 only over M-VAVE's own bootloader. With m-bootloader installed they refuse V15, and the install
 stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. Getting back to V15 from one of
 them then needs download mode, from a Mac, so tell people before they install one from an iPhone
-or iPad.
+or iPad: ``FwscPackage/usesFeluccaUpdateCode`` says whether a package is one of them.
 
 ### Restore V15's factory voices
 

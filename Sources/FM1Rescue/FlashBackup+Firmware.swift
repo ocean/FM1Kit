@@ -123,66 +123,34 @@ extension FlashBackup {
 
     /// The firmware's `app.bin`, deciphered, if the app area's table names one inside the flash.
     func applicationCode() -> [UInt8]? {
-        guard let app = applicationTable().first(where: { $0.name == "app.bin" }),
-            Self.applicationArea + app.address + app.length <= bytes.count
-        else {
-            return nil
-        }
-        return applicationBytes(at: app.address, count: app.length)
+        applicationArea.code()
     }
 
     /// The SHA-256 of V15's `app.bin`, deciphered, as read from a real FM-1 running V15.
     static let officialV15ApplicationSHA256 = "306e47065f35d7a7a05ada7f5dd092f6e770952054f33f0a86b75fd10ffe3203"
     /// Where the app area starts, after the boot area.
-    static let applicationArea = 0x4000
+    static let applicationArea = ApplicationArea.start
     /// The attribute of a file in the app area's table, rather than a region.
-    static let fileAttribute: UInt8 = 0x82
+    static let fileAttribute = ApplicationArea.fileAttribute
     /// The flash's erase size.
     static let sectorLength = 0x1000
 
     /// An entry in the app area's file table.
-    struct TableEntry {
-        /// The CRC-16 of the file's deciphered bytes.
-        let dataCRC: UInt16
-        /// Where it starts, from the start of the app area for files.
-        let address: Int
-        let length: Int
-        let attribute: UInt8
-        let name: String
+    typealias TableEntry = ApplicationArea.Entry
+
+    /// The backup's app area.
+    var applicationArea: ApplicationArea {
+        ApplicationArea(flash: bytes, chipKey: chipKey)
     }
 
     /// The app area's file table: its files (such as `app.bin`) and the regions it declares.
     func applicationTable() -> [TableEntry] {
-        var entries: [TableEntry] = []
-        for index in 0..<16 {
-            let raw = applicationBytes(at: 32 * index, count: 32)
-            guard raw.count == 32, ChipChecksum.crc16(raw[2...]) == Self.littleEndian(raw, at: 0, byteCount: 2)
-            else { break }
-            let name = raw[16...].prefix { $0 != 0 }
-            entries.append(
-                TableEntry(
-                    dataCRC: UInt16(Self.littleEndian(raw, at: 2, byteCount: 2)),
-                    address: Self.littleEndian(raw, at: 4, byteCount: 4),
-                    length: Self.littleEndian(raw, at: 8, byteCount: 4),
-                    attribute: raw[12],
-                    name: String(bytes: name, encoding: .ascii) ?? ""
-                ))
-        }
-        return entries
+        applicationArea.table()
     }
 
-    /// Deciphers bytes of the app area, which is enciphered in 32-byte blocks, each with the chip
-    /// key mixed with the block's offset.
+    /// Deciphers bytes of the app area, from `offset` within it.
     func applicationBytes(at offset: Int, count: Int) -> [UInt8] {
-        var plain: [UInt8] = []
-        plain.reserveCapacity(count + 64)
-        var block = offset - offset % 32
-        while block < offset + count, Self.applicationArea + block + 32 <= bytes.count {
-            let start = Self.applicationArea + block
-            plain += Self.decipher(bytes[start..<(start + 32)], key: chipKey ^ UInt16(truncatingIfNeeded: block >> 2))
-            block += 32
-        }
-        return Array(plain.dropFirst(offset % 32).prefix(count))
+        applicationArea.bytes(at: offset, count: count)
     }
 
     func isWhole(_ file: TableEntry) -> Bool {
