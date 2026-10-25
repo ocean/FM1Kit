@@ -81,7 +81,8 @@ func confirmBootloaderInstall() -> Bool {
         area, shows INSTALLED and restarts into V15. Keep the cable connected and the FM-1 powered
         until V15 is back: losing power while the boot area is written can leave the FM-1 unable to
         start, and only a USB_KEY dongle can recover it then. Installing V15 later puts M-VAVE's
-        bootloader back.
+        bootloader back. Firmwares built on Felucca's platform (AMB-1, HYP-1, DUB-1, Estampie) refuse V15
+        over USB-MIDI while m-bootloader is installed: from them, install V15 in download mode.
 
         """)
     print("Type YES to install m-bootloader, or anything else to stop: ", terminator: "")

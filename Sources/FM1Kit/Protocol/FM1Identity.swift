@@ -101,8 +101,12 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
         model.lowercased().hasPrefix(Self.loaderPrefix)
     }
 
-    /// True for M-VAVE's open firmware and builds of it: `FM-1_8` and six digits (`FM-1_8000012`
-    /// for V12), or `FM1_COMMUNITY_` and a number.
+    /// True for M-VAVE's open firmware and builds of it: `FM-1_8000` and three digits
+    /// (`FM-1_8000012` for V12), or `FM1_COMMUNITY_` and a number.
+    ///
+    /// M-VAVE's own tools take any `FM-1_8` and six digits, but other firmwares number their
+    /// builds in that range too: DUB-1 1.3.0 reports `FM-1_8010300`, and doesn't answer open
+    /// firmware's capability query.
     ///
     /// Open firmware has to be armed before an update; see ``FM1Capability``.
     public var isOpenFirmware: Bool {
@@ -110,7 +114,7 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
     }
 
     /// The versions M-VAVE's open firmware reports.
-    static let openVersions = 8_000_000...8_999_999
+    static let openVersions = 8_000_000...8_000_999
 
     /// The hardware model with any loader prefix removed, e.g. `FM-1`; an armed open firmware's
     /// loader runs on an FM-1.

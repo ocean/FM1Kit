@@ -133,6 +133,12 @@ or to hold PLAY while switching on and look for the menu. Installing V15 later p
 bootloader back. Download mode needs a computer: restoring an FM-1 from it isn't possible from
 an iPhone or iPad.
 
+Firmwares built on Felucca's platform, such as AMB-1, HYP-1, DUB-1 and Estampie, install M-VAVE's packages
+only over M-VAVE's own bootloader. With m-bootloader installed they refuse V15, and the install
+stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. Getting back to V15 from one of
+them then needs download mode, from a Mac, so tell people before they install one from an iPhone
+or iPad.
+
 ### Restore V15's factory voices
 
 Installing V15 over other firmware can leave voice banks holding the earlier firmware's voices,

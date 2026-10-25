@@ -198,6 +198,9 @@ public actor FM1Updater {
             }
         }
         guard staging.finished else {
+            if Self.refusedBootloader(staging, of: package) {
+                throw FM1UpdateError.bootloaderMismatch(requests: staging.requests)
+            }
             throw staging.lost
                 ? FM1UpdateError.disconnected(phase: .staging, requests: staging.requests)
                 : FM1UpdateError.stalled(phase: .staging, requests: staging.requests)
@@ -287,6 +290,14 @@ public actor FM1Updater {
         return returned.identity
     }
 
+    /// True when staging stopped on a read of the package's boot area, as Felucca's platform does
+    /// when the FM-1's bootloader isn't the one the package brings: it reads the boot area in
+    /// order, comparing each block with the FM-1's, and gives up at the first difference.
+    static func refusedBootloader(_ staging: ServeOutcome, of package: FwscPackage) -> Bool {
+        guard let boot = package.bootAreaRange, let last = staging.lastRead else { return false }
+        return boot.contains(last.lowerBound)
+    }
+
     /// How a run of answering read requests ended.
     struct ServeOutcome {
         /// Image reads answered (finish requests aren't counted).
@@ -295,6 +306,8 @@ public actor FM1Updater {
         var finished = false
         /// True when the device disconnected.
         var lost = false
+        /// The last read answered.
+        var lastRead: Range<Int>?
     }
 
     /// Answers read requests until the device asks to finish `phase`, goes quiet, or disappears.
@@ -358,6 +371,7 @@ public actor FM1Updater {
                 return outcome
             }
             outcome.requests += 1
+            outcome.lastRead = start..<(start + request.length)
             progress(request, outcome.requests)
         }
     }

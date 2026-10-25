@@ -51,7 +51,7 @@ extension FlashPlan {
             notes.append("Also writes the package's boot area, with its bootloader.")
         }
         let installed = current.regions()
-        if !installed.isEmpty, installed != incoming.regions() {
+        if !erasingSettings, !installed.isEmpty, installed != incoming.regions() {
             warnings.append(
                 """
                 The installed firmware keeps its settings in other places than \(package.product); what it \

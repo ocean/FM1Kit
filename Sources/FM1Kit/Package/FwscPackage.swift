@@ -142,6 +142,12 @@ public struct FwscPackage: Sendable {
         container.flash.map { Array(logicalImage[$0.range]) }
     }
 
+    /// Where the firmware image's boot area (its first 16 KB) is in the logical image, which
+    /// update requests address; `nil` for an installer package.
+    var bootAreaRange: Range<Int>? {
+        container.flash.map { $0.range.lowerBound..<min($0.range.lowerBound + 0x4000, $0.range.upperBound) }
+    }
+
     /// The identity the header's markers spell; `bytes` must hold the whole header.
     static func decodeProduct(_ bytes: [UInt8]) -> String {
         var scalars = String.UnicodeScalarView()

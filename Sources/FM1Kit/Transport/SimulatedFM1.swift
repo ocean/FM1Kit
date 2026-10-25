@@ -73,6 +73,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var serialNumber: String? = "SIMULATED-FM-1"
         /// The m-bootloader version installed at first, or `nil` for M-VAVE's bootloader.
         public var bootloaderVersion: String?
+        /// Compare a package's boot area with the FM-1's before staging it, as firmwares built on
+        /// Felucca's platform (AMB-1, HYP-1, DUB-1, Estampie) do: while m-bootloader is installed, the
+        /// first block differs, so the package is refused.
+        public var comparesBootArea = false
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -227,6 +231,17 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     private func stage(_ package: FwscPackage, on connection: SimulatedConnection) async {
         let image = package.logicalImage
         let length = min(FM1Message.maximumReadLength, image.count)
+        if options.comparesBootArea, let boot = package.bootAreaRange,
+            state.withLock({ $0.bootloaderVersion }) != nil
+        {
+            for address in [0, length, boot.lowerBound] {
+                let request = FM1ReadRequest(address: UInt32(address), length: length)
+                guard await exchange(request, expecting: Array(image[address..<(address + length)]), on: connection)
+                else { return }
+            }
+            log("The package's bootloader isn't the FM-1's, so it's refused.")
+            return
+        }
         for index in 0..<options.stagingRequestCount {
             let address = (index * length) % max(image.count - length, 1)
             let request = FM1ReadRequest(address: UInt32(address), length: length)

@@ -17,6 +17,14 @@ public enum FirmwareFiles: Sendable, Hashable {
     case missing
 }
 
+/// A custom firmware FM1Kit names in backups.
+struct KnownFirmware {
+    let identity: String
+    /// Text its code holds, naming the firmware and its version.
+    let marker: String
+    let name: String
+}
+
 extension FlashBackup {
     /// The firmware stored in a backup, as far as the flash shows it.
     public struct FirmwareCheck: Sendable, Hashable {
@@ -28,12 +36,24 @@ extension FlashBackup {
         public let identities: [String]
         /// Whether it's M-VAVE's V15, byte for byte.
         public let isOfficialV15: Bool
-
         /// The firmware's name, for V15 and the other firmwares tried on a real FM-1, such as
         /// "Felucca 1.6.1". `nil` for others.
-        public var name: String? {
-            if isOfficialV15 { return "V15" }
-            return identities.lazy.compactMap { Self.knownFirmwares[$0] }.first
+        ///
+        /// Forks share identity numbers (HYP-1 numbers its builds as AMB-1 does), so a custom
+        /// firmware is named only when its code also carries the name and version it shows.
+        public let name: String?
+        /// The identity that goes with ``name``, for a custom firmware.
+        let namedIdentity: String?
+
+        init(files: FirmwareFiles, identities: [String], isOfficialV15: Bool, code: [UInt8] = []) {
+            self.files = files
+            self.identities = identities
+            self.isOfficialV15 = isOfficialV15
+            let known = Self.knownFirmwares.first { firmware in
+                identities.contains(firmware.identity) && code.firstRange(of: Array(firmware.marker.utf8)) != nil
+            }
+            name = isOfficialV15 ? "V15" : known?.name
+            namedIdentity = known?.identity
         }
 
         /// The firmware in words, such as "V15 (FM-1_015)", "AMB-1 1.3 (FM-1_7010300)" or
@@ -41,19 +61,17 @@ extension FlashBackup {
         public var description: String {
             if files == .missing { return "none" }
             if isOfficialV15 { return "V15 (FM-1_015)" }
-            if let name, let identity = identities.first(where: { Self.knownFirmwares[$0] == name }) {
-                return "\(name) (\(identity))"
-            }
+            if let name, let namedIdentity { return "\(name) (\(namedIdentity))" }
             guard let last = identities.last else { return "unknown" }
             let names = identities.count == 1 ? last : identities.dropLast().joined(separator: ", ") + " and \(last)"
             return "unknown, naming \(names)"
         }
 
-        /// Custom firmwares by the identity their code names, alongside V15's `FM-1_015`: only
-        /// versions read from a real FM-1.
+        /// Custom firmwares by the identity their code names, alongside V15's `FM-1_015`, and the
+        /// text their code shows with it: only versions read from a real FM-1.
         static let knownFirmwares = [
-            "FM-1_916": "Felucca 1.6.1",
-            "FM-1_7010300": "AMB-1 1.3",
+            KnownFirmware(identity: "FM-1_916", marker: "FELUCCA v1.6.1", name: "Felucca 1.6.1"),
+            KnownFirmware(identity: "FM-1_7010300", marker: "AMB-1 1.3", name: "AMB-1 1.3"),
         ]
 
         /// The files' state in words, as M-Flasher writes it in a backup's `.json`.
@@ -79,7 +97,8 @@ extension FlashBackup {
         return FirmwareCheck(
             files: state ?? .intact,
             identities: Self.identities(in: code),
-            isOfficialV15: FwscPackage.sha256Hex(code) == Self.officialV15ApplicationSHA256
+            isOfficialV15: FwscPackage.sha256Hex(code) == Self.officialV15ApplicationSHA256,
+            code: code
         )
     }
 

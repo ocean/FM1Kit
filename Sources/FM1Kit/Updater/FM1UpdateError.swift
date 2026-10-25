@@ -54,6 +54,11 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case bootloaderInstallNeedsV15(device: String)
     /// The FM-1 took the bootloader installer but didn't restart to run it.
     case installerDidNotStart
+    /// The firmware stopped while comparing the package's bootloader with the FM-1's, after
+    /// `requests` reads: firmwares built on Felucca's platform accept a package with M-VAVE's
+    /// update loader (V15, open firmware) only when the FM-1 already has the bootloader it
+    /// brings, so they refuse V15 once m-bootloader is installed.
+    case bootloaderMismatch(requests: Int)
     /// The device stopped asking for data during `phase`, after `requests` reads.
     case stalled(phase: Phase, requests: Int)
     /// The device disconnected during `phase`, after `requests` reads.
@@ -173,6 +178,15 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             """
             The FM-1 took the bootloader installer but didn't restart to run it, so the bootloader \
             wasn't installed. Switch the FM-1 off and on again; it should start normally.
+            """
+        case .bootloaderMismatch(let requests):
+            """
+            The FM-1's firmware stopped after \(requests) requests, while comparing this package's \
+            bootloader with the FM-1's, and should carry on as before. Firmwares built on Felucca's \
+            platform, such as AMB-1, HYP-1, DUB-1 and Estampie, install M-VAVE's packages only when the FM-1 \
+            already has the bootloader the package brings, so they refuse V15 once m-bootloader is \
+            installed. Install it from a Mac in the chip's USB download mode instead, which keeps \
+            the FM-1's bootloader.
             """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """

@@ -124,6 +124,8 @@ struct FlashWriteTests {
         let current = SampleFlash.backup(SampleFlash.flash())
         let plan = try FlashPlan.installing(try SampleFlash.package(incoming), onto: current)
         #expect(plan.warnings.count == 1)
+        let erasing = try FlashPlan.installing(try SampleFlash.package(incoming), onto: current, erasingSettings: true)
+        #expect(erasing.warnings.isEmpty)
     }
 
     @Test func refusesFirmwareMadeForAnotherChipKey() throws {

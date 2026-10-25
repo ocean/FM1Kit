@@ -229,6 +229,27 @@ losing power then can leave the FM-1 needing a USB_KEY dongle.
 If a write stops with `didn't read back as written`, don't switch the FM-1 off: run the same
 command again, or restore the backup it saved, with another cable or port.
 
+## Stage L: switching firmware over USB-MIDI with m-bootloader
+
+Which firmwares take which packages while m-bootloader is installed. A firmware built on
+Felucca's platform checks only packages that bring M-VAVE's update loader (V15 and open
+firmware): their boot area must equal the FM-1's. Packages with Felucca's own loader (AMB-1,
+DUB-1, Felucca, Estampie, LOF-1) aren't checked, and that loader writes only the application, so
+m-bootloader stays. Open V12's package brings a boot area of its own, different from V15's, so
+those firmwares should refuse it whatever the bootloader. Start on V15 with m-bootloader. If
+anything goes wrong, hold REC while switching on and `flash-install` V15 or `flash-restore` a
+backup.
+
+| Step | Command | What to look for |
+|---|---|---|
+| L1 | `swift run fm1probe install .artifacts/dub-1.3.0.fwsc --log .artifacts/tmp/l1-dub.csv` | DUB-1 installs; the green screen still shows at power-on (m-bootloader kept). |
+| L2 | `swift run fm1probe install .artifacts/amb-1.3.fwsc --log .artifacts/tmp/l2-amb.csv` | DUB-1 takes AMB-1 (no `CHECK HEAD` failure); green screen at power-on. |
+| L3 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc --log .artifacts/tmp/l3-open.csv` | AMB-1 refuses Open V12: `FAILED` on screen, and fm1probe reports the bootloader mismatch. AMB-1 carries on. |
+| L4 | `swift run fm1probe install .artifacts/estampie-0.1.fwsc --log .artifacts/tmp/l4-estampie.csv` | AMB-1 takes Estampie; green screen at power-on. |
+| L5 | `swift run fm1probe install .artifacts/FM-1.fwsc --log .artifacts/tmp/l5-v15.csv` | Either Estampie refuses V15 with the bootloader mismatch (it shares Felucca's update code), or it takes it and M-VAVE's bootloader replaces m-bootloader (no green screen). |
+| L6 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc .artifacts/tmp/l-backups`, then `YES` | Open V12 written in download mode, keeping m-bootloader: the green screen, then Open V12. (Skip if L5 installed V15: install m-bootloader again first.) |
+| L7 | `swift run fm1probe install .artifacts/FM-1.fwsc --log .artifacts/tmp/l7-v15.csv` | Open V12 is armed and takes V15; M-VAVE's bootloader replaces m-bootloader (no green screen). `install-bootloader` then puts m-bootloader back, as in stage J. |
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -457,3 +478,50 @@ describes it as `unknown, naming FM-1_015 and FM-1_7010300`.
 - **K7 passed.** The final backup read `Bootloader: m-bootloader 1.2-22e2559` and
   `Firmware: V15 (FM-1_015), files OK`, with SHA-256 `a5720057…`: byte for byte J6's backup,
   after installing Felucca over AMB-1, restoring V15 and swapping the bootloader both ways.
+
+### 2026-10-25: Felucca-platform firmwares refuse V15 over m-bootloader
+
+The same Mac and FM-1. HYP-1, AMB-1 and DUB-1 share Felucca's update code, which installs M-VAVE's
+package only after comparing its boot area with the FM-1's, 512 bytes at a time.
+
+- With m-bootloader, HYP-1 (`FM-1_7010554`) refused V15 from FM-SWITCH on an iPhone: the screen
+  showed `UPDATE`, `CHECK HEAD` and `FAILED`, and HYP-1 carried on. A download-mode restore
+  brought the FM-1 back.
+- With M-VAVE's bootloader back (`flash-bootloader`), DUB-1 1.3.0 (`FM-1_8010300`) took V15 in
+  23.4 s. Its 75 staging requests read the package's header (`0x0`, `0x200`), the update loader's
+  header (`0xA5F00`) and then the whole boot area (`0x400`–`0x43FF`) before the loader. Before
+  the fix, FM1Kit took `FM-1_8010300` for M-VAVE's open firmware and stopped with
+  `capabilityUnavailable`.
+- After installing m-bootloader again over USB-MIDI (6.5 s) and DUB-1, V15 was refused after
+  4 requests: the header, the loader's header and the first 512 bytes of the boot area (`0x400`),
+  where m-bootloader's record differs. fm1probe stopped as stalled after 8.4 s, and DUB-1 carried
+  on. FM1Kit now reports this as `bootloaderMismatch`.
+- `flash-install .artifacts/FM-1.fwsc` in download mode then put V15 back in 8.8 s (143 sectors),
+  keeping m-bootloader.
+
+### 2026-10-25: stage L, switching firmware over USB-MIDI with m-bootloader
+
+The same Mac and FM-1, starting on V15 with m-bootloader 1.2-22e2559 (installed again over
+USB-MIDI). m-bootloader shows only a brief flash at power-on before starting the firmware.
+
+- **L1 passed:** V15 took DUB-1 1.3.0 (`FM-1_8010300`) in 28.8 s; m-bootloader kept.
+- **L2 passed:** DUB-1 took AMB-1 1.3 (`FM-1_7010300`) in 33.5 s, with no boot-area check:
+  Felucca's own loader isn't checked, and it read the image a second time after writing (14 s).
+  m-bootloader kept.
+- **L3 passed:** AMB-1 refused Open V12 after 4 requests (`UPDATE`, `CHECK HEAD`, `FAILED`):
+  the package header, the loader's header at `0x6F400` and the boot area's first block at
+  `0x400`. fm1probe reported the bootloader mismatch.
+- **L4 passed:** AMB-1 took Estampie 0.1 (`FM-1_378001`) in 38.7 s; m-bootloader kept.
+- **L5:** Estampie refused V15 at the same point, after 4 requests, without showing anything on
+  its screen: it shares Felucca's update code.
+- **L6 passed:** Open V12 written in download mode with `--erase-settings` (120 sectors, 7.9 s),
+  keeping m-bootloader; it started. The plan still warned about settings kept elsewhere, which
+  it no longer does when they're erased.
+- **L7 passed:** Open V12 was armed and took V15 in 20.7 s. M-VAVE's loader put M-VAVE's
+  bootloader back: no flash at power-on.
+- **L8 passed:** `install-bootloader` put m-bootloader back from V15 in 5.8 s.
+
+So with m-bootloader, firmwares built on Felucca's platform (AMB-1, DUB-1, HYP-1, Estampie) take
+each other's packages over USB-MIDI but refuse M-VAVE's (V15 and open firmware), whose boot area
+must match the FM-1's. V15 and Open V12 took every package tried, and installing either of
+M-VAVE's packages replaces the boot area, m-bootloader included.

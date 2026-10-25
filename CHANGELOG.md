@@ -5,6 +5,31 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-25
+
+### Added
+
+- `FM1UpdateError.bootloaderMismatch(requests:)`: firmwares built on Felucca's platform (AMB-1,
+  HYP-1, DUB-1, Estampie) compare the boot area of a package with M-VAVE's update loader (V15,
+  open firmware) with the FM-1's before installing it, so they refuse V15 while m-bootloader is
+  installed. An install that stops on that comparison now says so, and that installing in
+  download mode from a Mac keeps the FM-1's bootloader, instead of the general staging advice.
+  `SimulatedFM1.Options.comparesBootArea` simulates it.
+
+### Fixed
+
+- Firmwares numbering their builds `FM-1_8` and six digits, as DUB-1 does (`FM-1_8010300` for
+  1.3.0), were taken for M-VAVE's open firmware, so installing over them stopped with
+  `capabilityUnavailable`. `FM1Identity.isOpenFirmware` now takes `FM-1_8000000` to
+  `FM-1_8000999` (and `FM1_COMMUNITY_`).
+- `FlashBackup.firmware.name` names a custom firmware only when its code also holds the name and
+  version it shows, as forks share identities: HYP-1 numbers its builds as AMB-1 does, so a HYP-1
+  build could be named "AMB-1 1.3".
+- `FlashPlan.installing(_:onto:includingBootloader:erasingSettings:)` no longer warns that the
+  installed firmware keeps its settings elsewhere when it erases the new firmware's settings.
+- fm1probe's timestamps were on a 12-hour clock without AM or PM when run under sudo; they're
+  always 24-hour now.
+
 ## [0.4.0] - 2026-10-25
 
 ### Added
@@ -167,7 +192,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.1...HEAD
+[0.4.1]: https://github.com/ocean/FM1Kit/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/ocean/FM1Kit/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/ocean/FM1Kit/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/ocean/FM1Kit/compare/0.1.0...0.2.0

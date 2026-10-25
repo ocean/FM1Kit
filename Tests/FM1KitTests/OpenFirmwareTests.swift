@@ -51,6 +51,8 @@ struct OpenFirmwareTests {
         #expect(FM1Identity(text: "FM1_COMMUNITY_3")?.isOpenFirmware == true)
         #expect(FM1Identity(text: "FM-1_015")?.isOpenFirmware == false)
         #expect(FM1Identity(text: "FM-1_916")?.isOpenFirmware == false)
+        #expect(FM1Identity(text: "FM-1_8000014")?.isOpenFirmware == true)
+        #expect(FM1Identity(text: "FM-1_8010300")?.isOpenFirmware == false)
         #expect(FM1Identity(text: "ota-FM-1_015")?.isOpenFirmware == false)
     }
 

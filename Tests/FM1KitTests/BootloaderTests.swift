@@ -10,10 +10,15 @@ struct BootloaderTests {
         return try BootloaderInstaller(package: package)
     }
 
-    static func device(running identity: FM1Identity = .officialV15, bootloader: String? = nil) -> SimulatedFM1 {
+    static func device(
+        running identity: FM1Identity = .officialV15,
+        bootloader: String? = nil,
+        comparesBootArea: Bool = false
+    ) -> SimulatedFM1 {
         var options = UpdaterTests.fastOptions
         options.installedIdentity = identity
         options.bootloaderVersion = bootloader
+        options.comparesBootArea = comparesBootArea
         return SimulatedFM1(options: options)
     }
 
@@ -102,6 +107,29 @@ struct BootloaderTests {
         device.prepare(for: package)
         try await FM1Updater(transport: device, timing: UpdaterTests.fastTiming).install(package, options: .confirmed)
         #expect(device.installedBootloaderVersion == nil)
+    }
+
+    @Test func explainsAFirmwareRefusingV15OverM_Bootloader() async throws {
+        let dub = FM1Identity(model: "FM-1", version: 8_010_300)
+        let device = Self.device(running: dub, bootloader: "1.2", comparesBootArea: true)
+        let package = try UpdaterTests.package(product: "FM-1_015")
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        await #expect(throws: FM1UpdateError.bootloaderMismatch(requests: 3)) {
+            try await updater.install(package, options: .confirmed)
+        }
+        let advice = FM1UpdateError.bootloaderMismatch(requests: 3).advice
+        #expect(advice.isDeviceFine)
+        #expect(advice.action == .needsComputer)
+    }
+
+    @Test func aFirmwareComparingBootAreasTakesV15OverM_VAVEsBootloader() async throws {
+        let device = Self.device(running: FM1Identity(model: "FM-1", version: 8_010_300), comparesBootArea: true)
+        let package = try UpdaterTests.package(product: "FM-1_015")
+        device.prepare(for: package)
+        let installed = try await FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+            .install(package, options: .confirmed)
+        #expect(installed == .officialV15)
     }
 
     @Test func otherFirmwaresKeepTheBootloader() async throws {

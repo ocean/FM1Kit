@@ -170,6 +170,7 @@ extension FM1UpdateError {
         case .notFirmware: ("This file isn't a firmware", .chooseAnotherFirmware)
         case .bootloaderInstallNeedsV15: ("The bootloader needs V15 first", .chooseAnotherFirmware)
         case .installerDidNotStart: ("The bootloader wasn't installed", .switchOffAndOn)
+        case .bootloaderMismatch: ("The firmware refused M-VAVE's package", .needsComputer)
         case .stalled(.staging, _), .disconnected(.staging, _): ("The install didn't start", .tryAgain)
         case .stalled(.writing, _), .disconnected(.writing, _), .loaderNotFound, .unexpectedFinish(.writing):
             ("The install was interrupted", .resume)
