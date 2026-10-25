@@ -116,6 +116,100 @@ struct DownloadModeTests {
         #expect(description.contains("\"sha256\": \"\(backup.sha256)\""))
         let json = try JSONSerialization.jsonObject(with: Data(description.utf8)) as? [String: String]
         #expect(json?["chip key"] == "0x980F")
+        #expect(json?["firmware"] == "none")
+        #expect(json?["app"] == "none installed")
+        let reread = try FlashBackup(contentsOf: first.flash)
+        #expect(reread.bytes == backup.bytes)
+        #expect(reread.uniqueID == backup.uniqueID)
+        #expect(reread.chipKey == backup.chipKey)
+        #expect(reread.flashID == backup.flashID)
+    }
+}
+
+/// What a backup shows of the firmware in the app area.
+struct FirmwareCheckTests {
+    /// Code that names the identities a firmware might: its own and the one it updates from.
+    static let code = Array("..FM-1_378001..FM-1_015..FM-1_12..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+
+    @Test func readsTheFirmwaresFiles() {
+        let firmware = Self.backup(Self.flash(storing: Self.code)).firmware
+        #expect(firmware.files == .intact)
+        #expect(firmware.filesDescription == "OK")
+        #expect(firmware.identities == ["FM-1_015", "FM-1_378001"])
+        #expect(!firmware.isOfficialV15)
+        #expect(firmware.name == nil)
+        #expect(firmware.description == "unknown, naming FM-1_015 and FM-1_378001")
+    }
+
+    @Test func namesTheCustomFirmwaresTriedOnAnFM1() {
+        let felucca = Array("..FM-1_015..FM-1_916..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+        let amb = Array("..FM-1_7010300..FM-1_015..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+        #expect(Self.backup(Self.flash(storing: felucca)).firmware.description == "Felucca 1.6.1 (FM-1_916)")
+        #expect(Self.backup(Self.flash(storing: amb)).firmware.description == "AMB-1 1.3 (FM-1_7010300)")
+    }
+
+    @Test func findsADamagedFile() {
+        var flash = Self.flash(storing: Self.code)
+        flash[FlashBackup.applicationArea + 0x1000 + 100] ^= 1
+        #expect(Self.backup(flash).firmware.files == .damaged)
+    }
+
+    @Test func findsAnInterruptedWrite() {
+        var flash = Self.flash(storing: Self.code)
+        let sector = FlashBackup.applicationArea + 0x2000
+        flash.replaceSubrange(sector..<(sector + 0x1000), with: [UInt8](repeating: 0xFF, count: 0x1000))
+        #expect(Self.backup(flash).firmware.files == .incomplete)
+    }
+
+    @Test func findsNoFirmware() throws {
+        let firmware = try FlashSession(connection: SimulatedDownloadMode()).backUp().firmware
+        #expect(firmware.files == .missing)
+        #expect(firmware.description == "none")
+    }
+
+    @Test func findsIdentitiesOfThreeToEightDigits() {
+        let text = Array("FM-1_015 FM-1_12 FM-1_8000012 FM-1_123456789 FM-1_".utf8)
+        #expect(FlashBackup.identities(in: text) == ["FM-1_015", "FM-1_8000012"])
+    }
+
+    static func backup(_ flash: [UInt8]) -> FlashBackup {
+        FlashBackup(
+            bytes: flash,
+            uniqueID: nil,
+            chipKey: 0x980F,
+            flashID: 0x85_6014,
+            loaderVersion: "1.2",
+            date: Date()
+        )
+    }
+
+    /// Flash whose app area holds `code` as `app.bin`, enciphered as the chip stores it.
+    static func flash(storing code: [UInt8]) -> [UInt8] {
+        let codeAddress = 0x200
+        var area = [UInt8](repeating: 0xFF, count: codeAddress + code.count)
+        var entry = [UInt8](repeating: 0, count: 32)
+        let crc = ChipChecksum.crc16(code)
+        entry[2] = UInt8(crc & 0xFF)
+        entry[3] = UInt8(crc >> 8)
+        for (index, value) in [codeAddress, code.count].enumerated() {
+            for byte in 0..<4 { entry[4 + 4 * index + byte] = UInt8(truncatingIfNeeded: value >> (8 * byte)) }
+        }
+        entry[12] = FlashBackup.fileAttribute
+        entry.replaceSubrange(16..<23, with: Array("app.bin".utf8))
+        let entryCRC = ChipChecksum.crc16(entry[2...])
+        entry[0] = UInt8(entryCRC & 0xFF)
+        entry[1] = UInt8(entryCRC >> 8)
+        area.replaceSubrange(0..<32, with: entry)
+        area.replaceSubrange(codeAddress..<area.count, with: code)
+        area += [UInt8](repeating: 0xFF, count: (32 - area.count % 32) % 32)
+        var flash = SimulatedDownloadMode.sampleFlash()
+        for block in stride(from: 0, to: area.count, by: 32) {
+            let key = 0x980F ^ UInt16(truncatingIfNeeded: block >> 2)
+            let start = FlashBackup.applicationArea + block
+            let stored = FlashBackup.decipher(area[block..<(block + 32)], key: key)
+            flash.replaceSubrange(start..<(start + 32), with: stored)
+        }
+        return flash
     }
 }
 

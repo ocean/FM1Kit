@@ -24,6 +24,20 @@ enum ChipCommand {
     static let crc32: UInt16 = 0xFC41
     /// m-bootloader's loader: the flash chip's 8-byte unique ID.
     static let uniqueID: UInt16 = 0xFC42
+    /// Erases an aligned 64 KB block: its address.
+    static let eraseBlock: UInt16 = 0xFB00
+    /// Erases a 4 KB sector: its address.
+    static let eraseSector: UInt16 = 0xFB01
+    /// Programs erased flash: address, length, a zero and the data's CRC-16, then the data.
+    static let writeFlash: UInt16 = 0xFB04
+    /// The loader's write buffer, the most ``writeFlash`` takes at once.
+    static let bufferSize: UInt16 = 0xFC14
+    /// m-bootloader's loader: switches the FM-1's display on, given the board (1 for the FM-1).
+    static let displayOn: UInt16 = 0xFC43
+    /// m-bootloader's loader: a row of text: row, colour, background and length, then the text.
+    static let displayText: UInt16 = 0xFC44
+    /// m-bootloader's loader: the progress bar: percentage and colour.
+    static let displayBar: UInt16 = 0xFC45
 
     /// The loader's target argument for SPI NOR flash.
     static let norFlashTarget: UInt16 = 1

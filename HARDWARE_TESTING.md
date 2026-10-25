@@ -204,6 +204,31 @@ can also show `ALREADY INSTALLED`, or a failure. `NO FLASH`, `READ FAILED` and
 bootloader. `WRITE FAILED` means a sector of the boot area couldn't be written after three
 tries, so the FM-1 may not start: note everything on the screen and report it.
 
+## Stage K: writing in download mode
+
+`fm1probe flash-install`, `flash-restore` and `flash-bootloader` write the flash in download
+mode, whatever the firmware: each reads the flash and saves it to a folder first, shows the
+4 KB sectors that would change, and writes only after you type YES. Every changed run is then
+checked against the chip's CRC-32, and the FM-1's screen shows the progress. Start with
+m-bootloader and V15 (as after stage J), with stage J6's backup in `.artifacts/tmp/j6-backup/`.
+
+K3 and K4 leave the bootloader alone, so if anything goes wrong, holding REC while switching on
+still starts download mode to restore a backup. K5 and K6 write the boot area: as in stage J,
+losing power then can leave the FM-1 needing a USB_KEY dongle.
+
+| Step | Command | What to look for |
+|---|---|---|
+| K1 | `swift build`, then `swift run fm1probe flash-install .artifacts/felucca-1.6.1.fwsc .artifacts/tmp/k1 --simulated .artifacts/tmp/j6-backup/fm1-20261023-212740.bin` | A rehearsal: `Installs FM-1_916 (0x04000–0x92FFF)`, 143 sectors, `Written and checked`. |
+| K2 | Switch the FM-1 off, then hold REC while switching it on | m-bootloader's download mode: a blank screen. |
+| K3 | `sudo .build/debug/fm1probe flash-install .artifacts/felucca-1.6.1.fwsc .artifacts/tmp/k-backups`, then type `YES` | The plan as in K1, a backup saved, the FM-1's screen showing `INSTALL FIRMWARE`, `WRITING`, a bar and then `DONE - VERIFIED`; `Written and checked`. Switch it off and on: Felucca starts, and `fm1probe identify` reports `FM-1_916`. |
+| K4 | REC at power-on again, then `sudo .build/debug/fm1probe flash-restore .artifacts/tmp/j6-backup/fm1-20261023-212740.bin .artifacts/tmp/k-backups`, then `YES` | `The whole flash is restored; the boot area already matches`, with no sectors below `0x04000`. Switch off and on: V15 starts, and `identify` reports `FM-1_015`. |
+| K5 | `swift run fm1probe download-mode` (or REC at power-on), then `sudo .build/debug/fm1probe flash-bootloader .artifacts/FM-1.fwsc .artifacts/tmp/k-backups`, then `YES` | `Installs M-VAVE's bootloader`, 4 sectors from `0x00000`. Switch off and on: V15 starts without m-bootloader's green screen, and holding PLAY doesn't open its menu. |
+| K6 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.boot .artifacts/tmp/k-backups`, then `YES` | `Installs m-bootloader 1.2-22e2559`. Switch off and on: the green screen, then V15; PLAY opens the menu. |
+| K7 | REC at power-on, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/k7-backup` | `Bootloader: m-bootloader 1.2-22e2559`, `Firmware: V15 (FM-1_015), files OK`. The SHA-256 should be J6's `a5720057…`, unless V15 has saved settings since. |
+
+If a write stops with `didn't read back as written`, don't switch the FM-1 off: run the same
+command again, or restore the backup it saved, with another cable or port.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -403,3 +428,32 @@ Against stage I's V15 backup, the flash differed in three places: the boot area 
 between `0x20` and `0x38CF`); the staged installer, left in V15's empty staging area at
 `0xE3000`–`0xE80AC`; and 50 bytes of V15's settings at `0x93000`, which V15 rewrote while
 starting the update, after copying the sector to `0xE8000`. The firmware itself was untouched.
+
+### 2026-10-25: stage K, writing in download mode
+
+The same Mac and FM-1, with m-bootloader 1.2-22e2559. Before K3 the FM-1 held AMB-1
+(<https://charlesvestal.github.io/fm1-amb/>), not V15 as K1's rehearsal assumed; the backup
+describes it as `unknown, naming FM-1_015 and FM-1_7010300`.
+
+- **K1 passed:** against J6's backup, `Installs FM-1_916 (0x04000–0x92FFF)`, 143 sectors, written
+  and checked in 1.4 s.
+- **K2 passed:** holding REC started download mode.
+- **K3 passed.** The flash read in 2.5 s and the backup was saved. Only 125 sectors differed
+  from what was installed (`0x04000`–`0x80FFF`, one run); the rest of Felucca's image already
+  matched. Written and checked in 8.6 s. The FM-1's screen showed the progress and then
+  `DONE - VERIFIED` and `125 SECTORS OK`, and Felucca started after switching off and on.
+- **K4 passed.** Restoring J6's backup over Felucca wrote 152 sectors in three runs
+  (`0x04000`–`0x93FFF`, `0xE0000`–`0xE1FFF`, `0xE3000`–`0xE8FFF`), none in the boot area, in
+  10.3 s, and V15 started. The plan's note then said "the bootloader included" although the boot
+  area matched; it now says the bootloader isn't written. The backup named Felucca only as
+  `unknown, naming FM-1_015 and FM-1_916`, and AMB-1 as `FM-1_015 and FM-1_7010300`; both are
+  now named.
+- **K5 passed.** M-VAVE's bootloader from `FM-1.fwsc` replaced m-bootloader: 4 sectors
+  (`0x00000`–`0x03FFF`), written and checked in 1.3 s. V15 then started without m-bootloader's
+  green screen, and holding PLAY didn't open its menu.
+- **K6 passed.** From M-VAVE's bootloader (download mode through V15), m-bootloader
+  1.2-22e2559 went back in the same 4 sectors in 1.4 s, the FM-1's screen ending on
+  `4 SECTORS OK`. The green screen and V15 followed.
+- **K7 passed.** The final backup read `Bootloader: m-bootloader 1.2-22e2559` and
+  `Firmware: V15 (FM-1_015), files OK`, with SHA-256 `a5720057…`: byte for byte J6's backup,
+  after installing Felucca over AMB-1, restoring V15 and swapping the bootloader both ways.

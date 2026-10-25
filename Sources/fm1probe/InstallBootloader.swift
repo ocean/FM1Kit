@@ -63,7 +63,8 @@ func installBootloader(path: String, isSimulated: Bool, logPath: String?) async 
 /// Prints the steps of a bootloader install worth showing.
 @Sendable func printBootloaderEvent(_ event: UpdateEvent) {
     switch event {
-    case .staging(let requests) where requests.isMultiple(of: 10): print("\(timestamp())  staging: \(requests)")
+    case .staging(let requests) where requests.isMultiple(of: 10):
+        print("\(timestamp())  staging: \(requests) requests")
     case .rebooting: print("\(timestamp())  restarting: the installer is writing the bootloader")
     case .finished(let identity): print("\(timestamp())  back: \(identity.text)")
     default: break

@@ -135,6 +135,13 @@ public struct FwscPackage: Sendable {
     /// ``FM1Updater/install(_:options:events:)`` installs only firmware.
     public var isFirmware: Bool { container.flash != nil }
 
+    /// The firmware image as it's stored in flash from address 0: the boot area, then the
+    /// application, enciphered with the chip key the package was made for; `nil` for an
+    /// installer package.
+    package var flashImage: [UInt8]? {
+        container.flash.map { Array(logicalImage[$0.range]) }
+    }
+
     /// The identity the header's markers spell; `bytes` must hold the whole header.
     static func decodeProduct(_ bytes: [UInt8]) -> String {
         var scalars = String.UnicodeScalarView()

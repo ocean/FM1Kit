@@ -1,8 +1,14 @@
 import FM1Kit
+import FM1Rescue
 import Foundation
 
-/// Shows what a package holds, or which m-bootloader a `.boot` file holds; sends nothing.
+/// Shows what a package holds, which m-bootloader a `.boot` file holds, or what a flash backup
+/// holds; sends nothing.
 func inspect(path: String) throws {
+    if path.lowercased().hasSuffix(".bin") {
+        try inspectFlashBackup(URL(fileURLWithPath: path))
+        return
+    }
     let data = try Data(contentsOf: URL(fileURLWithPath: path))
     if path.lowercased().hasSuffix(".boot") {
         guard let bootloader = BootloaderImage(data: data) else {
@@ -39,4 +45,15 @@ func inspect(path: String) throws {
             print("Installs:      an installer, not firmware: \(error.localizedDescription)")
         }
     }
+}
+
+/// Shows which bootloader and firmware a full flash backup holds.
+private func inspectFlashBackup(_ url: URL) throws {
+    let backup = try FlashBackup(contentsOf: url)
+    let firmware = backup.firmware
+    print("Flash backup:  \(backup.bytes.count) bytes, SHA-256 \(backup.sha256)")
+    print("Unit ID:       \(backup.uniqueID ?? "unknown (no .json beside it)")")
+    print("Bootloader:    \(backup.bootloaderDescription)")
+    print("Firmware:      \(firmware.description)")
+    print("Files:         \(firmware.filesDescription)")
 }

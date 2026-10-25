@@ -16,6 +16,24 @@ public final class SimulatedDownloadMode: DownloadModeConnection {
     public var corruptsReadsAfter: Int?
     /// Pretend another tool's loader is already running.
     public var hasOtherLoader = false
+    /// Flip a bit at this address when it's programmed, as a failing flash chip might.
+    public var failsWritesAt: Int?
+    /// How many times ``failsWritesAt`` fails before writes there succeed.
+    public var writeFailures = Int.max
+    /// The loader's write buffer in bytes, or `nil` to refuse the command, as JieLi's loader may.
+    public var bufferSize: Int? = 4096
+    /// Stop answering after this many flash writes, as a pulled cable would.
+    public var disconnectsAfterWrites: Int?
+    /// The 64 KB block erases so far.
+    public private(set) var blockErases = 0
+    /// The flash writes so far, each up to the write buffer's size.
+    public private(set) var flashWrites = 0
+    /// The rows of text on the FM-1's display, once the loader has switched it on.
+    public private(set) var screen: [Int: String] = [:]
+    /// The progress bar's percentage on the FM-1's display.
+    public private(set) var progressBar = 0
+    /// The 4 KB sectors erased so far, by address, in order.
+    public private(set) var erasedSectors: [Int] = []
     /// True after ``close()``.
     public private(set) var isClosed = false
 
@@ -75,7 +93,7 @@ public final class SimulatedDownloadMode: DownloadModeConnection {
             jump(to: ChipCommand.readBigEndian(command, at: 2, byteCount: 4))
             return Self.reply(opcode)
         default:
-            return try loaderCommand(opcode, command)
+            return try loaderCommand(opcode, command, phase)
         }
     }
 
@@ -100,7 +118,9 @@ public final class SimulatedDownloadMode: DownloadModeConnection {
     }
 
     /// Answers the flash loader's commands; the ROM alone refuses them.
-    private func loaderCommand(_ opcode: UInt16, _ command: [UInt8]) throws(DownloadModeError) -> [UInt8] {
+    private func loaderCommand(_ opcode: UInt16, _ command: [UInt8], _ phase: DataPhase) throws(DownloadModeError)
+        -> [UInt8]
+    {
         if hasOtherLoader, opcode == ChipCommand.onlineDevice { return Self.reply(opcode, [3, 0]) }
         guard let version = runningLoaderVersion else { throw .commandFailed(String(format: "0x%04x", opcode)) }
         let address = Int(ChipCommand.readBigEndian(command, at: 2, byteCount: 4))
@@ -130,7 +150,64 @@ public final class SimulatedDownloadMode: DownloadModeConnection {
             if let limit = corruptsReadsAfter, reads > limit { part[0] ^= 1 }
             return part
         default:
+            return try writingCommand(opcode, command, phase)
+        }
+    }
+
+    /// Answers the loader's erase, write and display commands.
+    private func writingCommand(_ opcode: UInt16, _ command: [UInt8], _ phase: DataPhase) throws(DownloadModeError)
+        -> [UInt8]
+    {
+        let address = Int(ChipCommand.readBigEndian(command, at: 2, byteCount: 4))
+        switch opcode {
+        case ChipCommand.eraseBlock, ChipCommand.eraseSector:
+            let length = opcode == ChipCommand.eraseBlock ? 0x1_0000 : 0x1000
+            guard address.isMultiple(of: length), address + length <= flash.count else {
+                throw .commandFailed(String(format: "0x%04x", opcode))
+            }
+            flash.replaceSubrange(address..<(address + length), with: repeatElement(0xFF, count: length))
+            erasedSectors += stride(from: address, to: address + length, by: 0x1000)
+            if opcode == ChipCommand.eraseBlock { blockErases += 1 }
+            return Self.reply(opcode)
+        case ChipCommand.writeFlash:
+            if let limit = disconnectsAfterWrites, flashWrites >= limit { throw .transferFailed("the device is gone") }
+            try program(command, phase)
+            flashWrites += 1
+            return []
+        case ChipCommand.bufferSize:
+            guard let bufferSize else { throw .commandFailed(String(format: "0x%04x", opcode)) }
+            return Self.reply(opcode, ChipCommand.bigEndian(UInt32(bufferSize), byteCount: 4))
+        case ChipCommand.displayOn:
+            return Self.reply(opcode, [command[2] == 1 ? 1 : 0])
+        case ChipCommand.displayText:
+            if case .send(let text) = phase {
+                screen[Int(command[2])] = String(bytes: text, encoding: .ascii)
+            }
+            return []
+        case ChipCommand.displayBar:
+            progressBar = min(Int(command[2]), 100)
+            return Self.reply(opcode)
+        default:
             throw .commandFailed(String(format: "0x%04x", opcode))
+        }
+    }
+
+    /// Programs flash as NOR flash does: bits only go from 1 to 0, so it must be erased first.
+    private func program(_ command: [UInt8], _ phase: DataPhase) throws(DownloadModeError) {
+        let address = Int(ChipCommand.readBigEndian(command, at: 2, byteCount: 4))
+        let length = Int(ChipCommand.readBigEndian(command, at: 6, byteCount: 2))
+        guard case .send(let data) = phase, data.count == length, length <= 4096,
+            address + length <= flash.count,
+            UInt16(command[9]) | UInt16(command[10]) << 8 == ChipChecksum.crc16(data)
+        else {
+            throw .commandFailed("flash write")
+        }
+        for (offset, byte) in data.enumerated() {
+            flash[address + offset] &= byte
+            if address + offset == failsWritesAt, writeFailures > 0 {
+                flash[address + offset] ^= 1
+                writeFailures -= 1
+            }
         }
     }
 

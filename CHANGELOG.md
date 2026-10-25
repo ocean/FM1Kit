@@ -5,6 +5,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-25
+
 ### Added
 
 - `FM1Updater.installBootloader(_:events:)` installs m-bootloader from its `fm1-uboot.fwsc`
@@ -31,10 +33,34 @@ All notable changes to FM1Kit are recorded here. The project follows
   `USBDownloadModeConnection` takes the FM-1 from macOS's disk driver (needs root) and speaks USB
   mass storage to it; `FlashSession` uploads m-bootloader's flash loader (bundled, MIT) and
   reads the flash; `FlashSession.backUp(progress:)` reads it twice and checks both reads against
-  the chip's CRC-32; `FlashBackup.write(to:)` saves it as M-Flasher does. Nothing is written to
-  the flash yet. `SimulatedDownloadMode` stands in for the chip.
+  the chip's CRC-32; `FlashBackup.write(to:)` saves it as M-Flasher does.
+  `SimulatedDownloadMode` stands in for the chip.
+- `FlashBackup.firmware` says whether the firmware's files in a backup are whole (as
+  m-bootloader's menu reports them), which identities its code names and whether it's V15, naming
+  Felucca 1.6.1 and AMB-1 1.3 too (`name`), and the backup's `.json` gains M-Flasher's `firmware` and `app` fields.
+  `FlashBackup(contentsOf:)` reads a saved backup.
+- Writing in download mode, which works whatever the firmware: `FlashPlan` works out a change
+  against the flash just read (`restoring(_:onto:)` a backup, `installing(_:onto:)` m-bootloader,
+  `installingBootloader(from:onto:)` M-VAVE's bootloader from a firmware package, or
+  `installing(_:onto:includingBootloader:erasingSettings:)` a firmware), listing the 4 KB
+  sectors that change. `FlashSession.write(_:progress:)` checks the flash hasn't changed, erases
+  and writes only those sectors, checks each run against the chip's CRC-32 and shows progress
+  on the FM-1's screen. Another FM-1's backup never replaces this one's factory data, and
+  nothing is planned for flash that shows it's another model's (`FlashBackup.model`; the
+  SMK-37 has the same chip). If writing stops part-way, the error says not to switch the FM-1
+  off but to restore the backup. New errors: `FlashPlanError`, and
+  `DownloadModeError.flashChanged`, `writeNotVerified(_:)` and `writeInterrupted(at:_:)`.
+  `SimulatedDownloadMode` erases and writes as NOR flash does.
 - `fm1probe download-mode` and `fm1probe flash-backup FOLDER`, with `--trace` to print every USB
-  transfer.
+  transfer; `fm1probe inspect` shows the bootloader and firmware in a `.bin` backup;
+  `fm1probe flash-restore`, `flash-bootloader` and `flash-install` write in download mode after
+  saving a backup and asking to confirm, or rehearse with `--simulated BACKUP.bin`.
+
+### Changed
+
+- When an install stops before the FM-1 restarts, the error explains that a custom firmware's
+  own update code may have refused the package, and that replacing it needs download mode.
+- `fm1probe install-bootloader` shows staging progress as a count of requests.
 
 ### Fixed
 
@@ -141,7 +167,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/ocean/FM1Kit/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/ocean/FM1Kit/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/ocean/FM1Kit/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/ocean/FM1Kit/releases/tag/0.1.0

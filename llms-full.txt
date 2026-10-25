@@ -1,6 +1,6 @@
 # FM1Kit
 
-> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.3.0, not affiliated with M-VAVE.
+> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.4.0, not affiliated with M-VAVE.
 
 Part of Drew Robinson's FM-1 projects: https://fm-1.drewr.dev/ (see /llms-full.txt there for the others). Source, DocC documentation and changelog: https://github.com/ocean/FM1Kit
 
@@ -10,7 +10,7 @@ FM1Kit speaks the FM-1's firmware update protocol. It reads `.fwsc` firmware pac
 
 It sticks to the device. Finding and downloading firmwares is left to the app using it (FM-SWITCH does that: https://fm-1.drewr.dev/fm-switch/).
 
-Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca 1.6.1, Estampie 0.1 and M-VAVE's open firmware V12, switching between them, pulling the cable part-way through writing and resuming, restoring V15's factory voices, and backing up open firmware.
+Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca 1.6.1, Estampie 0.1 and M-VAVE's open firmware V12, switching between them, pulling the cable part-way through writing and resuming, restoring V15's factory voices, backing up open firmware, installing m-bootloader, and backing up, restoring and writing the whole flash in download mode.
 
 ## Requirements
 
@@ -22,11 +22,11 @@ Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.3.0")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.0")),
 ]
 ```
 
-Until 1.0, minor versions may change the API, so this takes 0.3.x fixes but not 0.4.0.
+Until 1.0, minor versions may change the API, so this takes 0.4.x fixes but not 0.5.0.
 
 ## Usage
 
@@ -90,7 +90,7 @@ m-bootloader (https://github.com/jvitkauskas/m-bootloader, MIT) replaces M-VAVE'
 
 ## FM1Rescue: download mode (macOS only)
 
-The package's second library uses the chip's USB download mode, which works even when the firmware won't start. In download mode the FM-1 is a USB disk (4C4A:8057, "WL82 UBOOT1.00"); taking it from macOS's disk driver needs root, so FM1Rescue is macOS-only and empty on iOS. `FM1Updater.enterDownloadMode()` asks V15 or Felucca to switch with the MIDI message F0 22 24 35 7D F7 (with m-bootloader, holding REC while switching on does the same). `USBDownloadModeConnection.open()` captures the device with IOUSBHost and speaks USB mass storage's Bulk-Only Transport. `FlashSession` uploads m-bootloader's flash loader (bundled, MIT) into the chip's RAM and reads the flash, and `backUp(progress:)` reads the 1 MB twice and checks both against the chip's CRC-32. `FlashBackup.write(to:)` saves it as M-Flasher does (a .bin and a .json with the flash chip's unique ID), and `FlashBackup.mBootloader` says whether m-bootloader is in the boot area. Writing in download mode isn't supported yet. `SimulatedDownloadMode` simulates the chip.
+The package's second library uses the chip's USB download mode, which works even when the firmware won't start. In download mode the FM-1 is a USB disk (4C4A:8057, "WL82 UBOOT1.00"); taking it from macOS's disk driver needs root, so FM1Rescue is macOS-only and empty on iOS. `FM1Updater.enterDownloadMode()` asks V15 or Felucca to switch with the MIDI message F0 22 24 35 7D F7 (with m-bootloader, holding REC while switching on does the same). `USBDownloadModeConnection.open()` captures the device with IOUSBHost and speaks USB mass storage's Bulk-Only Transport. `FlashSession` uploads m-bootloader's flash loader (bundled, MIT) into the chip's RAM and reads the flash, and `backUp(progress:)` reads the 1 MB twice and checks both against the chip's CRC-32. `FlashBackup.write(to:)` saves it as M-Flasher does (a .bin and a .json with the flash chip's unique ID), and `FlashBackup.mBootloader` says whether m-bootloader is in the boot area, and `FlashBackup.firmware` whether the firmware's files are whole, which identities its code names and whether it's V15 (`name` also knows Felucca 1.6.1 and AMB-1 1.3). `FlashBackup(contentsOf:)` reads a saved backup. `FlashPlan` works out a change before anything is written, against a backup just read in the same session: `restoring(_:onto:)` puts a backup back (another FM-1's keeps this one's factory data, the last 4 KB sector, by the flash chip's unique ID), `installing(_:onto:)` installs m-bootloader from its `.boot` file (only the bootloader and its record in the 16 KB boot area change; the unit's boot configuration stays), `installingBootloader(from:onto:)` puts M-VAVE's bootloader back from a firmware package, and `installing(_:onto:includingBootloader:erasingSettings:)` writes a firmware package's image, refusing one not made for the chip key. A plan lists the 4 KB sectors that change, with notes and warnings, and `FlashSession.write(_:progress:)` checks the flash is still what was read, erases and writes only those sectors, checks each run against the chip's CRC-32 (writing it once more if needed) and shows progress on the FM-1's screen. Save the plan's `original` first: it's the way back. `SimulatedDownloadMode` simulates the chip, erasing and writing as NOR flash does.
 
 ## Types
 
@@ -121,13 +121,16 @@ swift run fm1probe ports                 # list MIDI ports and which would be pr
 swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's running, 20 times
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
-swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum
+swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum, or a .bin backup's firmware
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
 swift run fm1probe install-bootloader fm1-uboot.fwsc  # install m-bootloader from V15
 swift run fm1probe download-mode         # ask V15 or Felucca to restart into download mode
 sudo .build/debug/fm1probe flash-backup FOLDER  # read the whole flash in download mode (after swift build)
+sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup back, saving the flash to FOLDER first
+sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
+sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware in download mode
 ```
 
 ## What an install looks like

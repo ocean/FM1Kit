@@ -6,8 +6,8 @@ import Foundation
 ///
 /// Opening one checks the device is the chip's ROM (`WL82 UBOOT1.00`), uploads the flash loader
 /// into RAM unless the same version is already running, and reads the chip's key, the flash
-/// chip's ID and its unique ID. Nothing is written to the flash. The FM-1 stays in download mode
-/// until it's switched off and on.
+/// chip's ID and its unique ID. Nothing is written to the flash until ``write(_:progress:)``.
+/// The FM-1 stays in download mode until it's switched off and on.
 ///
 /// Every call blocks until the device answers, so call it off the main thread.
 public final class FlashSession {
@@ -25,6 +25,8 @@ public final class FlashSession {
 
     /// The FM-1's flash size.
     public static let flashSize = 0x10_0000
+    /// The FM-1's flash chip's JEDEC ID; the SMK-37's differs.
+    static let fm1FlashID: UInt32 = 0x85_6014
     /// The chip key M-VAVE's FM-1s use.
     public static let expectedChipKey: UInt16 = 0x980F
 

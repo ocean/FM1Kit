@@ -177,9 +177,13 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """
             The FM-1 stopped after \(requests) requests while checking the package, before restarting \
-            into its update loader. It should still start normally. If it doesn't, and its firmware \
-            supports USB recovery mode (holding OCT− while switching it on), start it that way and \
-            install again; otherwise recovering it needs a computer.
+            into its update loader. It should still start normally. If its screen shows an update \
+            error of its own, its firmware refused this package: some custom firmwares bring their \
+            own update code and accept only certain packages. Replacing such a firmware needs the \
+            chip's USB download mode and a tool that writes there, such as M-Flasher; the \
+            firmware's instructions say how to start download mode. If the FM-1 doesn't start, and \
+            its firmware supports USB recovery mode (holding OCT− while switching it on), start it \
+            that way and install again; otherwise recovering it needs a computer.
             """
         case .stalled(.writing, let requests):
             """

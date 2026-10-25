@@ -13,8 +13,9 @@ or one started from USB recovery mode.
 > [!WARNING]
 > FM1Kit has been tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15,
 > Felucca 1.6.1 and M-VAVE's open firmware V12 and switching between them, pulling the cable
-> part-way through writing and resuming, restoring V15's factory voices, and backing up open
-> firmware. Reports from other devices and hosts are very welcome (see
+> part-way through writing and resuming, restoring V15's factory voices, backing up open
+> firmware, installing m-bootloader, and backing up, restoring and writing the whole flash in
+> download mode. Reports from other devices and hosts are very welcome (see
 > [CONTRIBUTING.md](CONTRIBUTING.md)).
 > FM1Kit isn't affiliated with M-VAVE. Installing custom firmware is at your own risk.
 
@@ -31,12 +32,12 @@ Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.3.0")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.0")),
 ]
 ```
 
-Until 1.0, minor versions may change the API, so this takes 0.3.x fixes but not 0.4.0
-(`from: "0.3.0"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
+Until 1.0, minor versions may change the API, so this takes 0.4.x fixes but not 0.5.0
+(`from: "0.4.0"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
 changes.
 
 ## Usage
@@ -116,14 +117,20 @@ try await updater.enterDownloadMode()               // V15 or Felucca; or hold R
 let session = try FlashSession(connection: USBDownloadModeConnection.open())   // needs root
 let backup = try session.backUp { print("\(Int($0 * 100))%") }
 try backup.write(to: backupsFolder)                  // fm1-YYYYMMDD-HHMMSS.bin and .json
+
+let plan = try FlashPlan.installing(mBootloader, onto: backup)   // or restoring(_:onto:), …
+print(plan.notes, plan.warnings, plan.sectors.count)            // show, then ask to confirm
+try session.write(plan) { print("\(Int($0 * 100))%") }          // writes and checks each change
 session.close()                                      // switch the FM-1 off and on to leave
 ```
 
 `FlashSession` uploads m-bootloader's flash loader into the chip's RAM and reads the flash; a
 backup reads it twice and checks both reads against the chip's own CRC-32. Backups are saved as
-M-Flasher saves them, so either tool can restore them. Nothing is written to the flash yet:
-restoring, and installing bootloaders and firmware in download mode, come next.
-`SimulatedDownloadMode` stands in for the chip in tests and previews.
+M-Flasher saves them, so either tool can restore them. A `FlashPlan` restores a backup, installs
+m-bootloader (or M-VAVE's bootloader from a firmware package) or installs a firmware, changing
+only the 4 KB sectors that differ; another FM-1's backup never replaces this one's factory
+data. Writing checks the flash is still what was read, then checks every change against the
+chip's CRC-32. `SimulatedDownloadMode` stands in for the chip in tests and previews.
 
 For apps aimed at everyone, `InstallProgress` folds an install's events into one bar that never
 goes backwards, `FM1Advice` turns any error into a headline, whether the FM-1 is still fine and
@@ -164,6 +171,7 @@ protocol in software for the iOS Simulator and tests.
 | `BootloaderInstaller`, `BootloaderImage` | m-bootloader's installer package, and the bootloader it carries |
 | `InstallProgress`, `FM1Advice`, `FM1DeviceSummary` | One progress bar, plain advice for any error, and the connected FM-1 in plain terms |
 | `FlashSession`, `FlashBackup` (FM1Rescue, macOS) | Download mode: the flash loader, and whole-flash backups |
+| `FlashPlan` (FM1Rescue, macOS) | A checked change to the flash in download mode: restoring a backup, installing a bootloader or a firmware |
 | `USBDownloadModeConnection`, `SimulatedDownloadMode` (FM1Rescue, macOS) | Download mode over USB (needs root), and in software |
 | `CoreMIDITransport` | CoreMIDI connections to real devices |
 | `SimulatedFM1` | A software FM-1 for the Simulator and tests |
@@ -173,22 +181,29 @@ FM1Kit sticks to the device. Finding and downloading firmwares is left to your a
 ### `fm1probe`
 
 A Mac command-line tool for checking a setup, and for watching an install closely. Only
-`install`, `install-bootloader` and `restore-voices` write to the device, and `backup` changes
-which project open firmware shows while it reads; each asks you to type YES first:
+`install`, `install-bootloader`, `restore-voices` and the `flash-` commands that write in
+download mode write to the device, and `backup` changes which project open firmware shows while
+it reads; each asks you to type YES first:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
 swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's running, 20 times
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
-swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum (or a .boot file's)
+swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum (or a .boot file's, or a .bin backup's firmware)
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
 swift run fm1probe install-bootloader fm1-uboot.fwsc  # install m-bootloader from V15
 swift run fm1probe download-mode         # ask V15 or Felucca to restart into download mode
 sudo .build/debug/fm1probe flash-backup FOLDER  # read the whole flash in download mode (after swift build)
+sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup back, saving the flash to FOLDER first
+sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
+sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-settings)
 ```
+
+The `flash-` commands take `--simulated BACKUP.bin` to rehearse against a simulated FM-1 holding
+that backup.
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
 and records the results so far.

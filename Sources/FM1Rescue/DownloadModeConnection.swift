@@ -61,6 +61,13 @@ public enum DownloadModeError: Error, Hashable, LocalizedError {
     case readsDiffer
     /// The FM-1 didn't switch into download mode after it was asked to.
     case didNotEnterDownloadMode
+    /// The flash isn't what a plan was made against, or it's another FM-1, so nothing was written.
+    case flashChanged
+    /// A run of sectors didn't read back as written, twice; these are its addresses.
+    case writeNotVerified(Range<Int>)
+    /// The device stopped answering after writing started: the address being written, and what
+    /// went wrong.
+    case writeInterrupted(at: Int, String)
 
     /// What happened and what to do next.
     public var errorDescription: String? {
@@ -111,6 +118,23 @@ public enum DownloadModeError: Error, Hashable, LocalizedError {
             The FM-1 didn't switch into download mode. Its firmware may not support it: with \
             m-bootloader, hold REC while switching it on instead.
             """
+        case .flashChanged:
+            """
+            The FM-1's flash has changed since it was read, or another FM-1 is connected, so nothing \
+            was written. Read it again and plan the change again.
+            """
+        case .writeNotVerified(let run):
+            String(format: "0x%05X–0x%05X", run.lowerBound, run.upperBound - 1)
+                + """
+                 didn't read back as written, after two tries. Don't switch the FM-1 off: restore the \
+                backup saved before writing, with another cable or port and without a hub.
+                """
+        case .writeInterrupted(let address, let detail):
+            String(format: "Writing stopped at 0x%05X", address)
+                + """
+                 (\(detail)). Don't switch the FM-1 off: reconnect it, with another cable or port and \
+                without a hub, and restore the backup saved before writing.
+                """
         }
     }
 }

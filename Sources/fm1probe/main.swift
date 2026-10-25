@@ -1,56 +1,12 @@
 // A small Mac command-line probe: talk to a real FM-1 over CoreMIDI and inspect .fwsc files.
-// Only `install`, `install-bootloader` and `restore-voices` write to the device, and `backup`
-// changes which project it's showing while it reads; each asks the user to type YES first.
-// `download-mode` asks the FM-1 to restart into the chip's download mode, and `flash-backup` reads
-// its flash there; neither writes. Every other command sends nothing but the handshake query.
+// Only `install`, `install-bootloader`, `restore-voices` and the download-mode `flash-restore`,
+// `flash-bootloader` and `flash-install` write to the device, and `backup` changes which project
+// it's showing while it reads; each asks the user to type YES first. `download-mode` asks the
+// FM-1 to restart into the chip's download mode, and `flash-backup` reads its flash there;
+// neither writes. Every other command sends nothing but the handshake query.
 
 import FM1Kit
 import Foundation
-
-let usage = """
-    usage: fm1probe ports                      list MIDI port pairs and which would be probed
-           fm1probe identify [options]         ask the connected FM-1 what it's running
-               --repeat N                      ask N times and report timings and failures
-               --port NAME                     ask this port even if its name doesn't look like an FM-1
-           fm1probe monitor [SECONDS]          print every SysEx message any port sends (default 30 s);
-                                               sends nothing
-           fm1probe watch [SECONDS]            print the ports each time devices come or go (default 60 s)
-           fm1probe inspect FILE               show a package's identity, size and hash, or which
-                                               m-bootloader a .boot file or installer package holds
-           fm1probe install FILE.fwsc [options]
-                                               write a firmware to the FM-1, after asking to confirm
-               --resume                        finish an update on an FM-1 waiting in its update loader
-               --simulated                     run against a simulated FM-1 instead (writes nothing)
-               --log FILE                      write every message to and from the device to a new
-                                               CSV file
-               --build-id HEX                  the package's build ID, for M-VAVE's open firmware
-                                               (official releases' are known)
-           fm1probe restore-voices FM-1.fwsc [options]
-                                               rewrite V15's four voice banks with its factory voices,
-                                               from the official V15 package, after asking to confirm
-               --simulated                     run against a simulated FM-1 running V15 (writes nothing)
-               --log FILE                      write every message to and from the device to a new
-                                               CSV file
-           fm1probe install-bootloader fm1-uboot.fwsc [options]
-                                               install m-bootloader from its installer package on an
-                                               FM-1 running V15, after asking to confirm
-               --simulated                     run against a simulated FM-1 running V15 (writes nothing)
-               --log FILE                      write every message to and from the device to a new
-                                               CSV file
-           fm1probe download-mode              ask the FM-1 (V15 or Felucca) to restart into the chip's
-                                               USB download mode; nothing is written
-           fm1probe flash-backup FOLDER [options]
-                                               read the whole flash of an FM-1 in download mode, twice,
-                                               and save it as M-Flasher does; needs sudo
-               --simulated                     read a simulated FM-1 instead
-               --trace                         print every USB transfer
-           fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
-                                               M-VAVE's open firmware to a new folder, after asking
-                                               to confirm
-               --simulated                     run against a simulated FM-1 running open firmware
-               --log FILE                      write every message to and from the device to a new
-                                               CSV file
-    """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 
@@ -241,6 +197,9 @@ case "download-mode":
 case "flash-backup" where arguments.count >= 2:
     try backUpFlash(
         folderPath: arguments[1], isSimulated: arguments.contains("--simulated"), traces: arguments.contains("--trace"))
+
+case "flash-restore", "flash-bootloader", "flash-install":
+    try writeFlash(arguments)
 
 case "install-bootloader" where arguments.count >= 2:
     try await installBootloader(

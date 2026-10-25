@@ -22,6 +22,46 @@ public struct FlashBackup: Sendable, Hashable {
     /// When it was read.
     public let date: Date
 
+    /// Reads a saved backup: a 1 MB `.bin`, and the `.json` beside it if there is one, as FM1Kit
+    /// and M-Flasher save them.
+    ///
+    /// Without a `.json`, the chip key is taken to be the FM-1's usual one and the unit is unknown.
+    ///
+    /// - Parameter url: The `.bin` file.
+    /// - Throws: ``DownloadModeError/unexpectedFlashSize(_:)`` when the file isn't 1 MB, or any
+    ///   error reading it.
+    public init(contentsOf url: URL) throws {
+        let flash = try [UInt8](Data(contentsOf: url))
+        guard flash.count == FlashSession.flashSize else {
+            throw DownloadModeError.unexpectedFlashSize(flash.count)
+        }
+        let descriptionURL = url.deletingPathExtension().appendingPathExtension("json")
+        let fields =
+            (try? Data(contentsOf: descriptionURL))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        func hex(_ key: String) -> UInt32? {
+            (fields[key] as? String).flatMap { UInt32($0.replacingOccurrences(of: "0x", with: ""), radix: 16) }
+        }
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        self.init(
+            bytes: flash,
+            uniqueID: (fields["unit id"] as? String).flatMap { $0 == "–" ? nil : $0 },
+            chipKey: hex("chip key").map { UInt16(truncatingIfNeeded: $0) } ?? FlashSession.expectedChipKey,
+            flashID: hex("flash") ?? 0,
+            loaderVersion: (fields["loader"] as? String) ?? "",
+            date: attributes?[.modificationDate] as? Date ?? Date()
+        )
+    }
+
+    init(bytes: [UInt8], uniqueID: String?, chipKey: UInt16, flashID: UInt32, loaderVersion: String, date: Date) {
+        self.bytes = bytes
+        self.uniqueID = uniqueID
+        self.chipKey = chipKey
+        self.flashID = flashID
+        self.loaderVersion = loaderVersion
+        self.date = date
+    }
+
     /// The m-bootloader in the boot area, or `nil` for M-VAVE's or another bootloader.
     public var mBootloader: BootloaderImage? {
         Self.storedBootloader(in: bytes).flatMap(BootloaderImage.init(bytes:))
@@ -55,9 +95,9 @@ public struct FlashBackup: Sendable, Hashable {
         return ChipChecksum.crc16(header[0..<14]) == expected ? container : nil
     }
 
-    /// JieLi's ENC cipher with key `0xFFFF`, its own inverse.
-    static func decipher(_ bytes: ArraySlice<UInt8>) -> [UInt8] {
-        var key: UInt16 = 0xFFFF
+    /// JieLi's ENC cipher, its own inverse; the boot area uses key `0xFFFF`.
+    static func decipher(_ bytes: ArraySlice<UInt8>, key start: UInt16 = 0xFFFF) -> [UInt8] {
+        var key = start
         return bytes.map { byte in
             defer { key = key & 0x8000 == 0 ? key << 1 : (key << 1) ^ 0x1021 }
             return byte ^ UInt8(truncatingIfNeeded: key)
@@ -96,9 +136,12 @@ public struct FlashBackup: Sendable, Hashable {
 
     /// The `.json`, laid out as M-Flasher writes it, which reads the unit ID back from it.
     func description(saved stamp: String) -> String {
+        let firmware = firmware
         let fields: [(String, String)] = [
             ("model", "FM-1"),
             ("bootloader", bootloaderDescription),
+            ("firmware", firmware.description),
+            ("app", firmware.filesDescription),
             ("chip key", String(format: "0x%04X", chipKey)),
             ("flash", String(format: "0x%06X", flashID)),
             ("unit id", uniqueID ?? "–"),
