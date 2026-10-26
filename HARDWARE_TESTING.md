@@ -250,6 +250,20 @@ backup.
 | L6 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc .artifacts/tmp/l-backups`, then `YES` | Open V12 written in download mode, keeping m-bootloader: the green screen, then Open V12. (Skip if L5 installed V15: install m-bootloader again first.) |
 | L7 | `swift run fm1probe install .artifacts/FM-1.fwsc --log .artifacts/tmp/l7-v15.csv` | Open V12 is armed and takes V15; M-VAVE's bootloader replaces m-bootloader (no green screen). `install-bootloader` then puts m-bootloader back, as in stage J. |
 
+## Stage M: a firmware with Felucca's fixed update code, on m-bootloader
+
+Charles Vestal's fix to the platform's update code (felucca-bsp `afd83ed`, in fm1-base from
+`6c0b47e`) no longer needs the package's boot area to equal the FM-1's, only to be a bootable
+FM-1 one. LOOM-8 0.8 is built on it. Start on V15 with m-bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| M1 | `swift run fm1probe identify` | `FM-1_015`. |
+| M2 | `swift run fm1probe install .artifacts/tmp/fixed-pkgs/charlesvestal_fm1-loom/loom-0.8.fwsc --log .artifacts/tmp/m2-loom.csv` | LOOM-8 installs; m-bootloader kept. |
+| M3 | `swift run fm1probe identify` | `FM-1_10000800`. |
+| M4 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/m4-v15.csv` | LOOM-8 takes V15, where DUB-1 refused it; M-VAVE's bootloader replaces m-bootloader. |
+| M5 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/m5.csv` | m-bootloader back, as in stage J. |
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -525,3 +539,22 @@ So with m-bootloader, firmwares built on Felucca's platform (AMB-1, DUB-1, HYP-1
 each other's packages over USB-MIDI but refuse M-VAVE's (V15 and open firmware), whose boot area
 must match the FM-1's. V15 and Open V12 took every package tried, and installing either of
 M-VAVE's packages replaces the boot area, m-bootloader included.
+
+### 2026-10-26: stage M, a firmware with Felucca's fixed update code, on m-bootloader
+
+The same Mac and FM-1, starting on V15 with m-bootloader 1.2-22e2559.
+
+- **M1 passed:** `FM-1_015`.
+- **M2 passed:** V15 took LOOM-8 0.8 (`FM-1_10000800`) in about 39 s; m-bootloader kept. LOOM-8's
+  USB-MIDI port is named `FM-1 ESTAMPIE`.
+- **M3 passed:** `FM-1_10000800`.
+- **M4 passed:** LOOM-8 took V15 in 20.8 s (staging 3.5 s, 73 requests; writing 11.2 s). After
+  the package header and the loader's header at `0xA5F00`, it read 64 bytes at `0x400` (the boot
+  area's headers) and then the bootloader from `0x4A0`, checking it's bootable rather than
+  comparing it: DUB-1 stopped at its first read of `0x400`. M-VAVE's loader put M-VAVE's
+  bootloader back.
+- **M5 passed:** `install-bootloader` put m-bootloader back from V15 in about 9 s (logged to
+  `m6.csv`; `m5.csv` is from a first attempt that logged nothing).
+
+So firmwares built on the fixed update code take V15 over USB-MIDI with m-bootloader installed.
+Their code holds the fixed check's text `AC79BLID`; firmwares with the old check don't.

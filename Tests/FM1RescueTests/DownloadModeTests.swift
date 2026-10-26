@@ -156,6 +156,19 @@ struct FirmwareCheckTests {
         #expect(!installer.usesFeluccaUpdateCode)
     }
 
+    @Test func tellsTheFixedUpdateCodeFromTheOneThatRefusesV15() throws {
+        let old = Array("..FM-1_8010300..FELUCCA-LOADER-1..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+        let fixed =
+            Array("..FM-1_10000800..FELUCCA-LOADER-1..AC79BLID..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
+        #expect(try SampleFlash.package(SampleFlash.flash(code: old)).refusesV15OverOtherBootloaders)
+        let loom = try SampleFlash.package(SampleFlash.flash(code: fixed))
+        #expect(loom.usesFeluccaUpdateCode)
+        #expect(!loom.refusesV15OverOtherBootloaders)
+        #expect(try !SampleFlash.package(SampleFlash.flash()).refusesV15OverOtherBootloaders)
+        let installer = try FwscPackage(data: FwscPackage.sampleBootloaderInstallerFile(carrying: .sample()))
+        #expect(!installer.refusesV15OverOtherBootloaders)
+    }
+
     @Test func doesntNameAForkThatSharesItsIdentity() {
         let hyp = Array("..FM-1_7010300..FM-1_015..HYP-1 1.3..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
         let firmware = Self.backup(Self.flash(storing: hyp)).firmware

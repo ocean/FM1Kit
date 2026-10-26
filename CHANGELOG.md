@@ -5,6 +5,15 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-26
+
+### Added
+
+- `FwscPackage.refusesV15OverOtherBootloaders`: whether a firmware refuses V15 over USB-MIDI
+  while m-bootloader is installed. Firmwares on the fixed update code of Felucca's platform
+  (felucca-bsp from October 2026, such as LOOM-8 0.8, tested on hardware) take V15 and aren't
+  flagged; `usesFeluccaUpdateCode` flagged them. `fm1probe inspect` tells the two apart.
+
 ## [0.4.2] - 2026-10-25
 
 ### Added
@@ -201,7 +210,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.2...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/ocean/FM1Kit/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/ocean/FM1Kit/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/ocean/FM1Kit/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/ocean/FM1Kit/compare/0.3.0...0.4.0

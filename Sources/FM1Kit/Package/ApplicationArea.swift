@@ -102,24 +102,49 @@ package struct ApplicationArea {
 
 extension FwscPackage {
     /// True when the firmware uses the update code of Felucca's platform, as AMB-1, HYP-1,
-    /// DUB-1, Estampie, LOF-1 and Felucca itself do.
+    /// DUB-1, Estampie, LOF-1, LOOM-8 and Felucca itself do.
     ///
-    /// Once running, such a firmware installs a package that brings M-VAVE's update loader (V15
-    /// or open firmware) only when the FM-1 already has the bootloader the package brings. With
-    /// m-bootloader installed it refuses V15
+    /// It's read from the firmware's code: Felucca's update code recognises its own loader by
+    /// the text `FELUCCA-LOADER-1`, so it can't work without it. `false` for an installer
+    /// package. Whether the firmware refuses V15 once m-bootloader is installed is
+    /// ``refusesV15OverOtherBootloaders``.
+    public var usesFeluccaUpdateCode: Bool {
+        firmwareCode?.contains(Self.feluccaLoaderMarker) ?? false
+    }
+
+    /// True when the firmware, once running, refuses V15 over USB-MIDI if the FM-1's
+    /// bootloader isn't V15's, as after installing m-bootloader.
+    ///
+    /// Felucca's update code installs a package that brings M-VAVE's update loader (V15 or open
+    /// firmware) only when the FM-1 already has the bootloader the package brings. With
+    /// m-bootloader installed, such a firmware refuses V15
     /// (``FM1UpdateError/bootloaderMismatch(requests:)``), and going back to V15 needs the
     /// chip's USB download mode, from a Mac. Apps can warn before installing such a firmware on
     /// an FM-1 that might have m-bootloader.
     ///
-    /// It's read from the firmware's code: Felucca's update code recognises its own loader by
-    /// the text `FELUCCA-LOADER-1`, so it can't work without it. A firmware could keep that and
-    /// drop the check, but none seen so far does. `false` for an installer package.
-    public var usesFeluccaUpdateCode: Bool {
-        guard let image = flashImage,
-            let code = ApplicationArea(flash: image, chipKey: ApplicationArea.fm1ChipKey).code()
-        else {
-            return false
-        }
-        return code.firstRange(of: Array("FELUCCA-LOADER-1".utf8)) != nil
+    /// Firmwares built on the fixed update code (felucca-bsp from October 2026, such as LOOM-8
+    /// 0.8) only check that the package's bootloader is one the FM-1 can start, and take V15:
+    /// their code holds that check's text `AC79BLID`. A firmware that installs every package
+    /// with a loader of its own, as TransitFM1 does, takes V15 too, but isn't recognised.
+    /// `false` for an installer package.
+    public var refusesV15OverOtherBootloaders: Bool {
+        guard let code = firmwareCode else { return false }
+        return code.contains(Self.feluccaLoaderMarker) && !code.contains(Self.bootloaderCheckMarker)
+    }
+
+    /// The text Felucca's update code recognises its own loader by.
+    static let feluccaLoaderMarker = Array("FELUCCA-LOADER-1".utf8)
+    /// The text the fixed update code looks for in an m-bootloader container.
+    static let bootloaderCheckMarker = Array("AC79BLID".utf8)
+
+    /// The firmware's `app.bin`, deciphered, or `nil` for an installer package.
+    private var firmwareCode: [UInt8]? {
+        flashImage.flatMap { ApplicationArea(flash: $0, chipKey: ApplicationArea.fm1ChipKey).code() }
+    }
+}
+
+extension [UInt8] {
+    fileprivate func contains(_ text: [UInt8]) -> Bool {
+        firstRange(of: text) != nil
     }
 }
