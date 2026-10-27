@@ -3,7 +3,7 @@ import Foundation
 
 /// Installs m-bootloader from its installer package on the connected FM-1 (or a simulated one),
 /// after the person types YES.
-func installBootloader(path: String, isSimulated: Bool, logPath: String?) async throws {
+func installBootloader(path: String, isSimulated: Bool, fromAnyFirmware: Bool, logPath: String?) async throws {
     let installer: BootloaderInstaller
     do {
         installer = try BootloaderInstaller(package: FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path))))
@@ -34,7 +34,9 @@ func installBootloader(path: String, isSimulated: Bool, logPath: String?) async 
         exit(1)
     }
     print("Device:   \(current.text)")
-    guard current == FM1Identity.officialV15 else {
+    if fromAnyFirmware, current != FM1Identity.officialV15 {
+        print("Testing: sending the installer to \(current.text), not V15. Most firmwares refuse it while staging.")
+    } else if current != FM1Identity.officialV15 {
         print("Installing m-bootloader needs the FM-1 running V15 (FM-1_015). Install V15 first.")
         exit(1)
     }
@@ -45,7 +47,8 @@ func installBootloader(path: String, isSimulated: Bool, logPath: String?) async 
     if let logPath { print("Logging every message to \(logPath).") }
     let start = ContinuousClock.now
     do {
-        let identity = try await updater.installBootloader(installer, events: printBootloaderEvent)
+        let identity = try await updater.installBootloader(
+            installer, fromAnyFirmware: fromAnyFirmware, events: printBootloaderEvent)
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
         print(
             """
@@ -81,8 +84,8 @@ func confirmBootloaderInstall() -> Bool {
         area, shows INSTALLED and restarts into V15. Keep the cable connected and the FM-1 powered
         until V15 is back: losing power while the boot area is written can leave the FM-1 unable to
         start, and only a USB_KEY dongle can recover it then. Installing V15 later puts M-VAVE's
-        bootloader back. Firmwares built on Felucca's platform (AMB-1, HYP-1, DUB-1, Estampie) refuse V15
-        over USB-MIDI while m-bootloader is installed: from them, install V15 in download mode.
+        bootloader back. Firmwares with Felucca's original update check (AMB-1, HYP-1, DUB-1) refuse
+        V15 over USB-MIDI while m-bootloader is installed: from them, install V15 in download mode.
 
         """)
     print("Type YES to install m-bootloader, or anything else to stop: ", terminator: "")

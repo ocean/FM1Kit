@@ -5,6 +5,32 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-27
+
+### Added
+
+- `FM1UpdateError.packageRefused(requests:)`: the firmware read the package's header and
+  stopped, refusing it. Firmwares with Felucca's original update check do this for
+  m-bootloader's installer and for update loaders they don't recognise, and copies of Felucca
+  1.6.1 for M-VAVE's open firmware too (tested on hardware: `FAILED -15`). It was reported as
+  `stalled(.staging)`, whose advice was to try again.
+- `FM1Updater.installBootloader(_:fromAnyFirmware:events:)` and `fm1probe install-bootloader
+  --from-any-firmware`: send m-bootloader's installer whatever firmware is running, for
+  hardware tests of how other firmwares treat it.
+- `SimulatedFM1.Options.refusesAfterHeader`.
+
+### Changed
+
+- `bootloaderMismatch` and `refusesV15OverOtherBootloaders` describe any changed bootloader,
+  M-VAVE's open firmware's as well as m-bootloader (tested on hardware), and point to firmwares
+  with Felucca's updated check as a way back. Estampie is no longer listed among the firmwares
+  that refuse V15: its update code has the updated check.
+
+### Fixed
+
+- The README's and llms-full.txt's recovery sections describe download mode as FM1Rescue
+  uses it.
+
 ## [0.4.3] - 2026-10-26
 
 ### Added
@@ -210,7 +236,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.3...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.4...HEAD
+[0.4.4]: https://github.com/ocean/FM1Kit/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/ocean/FM1Kit/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/ocean/FM1Kit/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/ocean/FM1Kit/compare/0.4.0...0.4.1

@@ -60,7 +60,7 @@ public struct InstallProgress: Sendable, Hashable {
     public init() {}
 
     /// Moves the bar on for an event from ``FM1Updater/install(_:options:events:)``,
-    /// ``FM1Updater/resume(_:events:)`` or ``FM1Updater/installBootloader(_:events:)``.
+    /// ``FM1Updater/resume(_:events:)`` or ``FM1Updater/installBootloader(_:fromAnyFirmware:events:)``.
     ///
     /// - Parameter event: The event just reported.
     public mutating func record(_ event: UpdateEvent) {

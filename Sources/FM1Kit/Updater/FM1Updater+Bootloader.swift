@@ -18,6 +18,8 @@ extension FM1Updater {
     ///
     /// - Parameters:
     ///   - installer: The installer, from m-bootloader's `fm1-uboot.fwsc`.
+    ///   - fromAnyFirmware: Sends the installer whatever firmware is running, for hardware tests
+    ///     of how other firmwares treat it. Most refuse it while staging.
     ///   - events: Progress: ``UpdateEvent/connected(_:)``, ``UpdateEvent/staging(requests:)``,
     ///     ``UpdateEvent/rebooting`` while the installer runs, then ``UpdateEvent/finished(_:)``;
     ///     it may be called from any task.
@@ -28,6 +30,7 @@ extension FM1Updater {
     @discardableResult
     public func installBootloader(
         _ installer: BootloaderInstaller,
+        fromAnyFirmware: Bool = false,
         events: @escaping @Sendable (UpdateEvent) -> Void = { _ in }
     ) async throws -> FM1Identity {
         guard let device = try await findOnly(where: { !$0.isLoader }) else {
@@ -37,7 +40,7 @@ extension FM1Updater {
         let staging: ServeOutcome
         do {
             defer { device.connection.close() }
-            guard running == .officialV15 else {
+            guard fromAnyFirmware || running == .officialV15 else {
                 throw FM1UpdateError.bootloaderInstallNeedsV15(device: running.text)
             }
             events(.connected(running))
@@ -52,6 +55,9 @@ extension FM1Updater {
                 events(.staging(requests: requests))
             }
             guard staging.finished else {
+                if Self.refusedPackage(staging, of: installer.package) {
+                    throw FM1UpdateError.packageRefused(requests: staging.requests)
+                }
                 throw staging.lost
                     ? FM1UpdateError.disconnected(phase: .staging, requests: staging.requests)
                     : FM1UpdateError.stalled(phase: .staging, requests: staging.requests)

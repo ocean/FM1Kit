@@ -40,7 +40,8 @@ struct FriendlyAPITests {
             .voiceRestoreStalled(bytesWritten: 0), .backupNeedsOpenFirmware(device: "a"),
             .projectLibraryUnavailable, .sampleBankBusy, .backupRefused(code: 71), .backupStalled,
             .modelMismatch(device: "a", package: "b"), .notFirmware("a"), .bootloaderInstallNeedsV15(device: "a"),
-            .installerDidNotStart, .loaderNotFound, .deviceDidNotReturn,
+            .installerDidNotStart,
+            .bootloaderMismatch(requests: 4), .packageRefused(requests: 2), .loaderNotFound, .deviceDidNotReturn,
             .identityMismatch(expected: "a", reported: "b"), .badRequest(address: 0, length: 1),
             .unexpectedFinish(phase: .staging), .unexpectedFinish(phase: .writing),
         ]

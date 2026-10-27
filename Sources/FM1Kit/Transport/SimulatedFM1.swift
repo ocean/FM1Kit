@@ -73,10 +73,13 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var serialNumber: String? = "SIMULATED-FM-1"
         /// The m-bootloader version installed at first, or `nil` for M-VAVE's bootloader.
         public var bootloaderVersion: String?
-        /// Compare a package's boot area with the FM-1's before staging it, as firmwares built on
-        /// Felucca's platform (AMB-1, HYP-1, DUB-1, Estampie) do: while m-bootloader is installed, the
-        /// first block differs, so the package is refused.
+        /// Compare a package's boot area with the FM-1's before staging it, as firmwares with
+        /// Felucca's original update check (AMB-1, HYP-1, DUB-1) do: while m-bootloader is
+        /// installed, the first block differs, so the package is refused.
         public var comparesBootArea = false
+        /// Read a package's header, then refuse it, as firmwares with Felucca's original update
+        /// check do with m-bootloader's installer.
+        public var refusesAfterHeader = false
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -231,15 +234,15 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     private func stage(_ package: FwscPackage, on connection: SimulatedConnection) async {
         let image = package.logicalImage
         let length = min(FM1Message.maximumReadLength, image.count)
-        if options.comparesBootArea, let boot = package.bootAreaRange,
-            state.withLock({ $0.bootloaderVersion }) != nil
-        {
-            for address in [0, length, boot.lowerBound] {
+        let hasOtherBootloader = options.comparesBootArea && state.withLock({ $0.bootloaderVersion }) != nil
+        let boot = options.refusesAfterHeader || !hasOtherBootloader ? nil : package.bootAreaRange
+        if options.refusesAfterHeader || boot != nil {
+            for address in [0, length] + (boot.map { [$0.lowerBound] } ?? []) {
                 let request = FM1ReadRequest(address: UInt32(address), length: length)
                 guard await exchange(request, expecting: Array(image[address..<(address + length)]), on: connection)
                 else { return }
             }
-            log("The package's bootloader isn't the FM-1's, so it's refused.")
+            log(boot == nil ? "The package is refused after its header." : "The package's bootloader isn't the FM-1's.")
             return
         }
         for index in 0..<options.stagingRequestCount {

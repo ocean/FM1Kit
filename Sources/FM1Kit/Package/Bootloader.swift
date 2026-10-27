@@ -80,7 +80,7 @@ public struct BootloaderImage: Sendable, Hashable {
 /// The package holds no firmware, only an installer in place of the update loader. The running
 /// firmware stages it like any update and restarts; the bootloader then runs the installer,
 /// which rewrites only the 16 KB boot area, checks it, shows the result on the FM-1's screen and
-/// restarts into the same firmware. ``FM1Updater/installBootloader(_:events:)`` drives that.
+/// restarts into the same firmware. ``FM1Updater/installBootloader(_:fromAnyFirmware:events:)`` drives that.
 ///
 /// Reading one decompresses the installer and checks every checksum on the way, as the
 /// bootloader does before running it, and finds the bootloader it installs.

@@ -113,14 +113,16 @@ extension FwscPackage {
     }
 
     /// True when the firmware, once running, refuses V15 over USB-MIDI if the FM-1's
-    /// bootloader isn't V15's, as after installing m-bootloader.
+    /// bootloader has been changed, by m-bootloader or by M-VAVE's open firmware.
     ///
-    /// Felucca's update code installs a package that brings M-VAVE's update loader (V15 or open
-    /// firmware) only when the FM-1 already has the bootloader the package brings. With
-    /// m-bootloader installed, such a firmware refuses V15
-    /// (``FM1UpdateError/bootloaderMismatch(requests:)``), and going back to V15 needs the
-    /// chip's USB download mode, from a Mac. Apps can warn before installing such a firmware on
-    /// an FM-1 that might have m-bootloader.
+    /// Felucca's original update check installs a package that brings M-VAVE's update loader
+    /// (V15 or open firmware) only when the FM-1 already has the bootloader the package brings.
+    /// Once the bootloader has been changed, such a firmware refuses V15
+    /// (``FM1UpdateError/bootloaderMismatch(requests:)``), as well as m-bootloader's installer
+    /// (``FM1UpdateError/packageRefused(requests:)``): it only installs other firmwares on
+    /// Felucca's platform, and going back to V15 needs the chip's USB download mode, from a Mac.
+    /// Apps can warn before installing such a firmware on an FM-1 whose bootloader may have
+    /// been changed.
     ///
     /// Firmwares built on the fixed update code (felucca-bsp from October 2026, such as LOOM-8
     /// 0.8) only check that the package's bootloader is one the FM-1 can start, and take V15:

@@ -13,12 +13,14 @@ struct BootloaderTests {
     static func device(
         running identity: FM1Identity = .officialV15,
         bootloader: String? = nil,
-        comparesBootArea: Bool = false
+        comparesBootArea: Bool = false,
+        refusesAfterHeader: Bool = false
     ) -> SimulatedFM1 {
         var options = UpdaterTests.fastOptions
         options.installedIdentity = identity
         options.bootloaderVersion = bootloader
         options.comparesBootArea = comparesBootArea
+        options.refusesAfterHeader = refusesAfterHeader
         return SimulatedFM1(options: options)
     }
 
@@ -90,6 +92,43 @@ struct BootloaderTests {
             try await updater.installBootloader(try Self.installer())
         }
         #expect(device.installedBootloaderVersion == nil)
+    }
+
+    @Test func sendsTheInstallerToAnyFirmwareWhenAsked() async throws {
+        let estampie = FM1Identity(model: "FM-1", version: 378_000)
+        let device = Self.device(running: estampie, bootloader: "1.2")
+        let installer = try Self.installer()
+        device.prepare(for: installer.package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        let identity = try await updater.installBootloader(installer, fromAnyFirmware: true)
+        #expect(identity == estampie)
+        #expect(device.installedBootloaderVersion == "1.2-sample")
+    }
+
+    @Test func explainsAFirmwareRefusingTheInstallerAfterItsHeader() async throws {
+        let dub = FM1Identity(model: "FM-1", version: 8_010_300)
+        let device = Self.device(running: dub, bootloader: "1.2", refusesAfterHeader: true)
+        let installer = try Self.installer()
+        device.prepare(for: installer.package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        await #expect(throws: FM1UpdateError.packageRefused(requests: 2)) {
+            try await updater.installBootloader(installer, fromAnyFirmware: true)
+        }
+        #expect(device.installedBootloaderVersion == "1.2")
+    }
+
+    @Test func explainsAFirmwareRefusingAPackageAfterItsHeader() async throws {
+        let felucca = FM1Identity(model: "FM-1", version: 916)
+        let device = Self.device(running: felucca, refusesAfterHeader: true)
+        let package = try UpdaterTests.package(product: "FM-1_015")
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        await #expect(throws: FM1UpdateError.packageRefused(requests: 2)) {
+            try await updater.install(package, options: .confirmed)
+        }
+        let advice = FM1UpdateError.packageRefused(requests: 2).advice
+        #expect(advice.isDeviceFine)
+        #expect(advice.action == .needsComputer)
     }
 
     @Test func refusesToInstallAnInstallerAsFirmware() async throws {

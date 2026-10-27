@@ -28,6 +28,7 @@ let usage = """
                                                install m-bootloader from its installer package on an
                                                FM-1 running V15, after asking to confirm
                --simulated                     run against a simulated FM-1 running V15 (writes nothing)
+               --from-any-firmware             send it whatever firmware is running (hardware tests)
                --log FILE                      write every message to and from the device to a new
                                                CSV file
            fm1probe download-mode              ask the FM-1 (V15 or Felucca) to restart into the chip's

@@ -142,6 +142,12 @@ public struct FwscPackage: Sendable {
         container.flash.map { Array(logicalImage[$0.range]) }
     }
 
+    /// Where the container's header and table of parts are in the logical image, before its
+    /// first part.
+    var headerRange: Range<Int> {
+        0..<min(container.flash?.offset ?? container.loader.offset, container.loader.offset)
+    }
+
     /// Where the firmware image's boot area (its first 16 KB) is in the logical image, which
     /// update requests address; `nil` for an installer package.
     var bootAreaRange: Range<Int>? {

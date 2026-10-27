@@ -264,6 +264,49 @@ FM-1 one. LOOM-8 0.8 is built on it. Start on V15 with m-bootloader.
 | M4 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/m4-v15.csv` | LOOM-8 takes V15, where DUB-1 refused it; M-VAVE's bootloader replaces m-bootloader. |
 | M5 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/m5.csv` | m-bootloader back, as in stage J. |
 
+## Stage N: m-bootloader's installer from other firmwares
+
+The original check refuses any package whose update loader is neither M-VAVE's nor Felucca's.
+m-bootloader's installer has no flash.bin, so it's refused even earlier (−3), straight after the
+package header. The fixed check takes any well-made loader. `--from-any-firmware` lets
+`install-bootloader` send the installer to a firmware other than V15. DUB-1 1.3.0 has Felucca
+0.8-beta's update code, Felucca 1.6.1 its own, and ESTAMPIE (`6693d4a`) the fixed code. Start on
+V15 with m-bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| N1 | `swift run fm1probe install .artifacts/dub-1.3.0.fwsc --log .artifacts/tmp/n1.csv` | DUB-1 installs; m-bootloader kept. |
+| N2 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --from-any-firmware --log .artifacts/tmp/n2.csv` | Refused after about 2 requests (the package header); fm1probe stops as stalled; DUB-1 carries on. Note the screen. |
+| N3 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/n3.csv` | Felucca 1.6.1 installs. |
+| N4 | As N2, logging to `.artifacts/tmp/n4.csv` | Refused the same way. |
+| N5 | `swift run fm1probe install ~/code/estampie/build/felucca.fwsc --log .artifacts/tmp/n5.csv` | ESTAMPIE installs. |
+| N6 | As N2, logging to `.artifacts/tmp/n6.csv` | Taken: `INSTALLED` on the screen, back on `FM-1_378000`. |
+| N7 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/n7.csv` | ESTAMPIE takes V15; M-VAVE's bootloader replaces m-bootloader. |
+
+## Stage O: M-VAVE's open firmware's boot area
+
+Installing Open V12 or V14 with M-VAVE's loader writes Open's boot area, which differs from V15's
+(V12's and V14's are byte for byte the same, so V12 stands in for both). A Felucca-based
+firmware installed after it keeps that boot area. The original check should then refuse V15 but
+take Open again, unless the firmware has Felucca 1.6.1's size check (Open V12's flash.bin is
+0x6F000 bytes, not 0x93000). LOOM-8 0.8 has Charles Vestal's fix as released. Start where stage
+N ends: V15 with M-VAVE's bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| O1 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc --log .artifacts/tmp/o1.csv` | Open V12 installs (`FM-1_8000012`). |
+| O2 | `swift run fm1probe install .artifacts/dub-1.3.0.fwsc --log .artifacts/tmp/o2.csv` | Open V12 takes DUB-1. |
+| O3 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/o3.csv` | DUB-1 refuses V15 after 4 requests (`CHECK HEAD`, `FAILED`). |
+| O4 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc --log .artifacts/tmp/o4.csv` | DUB-1 takes Open V12: the boot areas match. |
+| O5 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/o5.csv` | Open V12 takes Felucca 1.6.1. |
+| O6 | As O4, logging to `.artifacts/tmp/o6.csv` | Felucca refuses Open V12 after about 2 requests, before `CHECK HEAD` (−15, the size check). |
+| O7 | As O3, logging to `.artifacts/tmp/o7.csv` | Felucca refuses V15 after 4 requests: no way off over USB. |
+| O8 | `swift run fm1probe install .artifacts/tmp/fixed-pkgs/charlesvestal_fm1-loom/loom-0.8.fwsc --log .artifacts/tmp/o8.csv` | Felucca takes LOOM-8 (Felucca's loader). |
+| O9 | As O4, logging to `.artifacts/tmp/o9.csv` | LOOM-8 takes Open V12: Open's bootloader passes the fixed check. |
+| O10 | As O8, logging to `.artifacts/tmp/o10.csv` | Open V12 takes LOOM-8. |
+| O11 | As O3, logging to `.artifacts/tmp/o11.csv` | LOOM-8 takes V15 over Open's boot area; M-VAVE's bootloader comes back. |
+| O12 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/o12.csv` | m-bootloader back on V15, where stage N started. |
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -558,3 +601,39 @@ The same Mac and FM-1, starting on V15 with m-bootloader 1.2-22e2559.
 
 So firmwares built on the fixed update code take V15 over USB-MIDI with m-bootloader installed.
 Their code holds the fixed check's text `AC79BLID`; firmwares with the old check don't.
+
+### 2026-10-27: stage O, M-VAVE's open firmware's boot area
+
+The same Mac and FM-1, starting on Melodee (`FM-1_91060`, built on Felucca's platform) with
+m-bootloader 1.2-22e2559. Stage N hasn't been run yet.
+
+- **Melodee refused V15** after 4 requests (`0x0`, `0x200`, the loader's header at `0xA5F00`,
+  `0x400`), as DUB-1 did: one more firmware with the original check.
+- **V15 in download mode:** `flash-install` wrote it in 9.9 s (143 sectors), keeping m-bootloader.
+  The backup before it named the firmware unknown, "naming FM-1_015 and FM-1_91060": Melodee's
+  code holds V15's identity text as well as its own.
+- **O0 passed:** `FM-1_015`.
+- **O1 passed:** V15 took Open V12 in 18.0 s. M-VAVE's loader wrote Open's boot area over
+  m-bootloader.
+- **O2 passed:** Open V12 took DUB-1 1.3.0 in 27.6 s.
+- **O3 passed:** DUB-1 refused V15 after the same 4 requests: Open's boot area traps it as
+  m-bootloader does. fm1probe reported `bootloaderMismatch`, whose text names only m-bootloader.
+- **O4 passed:** DUB-1 took Open V12 in 18.1 s (staging read the whole boot area, 75 requests):
+  the boot areas match, and Felucca 0.8-beta's code has no size check.
+- **O5 passed:** Open V12 took Felucca 1.6.1 (`FM-1_916`) in 37.4 s.
+- **O6 passed:** Felucca refused Open V12 after 2 requests (`0x0`, `0x200`), showing `FAILED -15`
+  briefly: the size check, as Open V12's flash.bin is 0x6F000 bytes. fm1probe reported
+  `stalled(.staging)`, whose advice (try again, recovery mode) doesn't fit.
+- **O7 passed:** Felucca refused V15 after 4 requests, showing `FAILED -5`. After Open, a
+  firmware with Felucca 1.6.1's code has no way off over USB-MIDI but another Felucca-platform
+  firmware.
+- **O8 passed:** Felucca took LOOM-8 0.8 in 37.8 s.
+- **O9 passed:** LOOM-8 took Open V12 in 18.1 s: Open's bootloader passes the fixed check.
+- **O10 passed:** Open V12 took LOOM-8 in 35.3 s.
+- **O11 passed:** LOOM-8 took V15 over Open's boot area in 21.5 s; M-VAVE's loader put M-VAVE's
+  bootloader back.
+- **O12 passed:** `install-bootloader` put m-bootloader back from V15 in 5.7 s.
+
+So Open V12's boot area (V14's is the same) traps firmwares with the original check much as
+m-bootloader does: they refuse V15. Copies before Felucca 1.6.1 still take Open again, and Open
+takes V15; copies of 1.6.1 refuse Open too. The fixed check takes both.

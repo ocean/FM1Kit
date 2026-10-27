@@ -55,10 +55,16 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     /// The FM-1 took the bootloader installer but didn't restart to run it.
     case installerDidNotStart
     /// The firmware stopped while comparing the package's bootloader with the FM-1's, after
-    /// `requests` reads: firmwares built on Felucca's platform accept a package with M-VAVE's
-    /// update loader (V15, open firmware) only when the FM-1 already has the bootloader it
-    /// brings, so they refuse V15 once m-bootloader is installed.
+    /// `requests` reads: firmwares with Felucca's original update check accept a package with
+    /// M-VAVE's update loader (V15, open firmware) only when the FM-1 already has the bootloader
+    /// it brings, so they refuse V15 once the FM-1's bootloader has been changed (by m-bootloader,
+    /// or by M-VAVE's open firmware).
     case bootloaderMismatch(requests: Int)
+    /// The firmware read the package's header and stopped, after `requests` reads: it refused the
+    /// package. Firmwares with Felucca's original update check do this for m-bootloader's
+    /// installer and for update loaders they don't recognise, and those based on Felucca 1.6.1
+    /// for M-VAVE's open firmware too.
+    case packageRefused(requests: Int)
     /// The device stopped asking for data during `phase`, after `requests` reads.
     case stalled(phase: Phase, requests: Int)
     /// The device disconnected during `phase`, after `requests` reads.
@@ -182,11 +188,23 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         case .bootloaderMismatch(let requests):
             """
             The FM-1's firmware stopped after \(requests) requests, while comparing this package's \
-            bootloader with the FM-1's, and should carry on as before. Firmwares built on Felucca's \
-            platform, such as AMB-1, HYP-1, DUB-1 and Estampie, install M-VAVE's packages only when the FM-1 \
-            already has the bootloader the package brings, so they refuse V15 once m-bootloader is \
-            installed. Install it from a Mac in the chip's USB download mode instead, which keeps \
-            the FM-1's bootloader.
+            bootloader with the FM-1's, and should carry on as before. Firmwares with Felucca's \
+            original update check, such as AMB-1, HYP-1, DUB-1 and Felucca itself, install M-VAVE's \
+            packages only when the FM-1 already has the bootloader the package brings, so they \
+            refuse V15 once the FM-1's bootloader has been changed, by m-bootloader or by M-VAVE's \
+            open firmware. Install it from a Mac in the chip's USB download mode instead, which \
+            keeps the FM-1's bootloader, or first install a firmware with Felucca's updated check, \
+            such as LOOM-8, which takes it.
+            """
+        case .packageRefused(let requests):
+            """
+            The FM-1's firmware read this package's header and stopped after \(requests) requests: \
+            it refused the package, and should carry on as before. Its screen may show FAILED and a \
+            code. Firmwares with Felucca's original update check refuse m-bootloader's installer and \
+            update loaders they don't recognise this way, and those based on Felucca 1.6.1 refuse \
+            M-VAVE's open firmware too. Install it from a Mac in the chip's USB download mode \
+            instead, or first install a firmware with Felucca's updated check, such as LOOM-8, which \
+            takes it.
             """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """

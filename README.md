@@ -32,12 +32,12 @@ Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.3")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.4")),
 ]
 ```
 
 Until 1.0, minor versions may change the API, so this takes 0.4.x fixes but not 0.5.0
-(`from: "0.4.3"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
+(`from: "0.4.4"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
 changes.
 
 ## Usage
@@ -96,7 +96,7 @@ saves them as the `.fm1` and `.fm1s` files M-VAVE's workbench restores. Other fi
 known way to read their data, and each firmware stores it in its own format, so a backup is only
 for putting back on open firmware.
 
-From V15, `installBootloader(_:events:)` installs
+From V15, `installBootloader(_:fromAnyFirmware:events:)` installs
 [m-bootloader](https://github.com/jvitkauskas/m-bootloader) from its `fm1-uboot.fwsc` package,
 keeping the firmware. m-bootloader replaces M-VAVE's bootloader with one that has a recovery menu
 (hold PLAY while switching on) and the chip's USB download mode (hold REC). FM1Kit can't read the
@@ -230,8 +230,10 @@ chip's USB download mode, from a computer: [M-Flasher](https://github.com/jvitka
 backs up, restores and reinstalls an FM-1's whole flash through it. With
 [m-bootloader](https://github.com/jvitkauskas/m-bootloader) installed, holding REC while
 switching on starts download mode, and holding PLAY opens a recovery menu; m-bootloader also
-opens the menu by itself when the firmware fails its checksum. FM1Kit doesn't use download mode
-only to read (FM1Rescue, on a Mac), and iPhones and iPads can't use it at all.
+opens the menu by itself when the firmware fails its checksum. Without m-bootloader, V15 and
+firmwares built on Felucca's platform restart into download mode when asked
+(`FM1Updater.enterDownloadMode()`). FM1Rescue backs up, restores and writes the flash in download
+mode, on a Mac only: iPhones and iPads can't use it at all.
 
 ## Credits
 

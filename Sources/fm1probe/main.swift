@@ -206,7 +206,10 @@ case "flash-restore", "flash-bootloader", "flash-install":
 
 case "install-bootloader" where arguments.count >= 2:
     try await installBootloader(
-        path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
+        path: arguments[1],
+        isSimulated: arguments.contains("--simulated"),
+        fromAnyFirmware: arguments.contains("--from-any-firmware"),
+        logPath: option("--log"))
 
 case "install" where arguments.count >= 2:
     let isResume = arguments.contains("--resume")

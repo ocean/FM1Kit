@@ -133,9 +133,13 @@ or to hold PLAY while switching on and look for the menu. Installing V15 later p
 bootloader back. Download mode needs a computer: restoring an FM-1 from it isn't possible from
 an iPhone or iPad.
 
-Most firmwares built on Felucca's platform, such as AMB-1, HYP-1, DUB-1 and Estampie, install M-VAVE's packages
-only over M-VAVE's own bootloader. With m-bootloader installed they refuse V15, and the install
-stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. Getting back to V15 from one of
+Firmwares with Felucca's original update check, such as AMB-1, HYP-1, DUB-1 and Felucca itself,
+install M-VAVE's packages only when the FM-1 has the bootloader the package brings. Once the
+bootloader has been changed, by m-bootloader or by M-VAVE's open firmware, they refuse V15, and
+the install stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. They refuse
+m-bootloader's installer, update loaders they don't recognise and, in copies of Felucca 1.6.1,
+open firmware straight after the header, with ``FM1UpdateError/packageRefused(requests:)``.
+Getting back to V15 from one of
 them then needs download mode, from a Mac, so tell people before they install one from an iPhone
 or iPad: ``FwscPackage/refusesV15OverOtherBootloaders`` says whether a package is one of them.
 Firmwares built on the platform's fixed update code, such as LOOM-8 0.8, take V15 over any
