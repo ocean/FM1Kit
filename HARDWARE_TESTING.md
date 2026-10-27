@@ -279,7 +279,7 @@ V15 with m-bootloader.
 | N2 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --from-any-firmware --log .artifacts/tmp/n2.csv` | Refused after about 2 requests (the package header); fm1probe stops as stalled; DUB-1 carries on. Note the screen. |
 | N3 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/n3.csv` | Felucca 1.6.1 installs. |
 | N4 | As N2, logging to `.artifacts/tmp/n4.csv` | Refused the same way. |
-| N5 | `swift run fm1probe install ~/code/estampie/build/felucca.fwsc --log .artifacts/tmp/n5.csv` | ESTAMPIE installs. |
+| N5 | `swift run fm1probe install ~/code/estampie/build/estampie.fwsc --log .artifacts/tmp/n5.csv` | ESTAMPIE installs. |
 | N6 | As N2, logging to `.artifacts/tmp/n6.csv` | Taken: `INSTALLED` on the screen, back on `FM-1_378000`. |
 | N7 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/n7.csv` | ESTAMPIE takes V15; M-VAVE's bootloader replaces m-bootloader. |
 
@@ -637,3 +637,27 @@ m-bootloader 1.2-22e2559. Stage N hasn't been run yet.
 So Open V12's boot area (V14's is the same) traps firmwares with the original check much as
 m-bootloader does: they refuse V15. Copies before Felucca 1.6.1 still take Open again, and Open
 takes V15; copies of 1.6.1 refuse Open too. The fixed check takes both.
+
+### 2026-10-27: stage N, m-bootloader's installer from other firmwares
+
+The same Mac and FM-1, starting on V15 with m-bootloader 1.2-22e2559, with FM1Kit 0.4.4's
+`install-bootloader --from-any-firmware`.
+
+- **N1 passed:** V15 took DUB-1 1.3.0 in 26.5 s; m-bootloader kept.
+- **N2 passed:** DUB-1 refused the installer after 2 requests (`0x0`, `0x200`, the package header)
+  and carried on. This run's fm1probe was built part-way through the 0.4.4 changes, so it reported
+  a stalled install rather than `packageRefused`.
+- **N3 passed:** DUB-1 took Felucca 1.6.1 in 38.0 s.
+- **N4 passed:** Felucca refused the installer after the same 2 requests, with nothing on its
+  screen; fm1probe reported `packageRefused`.
+- **N5 passed:** Felucca took ESTAMPIE (`FM-1_378000`, a development build of `6693d4a`, the
+  code released as 0.3.7) in 32.7 s.
+- **N6 passed:** ESTAMPIE took the installer (about 30 staging requests) and restarted into it.
+  The installer showed `ALREADY INSTALLED`, as m-bootloader 1.2 was there already, and the FM-1
+  came back on ESTAMPIE after 8.9 s.
+- **N7 passed:** ESTAMPIE took V15 over m-bootloader in 18.0 s; M-VAVE's loader put M-VAVE's
+  bootloader back.
+- **N8 passed:** `install-bootloader` put m-bootloader back from V15 in 5.7 s.
+
+So firmwares with Felucca's original update check refuse m-bootloader's installer straight after
+its header (Felucca 0.8-beta's code and 1.6.1's alike), and one with the updated check takes it.
