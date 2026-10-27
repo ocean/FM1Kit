@@ -307,6 +307,29 @@ N ends: V15 with M-VAVE's bootloader.
 | O11 | As O3, logging to `.artifacts/tmp/o11.csv` | LOOM-8 takes V15 over Open's boot area; M-VAVE's bootloader comes back. |
 | O12 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/o12.csv` | m-bootloader back on V15, where stage N started. |
 
+## Stage P: a way out through a firmware with the fixed check
+
+A firmware with the original check takes any package with Felucca's own loader, so it should
+take a firmware with the fixed check, which then takes V15 or Open. That would be a way out over
+USB-MIDI alone, from a phone too. MIDIMON 0.4 (ignis32/midimonitor_fm1, a MIDI monitor) is the
+simplest such firmware: it has LOOM-8's fm1-base update code and loader, byte for byte. Felucca
+1.6.1 is the hardest firmware to leave: it has the size check as well. P3 is trapped on
+m-bootloader's boot area, and P7 on Open's. Start on V15 with m-bootloader: with M-VAVE's
+bootloader, Felucca 1.6.1 takes V15 and P3 tests nothing.
+
+| Step | Command | What to look for |
+|---|---|---|
+| P0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/p-backups`; switch the FM-1 off and on | A backup to go back to. It must say `Bootloader: m-bootloader`; if it says M-VAVE's, do P9 first. |
+| P1 | `swift run fm1probe identify` | `FM-1_015`. |
+| P2 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/p2.csv` | Felucca 1.6.1 installs; m-bootloader kept. |
+| P3 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --log .artifacts/tmp/p3.csv` | Refused after 4 requests (`FAILED -5`): trapped. |
+| P4 | `swift run fm1probe install .artifacts/tmp/hops/ignis32_midimonitor_fm1/midimon-0.4.fwsc --log .artifacts/tmp/p4.csv` | Felucca takes MIDIMON (`FM-1_88000400`). |
+| P5 | `swift run fm1probe install .artifacts/tmp/fm1open-v12/FM-1_8000012.fwsc --log .artifacts/tmp/p5.csv` | MIDIMON takes Open V12 over m-bootloader. |
+| P6 | As P2, logging to `.artifacts/tmp/p6.csv` | Open V12 takes Felucca 1.6.1. |
+| P7 | As P4, logging to `.artifacts/tmp/p7.csv` | Felucca takes MIDIMON over Open's boot area. |
+| P8 | As P3, logging to `.artifacts/tmp/p8.csv` | MIDIMON takes V15; M-VAVE's bootloader comes back. |
+| P9 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/p9.csv` | m-bootloader back on V15. |
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -661,3 +684,32 @@ The same Mac and FM-1, starting on V15 with m-bootloader 1.2-22e2559, with FM1Ki
 
 So firmwares with Felucca's original update check refuse m-bootloader's installer straight after
 its header (Felucca 0.8-beta's code and 1.6.1's alike), and one with the updated check takes it.
+
+### 2026-10-28: stage P, a way out through a firmware with the fixed check
+
+The same Mac and FM-1, starting on V15. The P0 backup (`fm1-20261028-103036.bin`) showed
+M-VAVE's bootloader, not m-bootloader, so the first run tested nothing:
+
+- **P2 passed:** V15 took Felucca 1.6.1 in 37.7 s.
+- **P3 took V15:** with M-VAVE's bootloader, Felucca's original check passes. The loader
+  (`ota-FM-1_015`) sent its identity unasked part-way through writing (139 requests, about
+  0x84400), and FM1Kit stopped with "The update loader disconnected". The longest gap between
+  requests was 206 ms, and nothing like it has happened before. `install --resume` wrote V15 in
+  13.7 s.
+- `install-bootloader` put m-bootloader back in 5.7 s; P1 showed `FM-1_015`.
+
+Then, with m-bootloader 1.2-22e2559:
+
+- **P2 passed:** V15 took Felucca 1.6.1 in 39.6 s.
+- **P3 passed:** Felucca refused V15 after 4 requests; fm1probe reported `bootloaderMismatch`.
+- **P4 passed:** Felucca took MIDIMON 0.4 (`FM-1_88000400`) in 35.3 s.
+- **P5 passed:** MIDIMON took Open V12 over m-bootloader in 16.6 s.
+- **P6 passed:** Open V12 took Felucca 1.6.1 in 37.4 s.
+- **P7 passed:** Felucca took MIDIMON over Open's boot area in 37.5 s.
+- **P8 passed:** MIDIMON took V15 in 21.9 s (1192 requests, the boot area included); M-VAVE's
+  loader put M-VAVE's bootloader back.
+- **P9 passed:** `install-bootloader` put m-bootloader back from V15 in 6.4 s.
+
+So a firmware with Felucca's original check, even Felucca 1.6.1 on m-bootloader's or Open's boot
+area, takes MIDIMON, and MIDIMON takes V15 or Open. That is a way out over USB-MIDI alone, with
+two installs.

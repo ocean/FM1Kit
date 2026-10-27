@@ -5,6 +5,13 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-10-28
+
+### Fixed
+
+- `refusesV15OverOtherBootloaders` was true for SikkenWorks' ETCH, BEETLE and B1. Their update
+  code recognises V15 by its flash image's SHA-256 and takes it whatever the bootloader.
+
 ## [0.4.4] - 2026-10-27
 
 ### Added
@@ -236,7 +243,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.4...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.5...HEAD
+[0.4.5]: https://github.com/ocean/FM1Kit/compare/0.4.4...0.4.5
 [0.4.4]: https://github.com/ocean/FM1Kit/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/ocean/FM1Kit/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/ocean/FM1Kit/compare/0.4.1...0.4.2

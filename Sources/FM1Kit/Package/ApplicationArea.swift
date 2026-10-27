@@ -126,18 +126,24 @@ extension FwscPackage {
     ///
     /// Firmwares built on the fixed update code (felucca-bsp from October 2026, such as LOOM-8
     /// 0.8) only check that the package's bootloader is one the FM-1 can start, and take V15:
-    /// their code holds that check's text `AC79BLID`. A firmware that installs every package
-    /// with a loader of its own, as TransitFM1 does, takes V15 too, but isn't recognised.
-    /// `false` for an installer package.
+    /// their code holds that check's text `AC79BLID`. Firmwares that recognise V15 itself by
+    /// the SHA-256 of its flash image, such as SikkenWorks' ETCH, BEETLE and B1, take V15
+    /// whichever bootloader is installed, though not M-VAVE's open firmware: their code holds
+    /// that hash. A firmware that installs every package with a loader of its own, as
+    /// TransitFM1 does, takes V15 too, but isn't recognised. `false` for an installer package.
     public var refusesV15OverOtherBootloaders: Bool {
         guard let code = firmwareCode else { return false }
         return code.contains(Self.feluccaLoaderMarker) && !code.contains(Self.bootloaderCheckMarker)
+            && !code.contains(Self.v15FlashImageSHA256)
     }
 
     /// The text Felucca's update code recognises its own loader by.
     static let feluccaLoaderMarker = Array("FELUCCA-LOADER-1".utf8)
     /// The text the fixed update code looks for in an m-bootloader container.
     static let bootloaderCheckMarker = Array("AC79BLID".utf8)
+    /// The SHA-256 of V15's flash image, from address 0, as bytes.
+    static let v15FlashImageSHA256 =
+        FM1BuildID(knownHex: "c1068a403c04a6378a626afb66cc217f72d13f10aa200e983b7a9817cc1dac03").bytes
 
     /// The firmware's `app.bin`, deciphered, or `nil` for an installer package.
     private var firmwareCode: [UInt8]? {

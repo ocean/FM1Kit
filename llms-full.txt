@@ -1,6 +1,6 @@
 # FM1Kit
 
-> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.4.4, not affiliated with M-VAVE.
+> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.4.5, not affiliated with M-VAVE.
 
 Part of Drew Robinson's FM-1 projects: https://fm-1.drewr.dev/ (see /llms-full.txt there for the others). Source, DocC documentation and changelog: https://github.com/ocean/FM1Kit
 
@@ -22,7 +22,7 @@ Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.4")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.5")),
 ]
 ```
 
@@ -80,7 +80,7 @@ Other firmwares (V15, Felucca, Estampie and the rest) have no known way to read 
 
 ## Installing m-bootloader
 
-m-bootloader (https://github.com/jvitkauskas/m-bootloader, MIT) replaces M-VAVE's bootloader with one that has a recovery menu (hold PLAY while switching on), the chip's USB download mode (hold REC), and checks the firmware before starting it. `BootloaderInstaller` reads its `fm1-uboot.fwsc` package, which holds only an installer, and `FM1Updater.installBootloader(_:fromAnyFirmware:events:)` installs it from V15 over USB-MIDI, keeping the firmware. FM1Kit can't read the bootloader back over USB-MIDI, so the FM-1's screen confirms the result. Installing V15 later puts M-VAVE's bootloader back. Firmwares with Felucca's original update check (AMB-1, HYP-1, DUB-1, Melodee, Felucca itself) install M-VAVE's packages only when the FM-1 has the bootloader the package brings, so once the bootloader has been changed (by m-bootloader, or by M-VAVE's open firmware) they refuse V15 and the install stops with `FM1UpdateError.bootloaderMismatch`. Packages they refuse straight after the header (m-bootloader's installer, update loaders they don't recognise, and open firmware on copies of Felucca 1.6.1) stop with `FM1UpdateError.packageRefused`. Going back to V15 from them then needs download mode, from a Mac, or a firmware with the updated check. `FwscPackage.refusesV15OverOtherBootloaders` says whether a package's firmware is one of them, so apps can warn before installing it; firmwares on the platform's fixed update code (such as LOOM-8 0.8) take V15 over any bootloader. `FwscPackage.usesFeluccaUpdateCode` says whether a firmware is on the platform at all. Using download mode needs a computer (M-Flasher or FM1Rescue).
+m-bootloader (https://github.com/jvitkauskas/m-bootloader, MIT) replaces M-VAVE's bootloader with one that has a recovery menu (hold PLAY while switching on), the chip's USB download mode (hold REC), and checks the firmware before starting it. `BootloaderInstaller` reads its `fm1-uboot.fwsc` package, which holds only an installer, and `FM1Updater.installBootloader(_:fromAnyFirmware:events:)` installs it from V15 over USB-MIDI, keeping the firmware. FM1Kit can't read the bootloader back over USB-MIDI, so the FM-1's screen confirms the result. Installing V15 later puts M-VAVE's bootloader back. Firmwares with Felucca's original update check (AMB-1, HYP-1, DUB-1, Melodee, Felucca itself) install M-VAVE's packages only when the FM-1 has the bootloader the package brings, so once the bootloader has been changed (by m-bootloader, or by M-VAVE's open firmware) they refuse V15 and the install stops with `FM1UpdateError.bootloaderMismatch`. Packages they refuse straight after the header (m-bootloader's installer, update loaders they don't recognise, and open firmware on copies of Felucca 1.6.1) stop with `FM1UpdateError.packageRefused`. Going back to V15 from them then needs download mode, from a Mac, or a firmware with the updated check. `FwscPackage.refusesV15OverOtherBootloaders` says whether a package's firmware is one of them, so apps can warn before installing it; firmwares on the platform's fixed update code (such as LOOM-8 0.8) take V15 over any bootloader, and so do firmwares that recognise V15 itself by its flash image's SHA-256 (SikkenWorks' ETCH, BEETLE and B1), though those refuse open firmware. `FwscPackage.usesFeluccaUpdateCode` says whether a firmware is on the platform at all. Using download mode needs a computer (M-Flasher or FM1Rescue).
 
 ## Friendly progress, advice and device summaries
 

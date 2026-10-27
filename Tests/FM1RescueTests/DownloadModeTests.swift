@@ -169,6 +169,19 @@ struct FirmwareCheckTests {
         #expect(!installer.refusesV15OverOtherBootloaders)
     }
 
+    @Test func knowsAFirmwareThatRecognisesV15ByItsHashTakesIt() throws {
+        let v15FlashImageSHA256: [UInt8] = [
+            0xC1, 0x06, 0x8A, 0x40, 0x3C, 0x04, 0xA6, 0x37, 0x8A, 0x62, 0x6A, 0xFB, 0x66, 0xCC, 0x21, 0x7F,
+            0x72, 0xD1, 0x3F, 0x10, 0xAA, 0x20, 0x0E, 0x98, 0x3B, 0x7A, 0x98, 0x17, 0xCC, 0x1D, 0xAC, 0x03,
+        ]
+        let etch =
+            Array("..FM-1_1500..FELUCCA-LOADER-1..".utf8) + v15FlashImageSHA256
+            + [UInt8](repeating: 0x5A, count: 0x3000)
+        let package = try SampleFlash.package(SampleFlash.flash(code: etch))
+        #expect(package.usesFeluccaUpdateCode)
+        #expect(!package.refusesV15OverOtherBootloaders)
+    }
+
     @Test func doesntNameAForkThatSharesItsIdentity() {
         let hyp = Array("..FM-1_7010300..FM-1_015..HYP-1 1.3..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
         let firmware = Self.backup(Self.flash(storing: hyp)).firmware

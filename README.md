@@ -32,12 +32,12 @@ Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.4")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.4.5")),
 ]
 ```
 
 Until 1.0, minor versions may change the API, so this takes 0.4.x fixes but not 0.5.0
-(`from: "0.4.4"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
+(`from: "0.4.5"` would accept anything below 1.0). [CHANGELOG.md](CHANGELOG.md) lists the
 changes.
 
 ## Usage
