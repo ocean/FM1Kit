@@ -88,8 +88,25 @@ do {
 
 The updater only sends SysEx to ports whose names look like an FM-1
 (``FM1Updater/isProbeable(_:)``), so other MIDI gear connected at the same time is left alone.
-It refuses to start while more than one FM-1 answers
-(``FM1UpdateError/multipleDevices(count:)``), so it can't update the wrong one.
+
+### Choose a device when more than one is connected
+
+People may connect more than one FM-1, or other M-VAVE devices, at the same time. An updater
+made without a device refuses to start while more than one answers
+(``FM1UpdateError/multipleDevices(count:)``, whose advice is
+``FM1Advice/Action/chooseDevice``), so it can't update the wrong one. ``FM1Updater/devices()``
+asks every port that looks like an FM-1's, sending only the handshake, and lists what answered.
+Let the person choose, then make an updater for that device alone:
+
+```swift
+let devices = await updater.devices()
+let chosen = try await askWhichDevice(devices)   // your list: identity, firmwareName, serialNumber
+let updater = FM1Updater(transport: transport, device: chosen)
+try await updater.install(package, options: options) { event in /* ... */ }
+```
+
+That updater leaves the other devices alone, and follows the chosen one as it restarts into its
+update loader and back, when it comes back on a new port.
 
 ### M-VAVE's open firmware
 

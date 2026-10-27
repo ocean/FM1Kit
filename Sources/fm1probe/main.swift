@@ -16,6 +16,11 @@ func option(_ flag: String) -> String? {
     return arguments[index + 1]
 }
 
+/// Stops fm1probe, reporting failure.
+func fail() -> Never {
+    exit(1)
+}
+
 func hex(_ bytes: [UInt8]) -> String {
     bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
 }
@@ -58,6 +63,9 @@ func handshake(_ connection: any MIDIConnection) async -> HandshakeAnswer? {
 }
 
 switch arguments.first {
+case "devices":
+    try await listDevices()
+
 case "ports":
     let transport = try CoreMIDITransport(clientName: "fm1probe")
     let ports = await transport.ports()
@@ -117,7 +125,7 @@ case "identify":
         print(" (fastest \(fastest), slowest \(slowest))")
     }
     if answeringPorts > 1 {
-        print("warning: \(answeringPorts) FM-1s answered; installs refuse to start until only one is connected")
+        print("\(answeringPorts) FM-1s answered: run `fm1probe devices`, then choose one with --device")
     }
     if !anyAnswered { exit(1) }
 
@@ -237,7 +245,7 @@ case "install" where arguments.count >= 2:
     }
     let transport: any MIDITransport =
         try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
-    let updater = FM1Updater(transport: transport)
+    let updater = await chosenUpdater(transport)
     var buildID: FM1BuildID?
     if let text = option("--build-id") {
         guard let id = FM1BuildID(hex: text) else {

@@ -1,6 +1,7 @@
 /// What fm1probe can do, shown for `help` or arguments it doesn't understand.
 let usage = """
     usage: fm1probe ports                      list MIDI port pairs and which would be probed
+           fm1probe devices                    list every FM-1 that answers, numbered for --device
            fm1probe identify [options]         ask the connected FM-1 what it's running
                --repeat N                      ask N times and report timings and failures
                --port NAME                     ask this port even if its name doesn't look like an FM-1
@@ -61,4 +62,7 @@ let usage = """
                --simulated                     run against a simulated FM-1 running open firmware
                --log FILE                      write every message to and from the device to a new
                                                CSV file
+
+    With more than one FM-1 connected, install, install-bootloader, restore-voices, backup and
+    download-mode need --device N (as `fm1probe devices` numbers them) or --device SERIAL.
     """

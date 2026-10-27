@@ -5,7 +5,7 @@ import os
 
 /// Asks the connected FM-1 to restart into the chip's download mode, over MIDI.
 func enterDownloadMode() async throws {
-    let updater = FM1Updater(transport: try CoreMIDITransport(clientName: "fm1probe"))
+    let updater = await chosenUpdater(try CoreMIDITransport(clientName: "fm1probe"))
     guard let current = await updater.identify() else {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
         exit(1)

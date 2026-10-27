@@ -98,7 +98,7 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         case .deviceNotFound:
             "No FM-1 found. Check the cable, and close any other app using it."
         case .multipleDevices(let count):
-            "\(count) FM-1s answered. Connect only the one to update, and try again."
+            "\(count) FM-1s answered. Choose which one to use, or connect only that one, and try again."
         case .switchNotConfirmed(let device, let package):
             """
             Installing \(package) switches the FM-1 from \(device) to a different firmware, which can \

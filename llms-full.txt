@@ -85,8 +85,9 @@ m-bootloader (https://github.com/jvitkauskas/m-bootloader, MIT) replaces M-VAVE'
 ## Friendly progress, advice and device summaries
 
 - `InstallProgress` folds an install's `UpdateEvent`s into one bar from 0 to 1 that never goes backwards, with four stages: getting ready, installing, checking and restarting.
-- `FM1Advice(for: error)` turns any error into a headline, an explanation, whether the FM-1 is still fine as it is, one action (try again, resume, reconnect, switch off and on, confirm, choose another firmware, hold keys at power-on, needs a computer, dismiss) and technical details.
+- `FM1Advice(for: error)` turns any error into a headline, an explanation, whether the FM-1 is still fine as it is, one action (try again, resume, reconnect, choose a device, switch off and on, confirm, choose another firmware, hold keys at power-on, needs a computer, dismiss) and technical details.
 - `FM1Updater.summary()` returns an `FM1DeviceSummary`: the firmware's name and version for V15 and open firmware, whether it's waiting part-way through an update, and its USB serial number (V15 and open firmware report one; Felucca doesn't).
+- With more than one FM-1 (or other M-VAVE device) connected, an updater made without a device refuses to start (`FM1UpdateError.multipleDevices`, advice `.chooseDevice`). `FM1Updater.devices()` lists every device that answers the handshake as `FM1DeviceSummary` values (`Identifiable`, with their `port`); `FM1Updater(transport:timing:device:)` makes an updater that works with the chosen one alone, leaves the others alone, and follows it across the restarts of an install. fm1probe has `devices` and `--device N|SERIAL`.
 
 ## FM1Rescue: download mode (macOS only)
 

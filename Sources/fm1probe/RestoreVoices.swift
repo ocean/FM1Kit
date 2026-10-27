@@ -24,7 +24,7 @@ func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async thro
     }
     let transport: any MIDITransport =
         try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
-    let updater = FM1Updater(transport: transport)
+    let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
         exit(1)

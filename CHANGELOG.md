@@ -5,6 +5,21 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.5.0-beta.1] - 2026-10-28
+
+A pre-release for testing with more than one device connected.
+
+### Added
+
+- Choosing a device when more than one is connected: `FM1Updater.devices()` lists every device
+  that answers the handshake, and `FM1Updater(transport:timing:device:)` makes an updater that
+  works with the chosen one alone. It leaves the other devices alone and follows the chosen one
+  as it restarts into its update loader and back, on a new port. `FM1DeviceSummary` is
+  `Identifiable` and has the `port` it answered on. `fm1probe devices` lists them, numbered,
+  and `--device N|SERIAL` chooses one for `install`, `install-bootloader`, `restore-voices`,
+  `backup` and `download-mode`.
+- `FM1Advice.Action.chooseDevice`, the advice for `multipleDevices`, which was `reconnect`.
+
 ## [0.4.5] - 2026-10-28
 
 ### Fixed
@@ -243,7 +258,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.4.5...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...HEAD
+[0.5.0-beta.1]: https://github.com/ocean/FM1Kit/compare/0.4.5...0.5.0-beta.1
 [0.4.5]: https://github.com/ocean/FM1Kit/compare/0.4.4...0.4.5
 [0.4.4]: https://github.com/ocean/FM1Kit/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/ocean/FM1Kit/compare/0.4.2...0.4.3

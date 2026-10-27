@@ -196,14 +196,20 @@ final class PairTransport: MIDITransport, Sendable {
     }
 
     func ports() async -> [MIDIPortDescriptor] {
-        let one = await first.ports().map { MIDIPortDescriptor(id: "1-\($0.id)", name: $0.name) }
-        let two = await second.ports().map { MIDIPortDescriptor(id: "2-\($0.id)", name: $0.name) }
+        let one = await first.ports().map { port in Self.port(port, prefix: "1-") }
+        let two = await second.ports().map { port in Self.port(port, prefix: "2-") }
         return one + two
+    }
+
+    /// The port as this transport lists it, its identifier prefixed with the device's.
+    static func port(_ port: MIDIPortDescriptor, prefix: String) -> MIDIPortDescriptor {
+        MIDIPortDescriptor(id: prefix + port.id, name: port.name, serialNumber: port.serialNumber)
     }
 
     func open(_ port: MIDIPortDescriptor) async throws -> any MIDIConnection {
         let device = port.id.hasPrefix("1-") ? first : second
-        return try await device.open(MIDIPortDescriptor(id: String(port.id.dropFirst(2)), name: port.name))
+        return try await device.open(
+            MIDIPortDescriptor(id: String(port.id.dropFirst(2)), name: port.name, serialNumber: port.serialNumber))
     }
 
     func changes() -> AsyncStream<Void> { AsyncStream { _ in } }
@@ -246,6 +252,39 @@ struct MultipleDeviceTests {
         for device in found {
             device.connection.close()
         }
+    }
+
+    @Test func listsEveryDeviceForAPersonToChoose() async {
+        var v15 = UpdaterTests.fastOptions
+        v15.installedIdentity = .officialV15
+        let updater = FM1Updater(
+            transport: PairTransport(SimulatedFM1(options: UpdaterTests.fastOptions), SimulatedFM1(options: v15)),
+            timing: UpdaterTests.fastTiming
+        )
+        let devices = await updater.devices()
+        #expect(devices.map(\.identity.text) == ["FM-1_900", "FM-1_015"])
+        #expect(devices.map(\.firmwareName) == [nil, "M-VAVE V15"])
+        #expect(Set(devices.map(\.id)).count == 2)
+    }
+
+    @Test func installsOnTheDeviceChosenAndLeavesTheOtherAlone() async throws {
+        let first = SimulatedFM1(options: UpdaterTests.fastOptions)
+        let second = SimulatedFM1(options: UpdaterTests.fastOptions)
+        let package = try UpdaterTests.package()
+        second.prepare(for: package)
+        let transport = PairTransport(first, second)
+        let devices = await FM1Updater(transport: transport, timing: UpdaterTests.fastTiming).devices()
+        let chosen = try #require(devices.last)
+        let updater = FM1Updater(transport: transport, timing: UpdaterTests.fastTiming, device: chosen)
+        #expect(await updater.devices().map(\.id) == [chosen.id])
+        let installed = try await updater.install(package, options: .confirmed)
+        #expect(installed.text == package.product)
+        #expect(first.events.isEmpty)
+        #expect(!second.events.isEmpty)
+    }
+
+    @Test func choosingADeviceGivesAdviceToChoose() {
+        #expect(FM1Advice(for: FM1UpdateError.multipleDevices(count: 2)).action == .chooseDevice)
     }
 }
 

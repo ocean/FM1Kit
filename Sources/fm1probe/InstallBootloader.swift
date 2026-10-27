@@ -27,7 +27,7 @@ func installBootloader(path: String, isSimulated: Bool, fromAnyFirmware: Bool, l
     }
     let transport: any MIDITransport =
         try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
-    let updater = FM1Updater(transport: transport)
+    let updater = await chosenUpdater(transport)
     print("Installs: m-bootloader \(installer.bootloader.version) (\(installer.bootloader.bytes.count) bytes)")
     guard let current = await updater.identify() else {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")

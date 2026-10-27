@@ -1,11 +1,3 @@
-/// A device found on a port, with its connection still open.
-public struct FoundDevice: Sendable {
-    /// The open connection, which the caller must close when finished with the device.
-    public let connection: any MIDIConnection
-    /// What the device said it is.
-    public let identity: FM1Identity
-}
-
 /// Runs the FM-1 USB-MIDI update protocol over any ``MIDITransport``.
 ///
 /// An install goes: handshake, upgrade command, answer staging reads until the device asks for
@@ -13,8 +5,10 @@ public struct FoundDevice: Sendable {
 /// `0xF0000000`, then wait for the device and check it reports the package's identity. M-VAVE's
 /// open firmware is asked about its update support and armed first; see ``FM1Capability``.
 ///
-/// The updater refuses to start while more than one FM-1 answers, and an install that switches the
-/// FM-1 to a different firmware needs confirming; see ``check(_:buildID:)``.
+/// When more than one FM-1 is connected, list them with ``devices()`` and make an updater for the
+/// one chosen, with ``init(transport:timing:device:)``. An updater made without a device refuses to
+/// start while more than one answers. An install that switches the FM-1 to a different firmware
+/// needs confirming; see ``check(_:buildID:)``.
 ///
 /// Installs and resumes support cooperative cancellation. Cancelling while the loader is writing
 /// leaves the device in its loader, where ``resume(_:events:)`` can finish the update later.
@@ -30,15 +24,22 @@ public actor FM1Updater {
     public let transport: any MIDITransport
     /// How long to wait at each step.
     public let timing: UpdaterTiming
+    /// The device this updater works with, or `nil` for whichever one FM-1 is connected.
+    public let device: FM1DeviceSummary?
 
     /// Creates an updater.
     ///
     /// - Parameters:
     ///   - transport: Where to find devices: a ``CoreMIDITransport``, or a ``SimulatedFM1``.
     ///   - timing: How long to wait at each step.
-    public init(transport: any MIDITransport, timing: UpdaterTiming = .standard) {
+    ///   - device: The device to work with, from ``devices()``, when more than one may be
+    ///     connected. The updater leaves the other devices listed with it alone, and follows this
+    ///     one as it restarts into its update loader and back, which brings it back on a new
+    ///     port. `nil` works with whichever one is connected.
+    public init(transport: any MIDITransport, timing: UpdaterTiming = .standard, device: FM1DeviceSummary? = nil) {
         self.transport = transport
         self.timing = timing
+        self.device = device
     }
 
     /// Whether the updater would send SysEx to a port.
@@ -48,58 +49,6 @@ public actor FM1Updater {
     public static func isProbeable(_ port: MIDIPortDescriptor) -> Bool {
         let name = port.name.lowercased()
         return probeablePortNameFragments.contains { name.contains($0) }
-    }
-
-    // MARK: - Discovery.
-
-    /// Finds the first probeable port whose device answers the handshake.
-    ///
-    /// Installs and resumes use ``findAll(where:)`` instead, and refuse to start when more than
-    /// one device answers.
-    ///
-    /// - Parameter filter: Which identities to accept; any by default.
-    /// - Returns: The device with its connection left open, or `nil` if none answered.
-    public func find(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> FoundDevice? {
-        for port in await transport.ports() where Self.isProbeable(port) {
-            guard let connection = try? await transport.open(port) else { continue }
-            if let identity = await handshake(connection), filter(identity) {
-                return FoundDevice(connection: connection, identity: identity)
-            }
-            connection.close()
-        }
-        return nil
-    }
-
-    /// Finds every probeable port whose device answers the handshake.
-    ///
-    /// - Parameter filter: Which identities to accept; any by default.
-    /// - Returns: The devices with their connections left open; the caller must close them all.
-    public func findAll(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> [FoundDevice] {
-        var found: [FoundDevice] = []
-        for port in await transport.ports() where Self.isProbeable(port) {
-            guard let connection = try? await transport.open(port) else { continue }
-            if let identity = await handshake(connection), filter(identity) {
-                found.append(FoundDevice(connection: connection, identity: identity))
-            } else {
-                connection.close()
-            }
-        }
-        return found
-    }
-
-    /// Finds the only device matching `filter`.
-    ///
-    /// - Returns: The device with its connection left open, or `nil` if none answered.
-    /// - Throws: ``FM1UpdateError/multipleDevices(count:)`` when more than one answered.
-    func findOnly(where filter: @Sendable (FM1Identity) -> Bool) async throws(FM1UpdateError) -> FoundDevice? {
-        let found = await findAll(where: filter)
-        guard found.count <= 1 else {
-            for device in found {
-                device.connection.close()
-            }
-            throw .multipleDevices(count: found.count)
-        }
-        return found.first
     }
 
     /// Asks what the connected FM-1 is running.

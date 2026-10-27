@@ -22,6 +22,9 @@ public struct FM1Advice: Sendable, Hashable {
         case resume
         /// Unplug the FM-1, plug it back in, and try again.
         case reconnect
+        /// Ask which device to use, from ``FM1Updater/devices()``, then try again with an updater
+        /// for that one.
+        case chooseDevice
         /// Switch the FM-1 off and on again, then try again.
         case switchOffAndOn
         /// Ask the person to confirm, then try again with the confirmation.
@@ -149,7 +152,7 @@ extension FM1UpdateError {
     private var summary: (String, FM1Advice.Action) {
         switch self {
         case .deviceNotFound: ("No FM-1 found", .reconnect)
-        case .multipleDevices: ("More than one FM-1 is connected", .reconnect)
+        case .multipleDevices: ("More than one FM-1 is connected", .chooseDevice)
         case .switchNotConfirmed: ("This switches to a different firmware", .confirm)
         case .alreadyInstalled: ("This firmware is already installed", .chooseAnotherFirmware)
         case .sameIdentityNotConfirmed: ("This firmware looks already installed", .confirm)
