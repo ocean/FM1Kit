@@ -128,7 +128,8 @@ struct BootloaderTests {
         }
         let advice = FM1UpdateError.packageRefused(requests: 2).advice
         #expect(advice.isDeviceFine)
-        #expect(advice.action == .needsComputer)
+        #expect(advice.action == .chooseAnotherFirmware)
+        #expect(advice.explanation.contains("such as MIDIMON 0.4 or LOOM-8"))
     }
 
     @Test func refusesToInstallAnInstallerAsFirmware() async throws {
@@ -159,7 +160,8 @@ struct BootloaderTests {
         }
         let advice = FM1UpdateError.bootloaderMismatch(requests: 3).advice
         #expect(advice.isDeviceFine)
-        #expect(advice.action == .needsComputer)
+        #expect(advice.action == .chooseAnotherFirmware)
+        #expect(advice.explanation.contains("such as MIDIMON 0.4 or LOOM-8"))
     }
 
     @Test func aFirmwareComparingBootAreasTakesV15OverM_VAVEsBootloader() async throws {

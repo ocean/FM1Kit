@@ -192,9 +192,9 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             original update check, such as AMB-1, HYP-1, DUB-1 and Felucca itself, install M-VAVE's \
             packages only when the FM-1 already has the bootloader the package brings, so they \
             refuse V15 once the FM-1's bootloader has been changed, by m-bootloader or by M-VAVE's \
-            open firmware. Install it from a Mac in the chip's USB download mode instead, which \
-            keeps the FM-1's bootloader, or first install a firmware with Felucca's updated check, \
-            such as LOOM-8, which takes it.
+            open firmware. First install a firmware with Felucca's updated check, such as MIDIMON \
+            0.4 or LOOM-8, which takes V15, or install V15 from a Mac in the chip's USB download \
+            mode, which keeps the FM-1's bootloader.
             """
         case .packageRefused(let requests):
             """
@@ -202,9 +202,9 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             it refused the package, and should carry on as before. Its screen may show FAILED and a \
             code. Firmwares with Felucca's original update check refuse m-bootloader's installer and \
             update loaders they don't recognise this way, and those based on Felucca 1.6.1 refuse \
-            M-VAVE's open firmware too. Install it from a Mac in the chip's USB download mode \
-            instead, or first install a firmware with Felucca's updated check, such as LOOM-8, which \
-            takes it.
+            M-VAVE's open firmware too. First install a firmware with Felucca's updated check, such \
+            as MIDIMON 0.4 or LOOM-8, which takes V15 and open firmware, or install it from a Mac in \
+            the chip's USB download mode.
             """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """

@@ -156,11 +156,16 @@ bootloader has been changed, by m-bootloader or by M-VAVE's open firmware, they 
 the install stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. They refuse
 m-bootloader's installer, update loaders they don't recognise and, in copies of Felucca 1.6.1,
 open firmware straight after the header, with ``FM1UpdateError/packageRefused(requests:)``.
-Getting back to V15 from one of
-them then needs download mode, from a Mac, so tell people before they install one from an iPhone
-or iPad: ``FwscPackage/refusesV15OverOtherBootloaders`` says whether a package is one of them.
-Firmwares built on the platform's fixed update code, such as LOOM-8 0.8, take V15 over any
-bootloader.
+``FwscPackage/refusesV15OverOtherBootloaders`` says whether a package is one of them, so apps
+can tell people before they install it.
+
+Firmwares built on the platform's fixed update code, such as MIDIMON 0.4 and LOOM-8 0.8, take
+V15 and open firmware over any bootloader, and the original check lets them in, because they
+bring Felucca's own loader. So the way back to V15 from an iPhone or iPad is two installs:
+MIDIMON 0.4 or LOOM-8 first, then V15 (tested on hardware in October 2026, from Felucca 1.6.1
+over both m-bootloader and the open firmware's bootloader). The advice for both errors is
+``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also installs V15 and
+keeps the FM-1's bootloader.
 
 ### Restore V15's factory voices
 

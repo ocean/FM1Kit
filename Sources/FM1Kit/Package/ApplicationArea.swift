@@ -120,12 +120,13 @@ extension FwscPackage {
     /// Once the bootloader has been changed, such a firmware refuses V15
     /// (``FM1UpdateError/bootloaderMismatch(requests:)``), as well as m-bootloader's installer
     /// (``FM1UpdateError/packageRefused(requests:)``): it only installs other firmwares on
-    /// Felucca's platform, and going back to V15 needs the chip's USB download mode, from a Mac.
+    /// Felucca's platform. Going back to V15 then means installing one of those with the fixed
+    /// check first, such as MIDIMON 0.4 or LOOM-8, or the chip's USB download mode, from a Mac.
     /// Apps can warn before installing such a firmware on an FM-1 whose bootloader may have
     /// been changed.
     ///
-    /// Firmwares built on the fixed update code (felucca-bsp from October 2026, such as LOOM-8
-    /// 0.8) only check that the package's bootloader is one the FM-1 can start, and take V15:
+    /// Firmwares built on the fixed update code (felucca-bsp from October 2026, such as MIDIMON
+    /// 0.4 and LOOM-8 0.8) only check that the package's bootloader is one the FM-1 can start, and take V15:
     /// their code holds that check's text `AC79BLID`. Firmwares that recognise V15 itself by
     /// the SHA-256 of its flash image, such as SikkenWorks' ETCH, BEETLE and B1, take V15
     /// whichever bootloader is installed, though not M-VAVE's open firmware: their code holds

@@ -36,9 +36,10 @@ func inspect(path: String) throws {
     }
     if package.refusesV15OverOtherBootloaders {
         print("Update code:   Felucca's platform: once installed, it refuses V15 over USB-MIDI while")
-        print("               m-bootloader is installed (install V15 in download mode then)")
+        print("               m-bootloader is installed (install MIDIMON 0.4 or LOOM-8 first then,")
+        print("               or V15 in download mode)")
     } else if package.usesFeluccaUpdateCode {
-        print("Update code:   Felucca's platform, fixed: once installed, it takes V15 over USB-MIDI")
+        print("Update code:   Felucca's platform: once installed, it takes V15 over USB-MIDI")
         print("               whichever bootloader is installed")
     }
     if !package.isFirmware {

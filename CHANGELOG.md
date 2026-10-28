@@ -5,6 +5,14 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- `bootloaderMismatch` and `packageRefused` name MIDIMON 0.4 as well as LOOM-8 as the firmware
+  to install first, and put that before download mode: a firmware with Felucca's original check
+  takes either, and they take V15 and open firmware (tested on hardware). Their advice is now
+  `chooseAnotherFirmware`, not `needsComputer`, since the way out works from a phone.
+- `fm1probe inspect` suggests MIDIMON 0.4 or LOOM-8 for a firmware that refuses V15.
+
 ## [0.5.0-beta.1] - 2026-10-28
 
 A pre-release for testing with more than one device connected.
