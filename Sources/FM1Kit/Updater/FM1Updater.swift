@@ -122,6 +122,8 @@ public actor FM1Updater {
             defer { device.connection.close() }
             let check = try await check(package, on: device, buildID: buildID)
             switch check.kind {
+            case .reinstall where check.canReinstallOfficial && options.confirmsReinstallingOfficial:
+                break
             case .reinstall:
                 throw FM1UpdateError.alreadyInstalled(device.identity.text)
             case .switchingFirmware where !options.confirmsSwitchingFirmware:

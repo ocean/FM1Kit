@@ -83,9 +83,13 @@ public enum DownloadModeError: Error, Hashable, LocalizedError {
             "Taking the FM-1 from macOS's disk driver needs administrator rights: run this with sudo."
         case .accessRefused(let reason):
             """
-            macOS didn't let FM1Kit use the FM-1 (\(reason)). It asks once to allow access to a \
-            removable volume: if that was refused, allow it in System Settings › Privacy & Security \
-            › Files & Folders, then switch the FM-1 off and on in download mode and try again.
+            macOS didn't let FM1Kit use the FM-1 (\(reason)). macOS asks once to allow access to a \
+            removable volume, but only a program running in the logged-in person's session gets the \
+            question, such as one started with sudo in Terminal or after an administrator-password \
+            prompt. A background helper started by launchd is refused without being asked, and Full \
+            Disk Access doesn't change that. If the question was answered Don't Allow, allow it in \
+            System Settings › Privacy & Security › Files & Folders, then switch the FM-1 off and on \
+            in download mode and try again.
             """
         case .notDownloadMode(let answer):
             "The device answered as \(answer), not the FM-1's download mode."

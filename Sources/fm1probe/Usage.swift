@@ -19,6 +19,8 @@ let usage = """
                                                CSV file
                --build-id HEX                  the package's build ID, for M-VAVE's open firmware
                                                (official releases' are known)
+               --reinstall-official            install M-VAVE's official firmware over one that
+                                               reports its identity, such as TransitFM1
            fm1probe restore-voices FM-1.fwsc [options]
                                                rewrite V15's four voice banks with its factory voices,
                                                from the official V15 package, after asking to confirm

@@ -8,7 +8,10 @@ import IOUSBHost
 /// In download mode the chip shows up as a USB disk (`4C4A:8057`), which macOS's disk driver
 /// claims. Opening a connection captures the device from that driver, which needs root, then
 /// speaks USB mass storage's Bulk-Only Transport to it directly, as M-Flasher does with libusb.
-/// macOS may ask once to allow access to a removable volume. When the connection closes, the
+/// macOS may ask once to allow access to a removable volume. It asks only a process in the
+/// logged-in person's session, such as one started with sudo or after an administrator-password
+/// prompt: a launchd daemon has no one to ask, so macOS refuses it with
+/// ``DownloadModeError/accessRefused(_:)``. When the connection closes, the
 /// device is left without a driver, still in download mode, until it's switched off.
 public final class USBDownloadModeConnection: DownloadModeConnection {
     /// The chip's USB vendor ID in download mode.

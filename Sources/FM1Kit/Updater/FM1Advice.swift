@@ -154,6 +154,8 @@ extension FM1UpdateError {
         case .deviceNotFound: ("No FM-1 found", .reconnect)
         case .multipleDevices: ("More than one FM-1 is connected", .chooseDevice)
         case .switchNotConfirmed: ("This switches to a different firmware", .confirm)
+        case .alreadyInstalled(let identity) where identity == FM1Identity.officialV15.text:
+            ("The official firmware is already installed", .confirm)
         case .alreadyInstalled: ("This firmware is already installed", .chooseAnotherFirmware)
         case .sameIdentityNotConfirmed: ("This firmware looks already installed", .confirm)
         case .capabilityUnavailable, .deviceBusy, .armRefused(nil):

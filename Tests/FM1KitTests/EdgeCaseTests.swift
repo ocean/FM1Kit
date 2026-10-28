@@ -343,6 +343,9 @@ struct RefusedPackageTests {
             try await updater.install(package, options: .confirmed)
         }
         #expect(device.events.isEmpty)
+        let advice = FM1UpdateError.alreadyInstalled("FM-1_015").advice
+        #expect(advice.action == .confirm)
+        #expect(advice.explanation.contains("TransitFM1"))
     }
 
     @Test func aCustomFirmwaresOwnIdentityNeedsConfirming() async throws {

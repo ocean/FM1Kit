@@ -62,7 +62,7 @@ if let identity = await updater.identify(), identity.isLoader {
 }
 ```
 
-`check.kind` is an `InstallKind`: `update` (a different build of the open firmware running), `switchingFirmware` (confirmed with `InstallOptions.confirmsSwitchingFirmware`), `sameIdentity` (the identity a custom firmware already reports, confirmed with `InstallOptions.confirmsSameIdentity`), or `reinstall` (V15 over itself, or the open firmware build already running), which isn't installed.
+`check.kind` is an `InstallKind`: `update` (a different build of the open firmware running), `switchingFirmware` (confirmed with `InstallOptions.confirmsSwitchingFirmware`), `sameIdentity` (the identity a custom firmware already reports, confirmed with `InstallOptions.confirmsSameIdentity`), or `reinstall` (V15 over itself, or the open firmware build already running), which isn't installed. Some firmwares, such as TransitFM1, report V15's identity on purpose; when the person confirms the FM-1 is running one, `InstallCheck.canReinstallOfficial` is true and `InstallOptions.confirmsReinstallingOfficial` installs the official firmware over it (`fm1probe install --reinstall-official`).
 
 Each firmware brings its own update loader, and loaders write differently. Writing progress counts the firmware's application area, which every loader seen writes, whatever order it reads in (V15's reads backwards). Some loaders (Felucca's) then read it a second time, which FM1Kit reports as `.checking`, so progress displays should allow for an optional second step.
 
@@ -111,7 +111,7 @@ The package's second library uses the chip's USB download mode, which works even
 
 ## Safety rules it enforces
 
-Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinstall V15 over itself. It installs a different firmware, or the identity a custom firmware already reports (a reinstall, or another release of a firmware that keeps one identity), only when told the person updating has confirmed it, as M-VAVE's own updater does. Switching firmware can erase the FM-1's projects and samples. Open firmware is armed with the package's build ID before it's updated.
+Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinstall V15 over itself unless told the FM-1 is running a firmware that reports V15's identity, such as TransitFM1. It installs a different firmware, or the identity a custom firmware already reports (a reinstall, or another release of a firmware that keeps one identity), only when told the person updating has confirmed it, as M-VAVE's own updater does. Switching firmware can erase the FM-1's projects and samples. Open firmware is armed with the package's build ID before it's updated.
 
 ## fm1probe
 

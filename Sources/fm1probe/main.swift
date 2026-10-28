@@ -222,6 +222,7 @@ case "install-bootloader" where arguments.count >= 2:
 case "install" where arguments.count >= 2:
     let isResume = arguments.contains("--resume")
     let isSimulated = arguments.contains("--simulated")
+    let reinstallsOfficial = arguments.contains("--reinstall-official")
     let path = arguments[1]
     let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
     guard package.isFirmware else {
@@ -286,6 +287,12 @@ case "install" where arguments.count >= 2:
             print("Open:     build \(capability.buildID.hex.prefix(16)), \(capability.isReady ? "ready" : "busy")")
         }
         switch check.kind {
+        case .reinstall where check.canReinstallOfficial && reinstallsOfficial:
+            print("Kind:     the official firmware over one reporting its identity, such as TransitFM1")
+        case .reinstall where check.canReinstallOfficial:
+            print("The FM-1 reports \(package.product), so it isn't reinstalled. If it's running a firmware")
+            print("that reports that identity, such as TransitFM1, run again with --reinstall-official.")
+            exit(1)
         case .reinstall:
             print("The FM-1 is already running \(package.product), so it isn't reinstalled. Choose another package.")
             exit(1)
@@ -321,7 +328,12 @@ case "install" where arguments.count >= 2:
 
     if let logPath { print("Logging every message to \(logPath).") }
     // Typing YES (or choosing a simulated run) confirms a switch of firmware or a same-identity install.
-    let options = InstallOptions(confirmsSwitchingFirmware: true, confirmsSameIdentity: true, buildID: buildID)
+    let options = InstallOptions(
+        confirmsSwitchingFirmware: true,
+        confirmsSameIdentity: true,
+        confirmsReinstallingOfficial: reinstallsOfficial,
+        buildID: buildID
+    )
     let report = InstallReport()
     let start = ContinuousClock.now
     let installation = Task {

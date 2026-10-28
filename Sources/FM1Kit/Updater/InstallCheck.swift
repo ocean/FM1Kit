@@ -8,7 +8,9 @@ public enum InstallKind: Sendable, Hashable {
     /// confirm with ``InstallOptions/confirmsSwitchingFirmware``.
     case switchingFirmware
     /// The firmware already running, which isn't reinstalled: V15 is believed to refuse its own
-    /// identity, and open firmware is already running this build.
+    /// identity, and open firmware is already running this build. M-VAVE's official firmware over
+    /// an FM-1 reporting its identity can be installed with ``InstallOptions/confirmsReinstallingOfficial``
+    /// (``InstallCheck/canReinstallOfficial``).
     case reinstall
     /// A package with the identity a custom firmware is reporting: a reinstall, or another release
     /// of a firmware that keeps one identity across releases (as Felucca-derived firmwares can).
@@ -47,6 +49,17 @@ public struct InstallCheck: Sendable, Hashable {
             kind = .switchingFirmware
         }
     }
+
+    /// True when the FM-1 reports the identity of M-VAVE's official firmware (V15) and the
+    /// package has it too, so the install is a
+    /// ``InstallKind/reinstall`` that ``InstallOptions/confirmsReinstallingOfficial`` allows.
+    ///
+    /// Some firmwares report the official firmware's identity on purpose, so that every
+    /// installer treats them as it: TransitFM1 does. Offer this when the person says the FM-1
+    /// isn't really running the official firmware.
+    public var canReinstallOfficial: Bool {
+        kind == .reinstall && capability == nil
+    }
 }
 
 /// Choices for ``FM1Updater/install(_:options:events:)``.
@@ -63,6 +76,15 @@ public struct InstallOptions: Sendable, Hashable {
     /// another release of the same firmware.
     public var confirmsSameIdentity = false
 
+    /// Allows installing M-VAVE's official firmware (V15) on an FM-1 that reports its identity
+    /// (``InstallCheck/canReinstallOfficial``).
+    ///
+    /// Set this once the person updating has confirmed the FM-1 is running a firmware that
+    /// reports the official firmware's identity, such as TransitFM1, rather than the official
+    /// firmware itself. V15 is believed to refuse its own identity, which would stop the install
+    /// while staging, leaving it as it was.
+    public var confirmsReinstallingOfficial = false
+
     /// The package's build ID, for arming open firmware and checking the build it reports after
     /// the update.
     ///
@@ -76,14 +98,18 @@ public struct InstallOptions: Sendable, Hashable {
     /// - Parameters:
     ///   - confirmsSwitchingFirmware: Allow switching to a different firmware.
     ///   - confirmsSameIdentity: Allow installing the identity a custom firmware is reporting.
+    ///   - confirmsReinstallingOfficial: Allow installing the official firmware on an FM-1 that
+    ///     reports its identity.
     ///   - buildID: The package's build ID, if known.
     public init(
         confirmsSwitchingFirmware: Bool = false,
         confirmsSameIdentity: Bool = false,
+        confirmsReinstallingOfficial: Bool = false,
         buildID: FM1BuildID? = nil
     ) {
         self.confirmsSwitchingFirmware = confirmsSwitchingFirmware
         self.confirmsSameIdentity = confirmsSameIdentity
+        self.confirmsReinstallingOfficial = confirmsReinstallingOfficial
         self.buildID = buildID
     }
 }

@@ -104,6 +104,12 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             Installing \(package) switches the FM-1 from \(device) to a different firmware, which can \
             erase its projects and samples. Back them up, then confirm the switch.
             """
+        case .alreadyInstalled(let identity) where identity == FM1Identity.officialV15.text:
+            """
+            The FM-1 reports \(identity), M-VAVE's official firmware, so it isn't reinstalled. Some \
+            firmwares, such as TransitFM1, report that identity: if the FM-1 is running one of them, \
+            confirm reinstalling the official firmware.
+            """
         case .alreadyInstalled(let identity):
             "The FM-1 is already running \(identity), so it isn't reinstalled. Choose another firmware."
         case .sameIdentityNotConfirmed(let identity):

@@ -149,6 +149,21 @@ struct BootloaderTests {
         #expect(device.installedBootloaderVersion == nil)
     }
 
+    @Test func officialFirmwareIsInstalledOverTransitFM1OnceConfirmed() async throws {
+        var options = UpdaterTests.fastOptions
+        // TransitFM1 reports V15's identity, and takes V15.
+        options.installedIdentity = .officialV15
+        options.refusesRunningFirmware = false
+        let device = SimulatedFM1(options: options)
+        let package = try UpdaterTests.package(product: "FM-1_015")
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        #expect(try await updater.check(package).canReinstallOfficial)
+        var install = InstallOptions.confirmed
+        install.confirmsReinstallingOfficial = true
+        #expect(try await updater.install(package, options: install) == .officialV15)
+    }
+
     @Test func explainsAFirmwareRefusingV15OverM_Bootloader() async throws {
         let dub = FM1Identity(model: "FM-1", version: 8_010_300)
         let device = Self.device(running: dub, bootloader: "1.2", comparesBootArea: true)

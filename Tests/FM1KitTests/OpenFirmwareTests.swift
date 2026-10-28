@@ -98,9 +98,12 @@ struct OpenFirmwareTests {
         let package = try UpdaterTests.package(product: "FM-1_8000013")
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
-        #expect(try await updater.check(package, buildID: Self.newBuild).kind == .reinstall)
+        let check = try await updater.check(package, buildID: Self.newBuild)
+        #expect(check.kind == .reinstall)
+        #expect(!check.canReinstallOfficial)
         await #expect(throws: FM1UpdateError.alreadyInstalled("FM-1_8000012")) {
-            try await updater.install(package, options: InstallOptions(buildID: Self.newBuild))
+            try await updater.install(
+                package, options: InstallOptions(confirmsReinstallingOfficial: true, buildID: Self.newBuild))
         }
     }
 

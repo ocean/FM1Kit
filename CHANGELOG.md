@@ -5,6 +5,15 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `InstallOptions.confirmsReinstallingOfficial` and `InstallCheck.canReinstallOfficial`:
+  installing M-VAVE's official firmware (V15) on an FM-1 that reports its identity, once the
+  person confirms it's running a firmware that reports it on purpose, such as TransitFM1.
+  Without it, FM1Kit couldn't take an FM-1 from TransitFM1 back to V15. `alreadyInstalled` for
+  V15 now says so, and its advice is `confirm`.
+  `fm1probe install --reinstall-official` does the same.
+
 ### Changed
 
 - `bootloaderMismatch` and `packageRefused` name MIDIMON 0.4 as well as LOOM-8 as the firmware
@@ -12,6 +21,12 @@ All notable changes to FM1Kit are recorded here. The project follows
   takes either, and they take V15 and open firmware (tested on hardware). Their advice is now
   `chooseAnotherFirmware`, not `needsComputer`, since the way out works from a phone.
 - `fm1probe inspect` suggests MIDIMON 0.4 or LOOM-8 for a firmware that refuses V15.
+
+### Fixed
+
+- `DownloadModeError.accessRefused` promised that macOS would ask to allow access to a
+  removable volume. macOS asks only a program in the logged-in person's session; a launchd
+  helper is refused without being asked, whatever its Full Disk Access.
 
 ## [0.5.0-beta.1] - 2026-10-28
 

@@ -12,7 +12,11 @@ that half is interrupted, the device stays in the loader until an update finishe
 ``FM1Updater/resume(_:events:)`` picks up from there.
 
 V15 is believed to refuse a package with its own identity, so the updater doesn't try: it throws
-``FM1UpdateError/alreadyInstalled(_:)`` before sending anything but the handshake. Custom
+``FM1UpdateError/alreadyInstalled(_:)`` before sending anything but the handshake. Some
+firmwares report V15's identity on purpose, though, so that installers treat them as V15:
+TransitFM1 does. When the person says the FM-1 is running one of them,
+``InstallCheck/canReinstallOfficial`` is true, and ``InstallOptions/confirmsReinstallingOfficial``
+installs V15 over it. Custom
 firmwares accept their own identity (Felucca's update code doesn't compare it), and some keep one
 identity across releases, so installing the identity a custom firmware reports is
 ``InstallKind/sameIdentity``, which needs confirming with ``InstallOptions/confirmsSameIdentity``.
