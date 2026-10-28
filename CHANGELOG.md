@@ -27,6 +27,9 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `DownloadModeError.accessRefused` promised that macOS would ask to allow access to a
   removable volume. macOS asks only a program in the logged-in person's session; a launchd
   helper is refused without being asked, whatever its Full Disk Access.
+- `refusesV15OverOtherBootloaders` was true for Quixotic7's TransitFM1 and RemoteFM1. They
+  install every package with a loader of their own, with no boot-area compare, so they take V15
+  whatever the bootloader (though not open firmware).
 
 ## [0.5.0-beta.1] - 2026-10-28
 

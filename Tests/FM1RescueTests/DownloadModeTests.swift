@@ -182,6 +182,15 @@ struct FirmwareCheckTests {
         #expect(!package.refusesV15OverOtherBootloaders)
     }
 
+    @Test func knowsAFirmwareThatInstallsWithItsOwnLoaderTakesV15() throws {
+        let transit =
+            Array("..FM-1_015..FELUCCA-LOADER-1..TRANSIT..LOADER NOT STAGED..".utf8)
+            + [UInt8](repeating: 0x5A, count: 0x3000)
+        let package = try SampleFlash.package(SampleFlash.flash(code: transit))
+        #expect(package.usesFeluccaUpdateCode)
+        #expect(!package.refusesV15OverOtherBootloaders)
+    }
+
     @Test func doesntNameAForkThatSharesItsIdentity() {
         let hyp = Array("..FM-1_7010300..FM-1_015..HYP-1 1.3..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
         let firmware = Self.backup(Self.flash(storing: hyp)).firmware

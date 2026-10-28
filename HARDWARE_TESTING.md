@@ -330,6 +330,20 @@ bootloader, Felucca 1.6.1 takes V15 and P3 tests nothing.
 | P8 | As P3, logging to `.artifacts/tmp/p8.csv` | MIDIMON takes V15; M-VAVE's bootloader comes back. |
 | P9 | `swift run fm1probe install-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.fwsc --log .artifacts/tmp/p9.csv` | m-bootloader back on V15. |
 
+## Stage Q: TransitFM1 over m-bootloader
+
+TransitFM1 (Quixotic7) installs every package with a loader of its own and has no boot-area
+compare, so it should take other firmwares over m-bootloader. It reports V15's identity
+(`FM-1_015`) on purpose, so V15 over it needs `--reinstall-official`. Start on a firmware with
+Felucca's original check, with m-bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| Q0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/q-backups`; switch the FM-1 off and on | `Bootloader: m-bootloader`. |
+| Q1 | `swift run fm1probe install .artifacts/tmp/transit/transit-0.1.3.fwsc --log .artifacts/tmp/q1.csv` | TransitFM1 installs and reports `FM-1_015`. |
+| Q2 | Hold PLAY while switching on | m-bootloader's menu: TransitFM1 kept it. |
+| Q3 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --reinstall-official --log .artifacts/tmp/q3.csv` | TransitFM1 takes V15; M-VAVE's bootloader comes back. |
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -688,7 +702,8 @@ its header (Felucca 0.8-beta's code and 1.6.1's alike), and one with the updated
 ### 2026-10-28: stage P, a way out through a firmware with the fixed check
 
 The same Mac and FM-1, starting on V15. The P0 backup (`fm1-20261028-103036.bin`) showed
-M-VAVE's bootloader, not m-bootloader, so the first run tested nothing:
+M-VAVE's bootloader, not m-bootloader (V15 had been installed again after stage N), so the
+first run tested nothing:
 
 - **P2 passed:** V15 took Felucca 1.6.1 in 37.7 s.
 - **P3 took V15:** with M-VAVE's bootloader, Felucca's original check passes. The loader
@@ -713,3 +728,32 @@ Then, with m-bootloader 1.2-22e2559:
 So a firmware with Felucca's original check, even Felucca 1.6.1 on m-bootloader's or Open's boot
 area, takes MIDIMON, and MIDIMON takes V15 or Open. That is a way out over USB-MIDI alone, with
 two installs.
+
+### 2026-10-28: stage Q, TransitFM1 over m-bootloader
+
+The same Mac and FM-1, starting on Melodee 1.5.0 (`FM-1_91051`) with m-bootloader 1.2-22e2559
+(Q0 backup `fm1-20261028-222626.bin`).
+
+- **Q1 passed:** Melodee took TransitFM1 0.1.3 in 26.6 s. Its loader answered as
+  `ota-FM-1_900` and read the boot area and the application area, as Felucca's loader does.
+- **V15 over TransitFM1 couldn't start:** TransitFM1 reports `FM-1_015`, so FM1Kit took it for
+  V15 and refused a reinstall. `--reinstall-official` was added for this.
+- **TransitFM1 took MIDIMON 0.4** (`FM-1_88000400`) in 23.4 s, through its own loader
+  (`ota-FM-1_900`, 1180 requests), and **MIDIMON took V15** in 18.7 s.
+- The PLAY menu was checked only after V15, which puts M-VAVE's bootloader back, so it wasn't
+  seen whether m-bootloader was still there under TransitFM1. Felucca's loader, which read the
+  flash the same way, kept it in stages L to P.
+
+Then again, from V15 (logs `v1.csv` to `v5.csv`):
+
+- `install-bootloader` put m-bootloader back in 5.4 s, and V15 took Felucca 1.6.1 in 37.4 s.
+- **Q1 passed:** Felucca took TransitFM1 in 25.1 s.
+- **Q2 passed:** m-bootloader's PLAY menu opened under TransitFM1, so it kept m-bootloader.
+- Without `--reinstall-official`, fm1probe refused V15 as a reinstall, as it should.
+- **Q3 passed:** with `--reinstall-official`, TransitFM1 took V15 in 27.6 s. It wrote V15 with its
+  own loader (`ota-FM-1_900`, 1180 requests, reading the flash as in Q1), not V15's
+  (`ota-FM-1_015`), so this V15 install probably kept m-bootloader too, unlike M-VAVE's loader.
+- V15 and TransitFM1 answer the identity query with the same bytes, so FM1Kit can't tell them
+  apart: the person has to say which is running.
+
+So TransitFM1 takes V15 and other firmwares over m-bootloader, and keeps it.
