@@ -7,3 +7,4 @@ xcuserdata/
 DerivedData/
 Package.resolved
 /.artifacts/
+.kata.local.toml
