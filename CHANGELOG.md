@@ -5,6 +5,12 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-02
+
+M-VAVE's V16, a guide to switching away from each firmware, and a fresh start that clears every
+firmware's saved data, all tested on an FM-1 in stage R. It also includes 0.5.0-beta.1's choice of
+device, which has been tested only with simulated devices so far.
+
 ### Added
 
 - `LeavingGuide`: how to switch away from a firmware, worked out from its package before it's
@@ -315,7 +321,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...0.5.0
 [0.5.0-beta.1]: https://github.com/ocean/FM1Kit/compare/0.4.5...0.5.0-beta.1
 [0.4.5]: https://github.com/ocean/FM1Kit/compare/0.4.4...0.4.5
 [0.4.4]: https://github.com/ocean/FM1Kit/compare/0.4.3...0.4.4
