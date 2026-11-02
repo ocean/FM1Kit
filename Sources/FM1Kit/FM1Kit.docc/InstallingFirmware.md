@@ -170,8 +170,14 @@ V15 and open firmware over any bootloader, and the original check lets them in, 
 bring Felucca's own loader. So the way back to V15 from an iPhone or iPad is two installs:
 MIDIMON 0.4 or LOOM-8 first, then V15 (tested on hardware in October 2026, from Felucca 1.6.1
 over both m-bootloader and the open firmware's bootloader). The advice for both errors is
-``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also installs V15 and
-keeps the FM-1's bootloader.
+``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also installs V15, and
+keeps the FM-1's bootloader unless told to install V15's.
+
+V16 leaves its data in V15's voice area, including V15's settings record (`0xFBD80`), which no
+install over USB-MIDI clears. V15 installed after V16, however it gets there, plays one note at a
+time until that record is cleared: install it from a Mac in download mode with its bootloader,
+erasing saved data (tested on hardware in November 2026). V15's voice commands and its own
+MONO and POLY keys don't clear it.
 
 ### Telling people how to switch away later
 

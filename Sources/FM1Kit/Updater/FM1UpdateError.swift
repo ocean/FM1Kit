@@ -63,7 +63,7 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     /// The firmware read the package's header and stopped, after `requests` reads: it refused the
     /// package. Firmwares with Felucca's original update check do this for m-bootloader's
     /// installer and for update loaders they don't recognise, and those based on Felucca 1.6.1
-    /// for M-VAVE's open firmware too.
+    /// for M-VAVE's open firmware and V16 too, whichever bootloader the FM-1 has.
     case packageRefused(requests: Int)
     /// The device stopped asking for data during `phase`, after `requests` reads.
     case stalled(phase: Phase, requests: Int)
@@ -201,7 +201,7 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             refuse V15 once the FM-1's bootloader has been changed, by m-bootloader, M-VAVE's open \
             firmware or V16. First install a firmware with Felucca's updated check, such as MIDIMON \
             0.4 or LOOM-8, which takes V15, or install V15 from a Mac in the chip's USB download \
-            mode, which keeps the FM-1's bootloader.
+            mode. After V16, install V15 with its own bootloader there, and start it fresh.
             """
         case .packageRefused(let requests):
             """
@@ -209,7 +209,7 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             it refused the package, and should carry on as before. Its screen may show FAILED and a \
             code. Firmwares with Felucca's original update check refuse m-bootloader's installer and \
             update loaders they don't recognise this way, and those based on Felucca 1.6.1 refuse \
-            M-VAVE's open firmware too. First install a firmware with Felucca's updated check, such \
+            M-VAVE's open firmware and V16 too. First install a firmware with Felucca's updated check, such \
             as MIDIMON 0.4 or LOOM-8, which takes V15 and open firmware, or install it from a Mac in \
             the chip's USB download mode.
             """

@@ -14,13 +14,12 @@ All notable changes to FM1Kit are recorded here. The project follows
   firmware, other custom firmwares and m-bootloader, `warnings` to show before installing, and
   step-by-step `instructions(to:)`. It's `Codable`, so apps can save it with the FM-1, which also
   tells TransitFM1 apart from V15. `refusesV15OverOtherBootloaders` is now `updateCode ==
-  .feluccaOriginalCheck`. Routes over V16's bootloader are expected rather than tested: see
-  stage R.
+  .feluccaOriginalCheck`. Stage R confirmed its routes to and from V16 on hardware.
 - `OfficialFirmware.v16`: M-VAVE's V16 (`FM-1_016`), which their downloads page has served since
   21 October 2026, with `FM1Identity.officialV16` and `FM1Identity.isOfficial`. `OfficialFirmware`
   gains `identity`, `isRedistributable` (only V15 may be included in an app; download V16 from
   M-VAVE) and `official` (V15 and V16). `FM1DeviceSummary` names V16, and V16 over V16 is a
-  `reinstall`, as for V15. Not yet tested on hardware: see stage R.
+  `reinstall`, as for V15. Tested on hardware in stage R.
 - `FlashBackup.firmware` names V16 ("V16 (FM-1_016)") by its `app.bin`'s SHA-256, as read from
   a real FM-1, instead of "unknown, naming FM-1_016".
 - `InstallOptions.confirmsReinstallingOfficial` and `InstallCheck.canReinstallOfficial`:
@@ -45,6 +44,9 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `bootloaderMismatch` and `refusesV15OverOtherBootloaders` explain that V16 brings a different
   bootloader from V15, so firmwares with Felucca's original check refuse V16 on an FM-1 with
   V15's bootloader, and V15 once V16's is installed.
+- `packageRefused` says firmwares based on Felucca 1.6.1 refuse V16 as well as open firmware,
+  whatever the bootloader (stage R). `bootloaderMismatch` no longer says download mode keeps the
+  FM-1's bootloader: after V16, V15 is installed there with its own bootloader, fresh.
 - `bootloaderMismatch` and `packageRefused` name MIDIMON 0.4 as well as LOOM-8 as the firmware
   to install first, and put that before download mode: a firmware with Felucca's original check
   takes either, and they take V15 and open firmware (tested on hardware). Their advice is now

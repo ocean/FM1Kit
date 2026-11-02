@@ -344,6 +344,37 @@ Felucca's original check, with m-bootloader.
 | Q2 | Hold PLAY while switching on | m-bootloader's menu: TransitFM1 kept it. |
 | Q3 | `swift run fm1probe install ~/Downloads/FM-1/FM-1.fwsc --reinstall-official --log .artifacts/tmp/q3.csv` | TransitFM1 takes V15; M-VAVE's bootloader comes back. |
 
+## Stage R: M-VAVE's V16
+
+V16 (`FM-1_016`, 718,196 bytes, SHA-256 `d017fb65…`) has the same update loader as V15 but a
+different boot area: 12,655 of its first 16,384 bytes differ from V15's. It has no `USR` part:
+its voices come with the firmware, as the file `DX7.bin` (73,226 bytes, the size of V15's `USR`
+part but a different set), and it keeps nothing at V15's voice banks, where its `SEQ64` and
+`BTIF` regions are. Like Open in stage O, installing it with M-VAVE's loader should write its
+boot area, and a Felucca-based firmware installed after it should keep that. A firmware with the
+original check should then refuse V15, as Felucca does in O7, while MIDIMON 0.4 should take it,
+as in P8. Nobody has tried V16 over anything but V15, nor anything over V16. V16 isn't licensed
+for redistribution: download it from M-VAVE into `.artifacts/tmp/v16/`. V15 is the copy bundled
+with FM-SWITCH, since M-VAVE's downloads page now serves V16. Start on V15 with M-VAVE's
+bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| R0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/r-backups`; switch the FM-1 off and on | A backup to go back to, with `Bootloader: M-VAVE's`. |
+| R1 | `swift run fm1probe identify` | `FM-1_015`. |
+| R2 | `swift run fm1probe install .artifacts/tmp/v16/FM-1-v16.fwsc --log .artifacts/tmp/r2.csv` | V15 takes V16 (`FM-1_016`). Play presets from every bank and check the eight-voice mode: V16 should use its own voices, not V15's. |
+| R3 | `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --log .artifacts/tmp/r3.csv`, then `swift run fm1probe restore-voices ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc` | V16 takes V15 straight back. |
+| R4 | As R2, logging to `.artifacts/tmp/r4.csv` | V16 again. |
+| R5 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/r5.csv` | V16 takes Felucca 1.6.1 (Felucca's loader). |
+| R6 | As R3's install, logging to `.artifacts/tmp/r6.csv` | Felucca refuses V15 after 4 requests (`CHECK HEAD`, `FAILED`): V16's boot area was kept. If it takes V15, it wasn't. |
+| R7 | `swift run fm1probe install .artifacts/tmp/hops/ignis32_midimonitor_fm1/midimon-0.4.fwsc --log .artifacts/tmp/r7.csv` | Felucca takes MIDIMON. |
+| R8 | As R3, logging to `.artifacts/tmp/r8.csv` | MIDIMON takes V15 over V16's boot area; M-VAVE's V15 bootloader comes back. Restore the voices. |
+| R9 | As R5, then as R2, logging to `.artifacts/tmp/r9.csv` | Felucca on V15's boot area refuses V16 after 4 requests. Then go back with R7 and R8. |
+| R10 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install .artifacts/tmp/v16/FM-1-v16.fwsc .artifacts/tmp/r-backups --erase-saved-data` | `Erases saved data (0xA9000–0xFBFFF)`. V16 starts fresh over erased data. Play presets from every bank: V16 carries its own voices (`DX7.bin`), so none should be silent. |
+| R11 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc .artifacts/tmp/r-backups --erase-saved-data --with-bootloader` | V15 starts fresh, with its factory voices written by the same plan: play presets from all four banks without restoring voices. |
+
+If anything goes wrong, `flash-restore` the R0 backup in download mode.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -757,3 +788,52 @@ Then again, from V15 (logs `v1.csv` to `v5.csv`):
   apart: the person has to say which is running.
 
 So TransitFM1 takes V15 and other firmwares over m-bootloader, and keeps it.
+
+### 2026-11-02: stage R, M-VAVE's V16
+
+The same Mac and FM-1, starting on Melodee 1.5.1 (`FM-1_91051`) with m-bootloader 1.2-22e2559
+(R0 backup `fm1-20261101-160748.bin`). Melodee took MIDIMON 0.4 in 37.5 s and MIDIMON took V15
+in 18.9 s, which put M-VAVE's V15 bootloader back; R1 showed `FM-1_015`.
+
+- **R2 passed:** V15 took V16 in 21.1 s (`ota-FM-1_015`, 1372 requests). Every bank plays, and V16
+  has new screens and overlays. The eight-voice mode wasn't checked.
+- **R3 passed, with a fault:** V16 took V15 in 20.7 s. Its loader answered as `ota-FM-1_016`,
+  though both packages bring the same loader, but its requests matched V15's own loader's
+  exactly, and a backup showed V15's boot area byte for byte, so V16's update code writes the
+  package's boot area. Straight after, V15's voices were broken; `restore-voices` fixed them,
+  but **V15 played one note at a time**.
+- **The mono, isolated in download mode:** V16 writes outside the regions it declares, into V15's
+  `USR` region past the voice banks (`0xF2000`–`0xFBFFF`). Restoring the mono backup with that
+  part set to V15's factory data, or with only `0xFA000`–`0xFBFFF` set, made it polyphonic;
+  restoring the mono backup itself made it mono again; leaving the part blank kept it mono. The
+  cause is V15's live settings record at `0xFBD80`–`0xFBE09` (zeros in the factory data): in the
+  mono state `0xFBD83`–`0xFBD84` and `0xFBDF4`–`0xFBDF5` read `FFFF`, probably a mono flag for
+  each track. V15 keeps those values when the rest is blank. V15's voice commands acknowledged
+  writes to all 18 banks of the region but stored nothing past the four voice banks, and V15's
+  own MONO and POLY keys couldn't clear it (MONO flashes in EDIT; POLY does nothing). An
+  erasing `flash-install` of V15 fixed it each time.
+- **R4 passed:** V15 took V16 again in 21.6 s; V16 plays polyphonically.
+- **R5 passed:** V16 took Felucca 1.6.1 in 38.0 s (`ota-FM-1_900`); Felucca plays fine.
+- **R6 passed:** Felucca refused V15 after 4 requests (`bootloaderMismatch`): V16's boot area was
+  kept under Felucca.
+- **R7 passed:** Felucca took MIDIMON in 35.6 s.
+- **R8 passed, with the same fault:** MIDIMON took V15 in 20.8 s (`ota-FM-1_015`), and a backup
+  showed V15's boot area again. Before `restore-voices` there was no voice name (`001 c`) and a
+  rising whine; after it, `PIANO 1` was back, but V15 played one note at a time, with the same
+  settings record.
+- **R9 passed, differently from expected:** V15 took Felucca in 37.3 s, and Felucca refused V16
+  after only 2 requests, at the header (`packageRefused`), as it refuses open firmware: probably
+  Felucca 1.6.1's size check, so it refuses V16 whichever bootloader the FM-1 has. Then Felucca
+  took MIDIMON in 37.0 s and **MIDIMON took V16** in 22.2 s (`ota-FM-1_015`): a firmware with the
+  fixed check takes V16. V16 played its own voices (`PIANO 3` first). It had erased
+  `0xEA000`–`0xEBFFF` (in its `SEQ64`), V15's first voice banks, but left the settings record.
+- **R10 passed:** an erasing `flash-install` of V16 wrote 2 sectors; it erased only what V15 and
+  V16 declared, `0xBA000`–`0xECFFF`, leaving V15's old record. `erasingSavedData` now erases
+  everything up to `0xFBFFF` instead.
+- **R11 passed:** an erasing `flash-install` of V15 with its bootloader wrote 183 sectors in
+  10.5 s; V15 is polyphonic, with every bank, without restoring the voices.
+
+So V16 installs and leaves cleanly over USB-MIDI in both directions, with M-VAVE's loader writing
+each firmware's boot area, but V15 installed after V16, by any route over USB-MIDI, plays one note
+at a time until it's installed fresh in download mode. Felucca 1.6.1 refuses V16 outright and
+V15 over V16's boot area; MIDIMON 0.4 takes both.
