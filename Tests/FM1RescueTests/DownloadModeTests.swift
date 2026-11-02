@@ -146,6 +146,9 @@ struct FirmwareCheckTests {
         let amb = Array("..FM-1_7010300..FM-1_015..AMB-1 1.3..".utf8) + [UInt8](repeating: 0x5A, count: 0x3000)
         #expect(Self.backup(Self.flash(storing: felucca)).firmware.description == "Felucca 1.6.1 (FM-1_916)")
         #expect(Self.backup(Self.flash(storing: amb)).firmware.description == "AMB-1 1.3 (FM-1_7010300)")
+        let v16 = FlashBackup.FirmwareCheck(
+            files: .intact, identities: ["FM-1_016"], isOfficialV15: false, isOfficialV16: true)
+        #expect(v16.description == "V16 (FM-1_016)")
     }
 
     @Test func findsFeluccasUpdateCodeInAPackage() throws {

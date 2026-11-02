@@ -21,6 +21,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   gains `identity`, `isRedistributable` (only V15 may be included in an app; download V16 from
   M-VAVE) and `official` (V15 and V16). `FM1DeviceSummary` names V16, and V16 over V16 is a
   `reinstall`, as for V15. Not yet tested on hardware: see stage R.
+- `FlashBackup.firmware` names V16 ("V16 (FM-1_016)") by its `app.bin`'s SHA-256, as read from
+  a real FM-1, instead of "unknown, naming FM-1_016".
 - `InstallOptions.confirmsReinstallingOfficial` and `InstallCheck.canReinstallOfficial`:
   installing M-VAVE's official firmware (V15) on an FM-1 that reports its identity, once the
   person confirms it's running a firmware that reports it on purpose, such as TransitFM1.

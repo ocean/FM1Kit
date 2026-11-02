@@ -36,7 +36,7 @@ extension FlashBackup {
         public let identities: [String]
         /// Whether it's M-VAVE's V15, byte for byte.
         public let isOfficialV15: Bool
-        /// The firmware's name, for V15 and the other firmwares tried on a real FM-1, such as
+        /// The firmware's name, for V15, V16 and the other firmwares tried on a real FM-1, such as
         /// "Felucca 1.6.1". `nil` for others.
         ///
         /// Forks share identity numbers (HYP-1 numbers its builds as AMB-1 does), so a custom
@@ -45,15 +45,26 @@ extension FlashBackup {
         /// The identity that goes with ``name``, for a custom firmware.
         let namedIdentity: String?
 
-        init(files: FirmwareFiles, identities: [String], isOfficialV15: Bool, code: [UInt8] = []) {
+        init(
+            files: FirmwareFiles,
+            identities: [String],
+            isOfficialV15: Bool,
+            isOfficialV16: Bool = false,
+            code: [UInt8] = []
+        ) {
             self.files = files
             self.identities = identities
             self.isOfficialV15 = isOfficialV15
             let known = Self.knownFirmwares.first { firmware in
                 identities.contains(firmware.identity) && code.firstRange(of: Array(firmware.marker.utf8)) != nil
             }
-            name = isOfficialV15 ? "V15" : known?.name
-            namedIdentity = known?.identity
+            if isOfficialV15 {
+                (name, namedIdentity) = ("V15", nil)
+            } else if isOfficialV16 {
+                (name, namedIdentity) = ("V16", FM1Identity.officialV16.text)
+            } else {
+                (name, namedIdentity) = (known?.name, known?.identity)
+            }
         }
 
         /// The firmware in words, such as "V15 (FM-1_015)", "AMB-1 1.3 (FM-1_7010300)" or
@@ -98,6 +109,7 @@ extension FlashBackup {
             files: state ?? .intact,
             identities: Self.identities(in: code),
             isOfficialV15: FwscPackage.sha256Hex(code) == Self.officialV15ApplicationSHA256,
+            isOfficialV16: FwscPackage.sha256Hex(code) == Self.officialV16ApplicationSHA256,
             code: code
         )
     }
@@ -128,6 +140,8 @@ extension FlashBackup {
 
     /// The SHA-256 of V15's `app.bin`, deciphered, as read from a real FM-1 running V15.
     static let officialV15ApplicationSHA256 = "306e47065f35d7a7a05ada7f5dd092f6e770952054f33f0a86b75fd10ffe3203"
+    /// The SHA-256 of V16's `app.bin`, deciphered, as read from a real FM-1 running V16.
+    static let officialV16ApplicationSHA256 = "79a81738461e889704aafb4868ecca7537cd0fb25466b11b9499a4ac23493e54"
     /// Where the app area starts, after the boot area.
     static let applicationArea = ApplicationArea.start
     /// The attribute of a file in the app area's table, rather than a region.
