@@ -293,11 +293,11 @@ struct SysexInboxLimitTests {
     @Test func cancellingEndsTheWait() async {
         let inbox = SysexInbox()
         let start = ContinuousClock.now
-        let waiting = Task { await inbox.next(timeout: .seconds(10)) }
+        let waiting = Task { await inbox.next(timeout: .seconds(300)) }
         try? await Task.sleep(for: .milliseconds(30))
         waiting.cancel()
         #expect(await waiting.value == nil)
-        #expect(ContinuousClock.now - start < .seconds(2))
+        #expect(ContinuousClock.now - start < .seconds(60))  // A busy CI runner has taken over 20 s.
     }
 
     @Test func aWaitCancelledBeforeItStartsEndsAtOnce() async {
@@ -384,7 +384,7 @@ private final class ChattyConnection: MIDIConnection {
 }
 
 struct StagingIdleTests {
-    @Test func otherMessagesDontKeepAStalledPhaseWaiting() async throws {
+    @Test(.timeLimit(.minutes(2))) func otherMessagesDontKeepAStalledPhaseWaiting() async throws {
         let updater = FM1Updater(transport: SimulatedFM1())
         let start = ContinuousClock.now
         let outcome = try await updater.serve(
@@ -395,6 +395,6 @@ struct StagingIdleTests {
         ) { _, _ in }
         #expect(!outcome.finished)
         #expect(outcome.requests == 0)
-        #expect(ContinuousClock.now - start < .seconds(2))
+        #expect(ContinuousClock.now - start < .seconds(60))  // A busy CI runner has taken over 20 s.
     }
 }
