@@ -7,6 +7,15 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Added
 
+- `LeavingGuide`: how to switch away from a firmware, worked out from its package before it's
+  installed. `FwscPackage.updateCode` reads how the firmware installs others (`UpdateCode`: M-VAVE's,
+  Felucca's original or fixed check, V15 recognised by hash, or a loader of its own), and the guide
+  combines it with the FM-1's bootloader (`FM1BootArea`) to give a `LeavingRoute` to V15, V16, open
+  firmware, other custom firmwares and m-bootloader, `warnings` to show before installing, and
+  step-by-step `instructions(to:)`. It's `Codable`, so apps can save it with the FM-1, which also
+  tells TransitFM1 apart from V15. `refusesV15OverOtherBootloaders` is now `updateCode ==
+  .feluccaOriginalCheck`. Routes over V16's bootloader are expected rather than tested: see
+  stage R.
 - `OfficialFirmware.v16`: M-VAVE's V16 (`FM-1_016`), which their downloads page has served since
   21 October 2026, with `FM1Identity.officialV16` and `FM1Identity.isOfficial`. `OfficialFirmware`
   gains `identity`, `isRedistributable` (only V15 may be included in an app; download V16 from

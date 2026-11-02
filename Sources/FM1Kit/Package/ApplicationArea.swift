@@ -137,9 +137,7 @@ extension FwscPackage {
     /// their code holds the text `LOADER NOT STAGED`, which they show when that loader isn't
     /// ready. `false` for an installer package.
     public var refusesV15OverOtherBootloaders: Bool {
-        guard let code = firmwareCode else { return false }
-        return code.contains(Self.feluccaLoaderMarker) && !code.contains(Self.bootloaderCheckMarker)
-            && !code.contains(Self.v15FlashImageSHA256) && !code.contains(Self.ownLoaderMarker)
+        updateCode == .feluccaOriginalCheck
     }
 
     /// The text Felucca's update code recognises its own loader by.
@@ -153,13 +151,13 @@ extension FwscPackage {
         FM1BuildID(knownHex: "c1068a403c04a6378a626afb66cc217f72d13f10aa200e983b7a9817cc1dac03").bytes
 
     /// The firmware's `app.bin`, deciphered, or `nil` for an installer package.
-    private var firmwareCode: [UInt8]? {
+    var firmwareCode: [UInt8]? {
         flashImage.flatMap { ApplicationArea(flash: $0, chipKey: ApplicationArea.fm1ChipKey).code() }
     }
 }
 
 extension [UInt8] {
-    fileprivate func contains(_ text: [UInt8]) -> Bool {
+    func contains(_ text: [UInt8]) -> Bool {
         firstRange(of: text) != nil
     }
 }

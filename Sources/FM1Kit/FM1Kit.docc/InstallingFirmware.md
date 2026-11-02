@@ -173,6 +173,22 @@ over both m-bootloader and the open firmware's bootloader). The advice for both 
 ``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also installs V15 and
 keeps the FM-1's bootloader.
 
+### Telling people how to switch away later
+
+``LeavingGuide`` works this out for any firmware before it's installed. Make one when the person
+picks a firmware, passing the bootloader the FM-1 has if the app knows it, and show its
+``LeavingGuide/warnings`` before installing. Save it with the FM-1 once the install succeeds, and
+pass its ``LeavingGuide/updateCode`` as `installedBy` when making the next one. When the person
+wants to switch away, ``LeavingGuide/route(to:)`` says whether the firmware takes the destination
+directly, only through MIDIMON 0.4 or LOOM-8, or isn't known to, and
+``LeavingGuide/instructions(to:)`` gives the steps in words.
+
+```swift
+let guide = LeavingGuide(package: package, name: "Felucca 1.6.1", bootArea: .mBootloader)
+guide?.route(to: .v15)          // .throughFixedFirmware
+guide?.instructions(to: .v15)   // "Felucca 1.6.1 can't install V15 directly: …"
+```
+
 ### Restore V15's factory voices
 
 Installing V15 over other firmware can leave voice banks holding the earlier firmware's voices,

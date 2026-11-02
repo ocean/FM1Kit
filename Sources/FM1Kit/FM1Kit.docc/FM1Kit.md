@@ -49,6 +49,14 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - ``OpenFirmwareBackup``
 - ``OpenFirmwareProject``
 
+### Switching away from a firmware
+
+- ``LeavingGuide``
+- ``LeavingDestination``
+- ``LeavingRoute``
+- ``UpdateCode``
+- ``FM1BootArea``
+
 ### m-bootloader
 
 - ``BootloaderInstaller``
