@@ -113,10 +113,12 @@ extension FwscPackage {
     }
 
     /// True when the firmware, once running, refuses V15 over USB-MIDI if the FM-1's
-    /// bootloader has been changed, by m-bootloader or by M-VAVE's open firmware.
+    /// bootloader has been changed, by m-bootloader, by M-VAVE's open firmware or by V16.
     ///
     /// Felucca's original update check installs a package that brings M-VAVE's update loader
-    /// (V15 or open firmware) only when the FM-1 already has the bootloader the package brings.
+    /// (V15, V16 or open firmware) only when the FM-1 already has the bootloader the package brings.
+    /// V16 brings a different bootloader from V15, so such a firmware also refuses V16 on an
+    /// FM-1 that has V15's.
     /// Once the bootloader has been changed, such a firmware refuses V15
     /// (``FM1UpdateError/bootloaderMismatch(requests:)``), as well as m-bootloader's installer
     /// (``FM1UpdateError/packageRefused(requests:)``): it only installs other firmwares on

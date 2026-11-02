@@ -29,7 +29,9 @@ print(package.product)   // e.g. "FM-1_916", what the device will report once in
 print(package.sha256)    // compare with the publisher's checksum before installing
 ```
 
-``OfficialFirmware/matching(_:)`` says whether a package is one of M-VAVE's own releases.
+``OfficialFirmware/matching(_:)`` says whether a package is one of M-VAVE's own releases. Only
+those with ``OfficialFirmware/isRedistributable`` (V15) may be included in an app: download V16
+from M-VAVE when the person asks for it, then check it here.
 
 ### Check what the install would do
 

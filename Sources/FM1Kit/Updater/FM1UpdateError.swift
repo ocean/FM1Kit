@@ -56,9 +56,9 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case installerDidNotStart
     /// The firmware stopped while comparing the package's bootloader with the FM-1's, after
     /// `requests` reads: firmwares with Felucca's original update check accept a package with
-    /// M-VAVE's update loader (V15, open firmware) only when the FM-1 already has the bootloader
-    /// it brings, so they refuse V15 once the FM-1's bootloader has been changed (by m-bootloader,
-    /// or by M-VAVE's open firmware).
+    /// M-VAVE's update loader (V15, V16, open firmware) only when the FM-1 already has the
+    /// bootloader it brings, so they refuse V15 once the FM-1's bootloader has been changed (by
+    /// m-bootloader, M-VAVE's open firmware or V16), and V16 while it has V15's.
     case bootloaderMismatch(requests: Int)
     /// The firmware read the package's header and stopped, after `requests` reads: it refused the
     /// package. Firmwares with Felucca's original update check do this for m-bootloader's
@@ -104,7 +104,7 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             Installing \(package) switches the FM-1 from \(device) to a different firmware, which can \
             erase its projects and samples. Back them up, then confirm the switch.
             """
-        case .alreadyInstalled(let identity) where identity == FM1Identity.officialV15.text:
+        case .alreadyInstalled(let identity) where FM1Identity(text: identity)?.isOfficial == true:
             """
             The FM-1 reports \(identity), M-VAVE's official firmware, so it isn't reinstalled. Some \
             firmwares, such as TransitFM1, report that identity: if the FM-1 is running one of them, \
@@ -196,9 +196,10 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             The FM-1's firmware stopped after \(requests) requests, while comparing this package's \
             bootloader with the FM-1's, and should carry on as before. Firmwares with Felucca's \
             original update check, such as AMB-1, HYP-1, DUB-1 and Felucca itself, install M-VAVE's \
-            packages only when the FM-1 already has the bootloader the package brings, so they \
-            refuse V15 once the FM-1's bootloader has been changed, by m-bootloader or by M-VAVE's \
-            open firmware. First install a firmware with Felucca's updated check, such as MIDIMON \
+            packages only when the FM-1 already has the bootloader the package brings. V16 brings a \
+            different bootloader from V15, so they refuse V16 on an FM-1 with V15's bootloader, and \
+            refuse V15 once the FM-1's bootloader has been changed, by m-bootloader, M-VAVE's open \
+            firmware or V16. First install a firmware with Felucca's updated check, such as MIDIMON \
             0.4 or LOOM-8, which takes V15, or install V15 from a Mac in the chip's USB download \
             mode, which keeps the FM-1's bootloader.
             """

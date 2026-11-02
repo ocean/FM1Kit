@@ -96,7 +96,7 @@ The package's second library uses the chip's USB download mode, which works even
 ## Types
 
 - `FwscPackage` (struct): reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256. Checks the header, target chip, per-part checksums, and that it holds a firmware image and an update loader, refusing a damaged or wrong file before anything is sent.
-- `OfficialFirmware` (struct): recognises M-VAVE's official releases (V15 and Open V12) by size and checksum.
+- `OfficialFirmware` (struct): recognises M-VAVE's releases (V15, V16 and Open V12) by size and checksum. `official` lists V15 and V16; `isRedistributable` is true only for V15 (Apache-2.0), so apps download V16 from M-VAVE when asked rather than include it. `FM1Identity.isOfficial` is true for `FM-1_015` and `FM-1_016`.
 - `FM1Identity` (struct): parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader.
 - `FM1Updater` (actor): finds the device, checks and installs, resumes, restores V15's voices, backs up open firmware, and reports progress as `UpdateEvent`s.
 - `InstallCheck`, `InstallKind`, `InstallOptions`: what an install would do, and confirming a switch of firmware or an install of the identity already running.

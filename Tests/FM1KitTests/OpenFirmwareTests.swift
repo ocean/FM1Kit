@@ -161,6 +161,8 @@ struct OpenFirmwareTests {
         #expect(OfficialFirmware.v15.buildID.hex == OfficialFirmware.v15.sha256)
         #expect(OfficialFirmware.openV12.buildID.hex.hasPrefix("426b7fa5"))
         #expect(OfficialFirmware.known.contains(.openV12))
+        #expect(OfficialFirmware.v16.buildID.hex == OfficialFirmware.v16.sha256)
+        #expect(OfficialFirmware.known.contains(.v16))
     }
 }
 

@@ -191,7 +191,9 @@ public struct FwscPackage: Sendable {
 ///
 /// FM1Kit doesn't include these files: get them from M-VAVE's downloads
 /// (<https://www.m-vave.com/download>), or V15 from M-VAVE's open-source repository
-/// (<https://github.com/m-vave/fm1_open>, Apache-2.0), and check them here.
+/// (<https://github.com/m-vave/fm1_open>, Apache-2.0), and check them here. Only releases
+/// with ``isRedistributable`` may be included in an app; download the others from M-VAVE when
+/// the person asks for them.
 public struct OfficialFirmware: Sendable, Hashable {
     /// A display name, e.g. "FM-1 V15".
     public let name: String
@@ -201,6 +203,13 @@ public struct OfficialFirmware: Sendable, Hashable {
     public let sha256: String
     /// The build ID open firmware is armed with to install it; see ``FM1Capability``.
     public let buildID: FM1BuildID
+    /// What the FM-1 reports once it's running, e.g. `FM-1_015`.
+    public let identity: FM1Identity
+    /// True when M-VAVE publishes the file under a licence that lets apps include it.
+    ///
+    /// V15 is Apache-2.0 in M-VAVE's open-source repository. The others have no licence FM1Kit
+    /// knows of, so apps download them from M-VAVE instead.
+    public let isRedistributable: Bool
 
     /// FM-1 V15 `FM-1.fwsc`, as pinned by the Felucca and firmware hub installers.
     ///
@@ -209,7 +218,24 @@ public struct OfficialFirmware: Sendable, Hashable {
         name: "FM-1 V15",
         size: 699_956,
         sha256: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a",
-        buildID: FM1BuildID(knownHex: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a")
+        buildID: FM1BuildID(knownHex: "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"),
+        identity: .officialV15,
+        isRedistributable: true
+    )
+
+    /// FM-1 V16 `FM-1.fwsc`, which M-VAVE's downloads page has served since 21 October 2026.
+    ///
+    /// It brings the same update loader as V15 but a different bootloader, and its voices come
+    /// inside the firmware (`DX7.bin`) rather than in a `USR` part. Its build ID is its SHA-256,
+    /// as for V15. M-VAVE hasn't published it under a licence, so apps download it from M-VAVE
+    /// rather than include it.
+    public static let v16 = Self(
+        name: "FM-1 V16",
+        size: 718_196,
+        sha256: "d017fb65e70aca97ee29d944470c3515a74581df5c0576bf70de917c7b2b61d5",
+        buildID: FM1BuildID(knownHex: "d017fb65e70aca97ee29d944470c3515a74581df5c0576bf70de917c7b2b61d5"),
+        identity: .officialV16,
+        isRedistributable: false
     )
 
     /// M-VAVE's open firmware V12 (`FM-1_8000012`).
@@ -220,15 +246,20 @@ public struct OfficialFirmware: Sendable, Hashable {
         name: "FM1 Open V12",
         size: 475_700,
         sha256: "2dd4f2d2f020851f8797752371704a9a541aa747f4e20419d629de9aa2c66f43",
-        buildID: FM1BuildID(knownHex: "426b7fa5cf1626bceaa05e8106b9a8b0eaad7f49d8b2c157303f15be347596aa")
+        buildID: FM1BuildID(knownHex: "426b7fa5cf1626bceaa05e8106b9a8b0eaad7f49d8b2c157303f15be347596aa"),
+        identity: FM1Identity(model: "FM-1", version: 8_000_012),
+        isRedistributable: false
     )
 
-    /// Lower-case hex SHA-256 of M-VAVE's update loader, which V15 and M-VAVE's open-source
-    /// firmware both bring; see ``FwscPackage/loaderSHA256``.
+    /// Lower-case hex SHA-256 of M-VAVE's update loader, which V15, V16 and M-VAVE's open-source
+    /// firmware all bring; see ``FwscPackage/loaderSHA256``.
     public static let stockLoaderSHA256 = "ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541"
 
     /// Every release FM1Kit recognises.
-    public static let known: [Self] = [.v15, .openV12]
+    public static let known: [Self] = [.v15, .v16, .openV12]
+
+    /// M-VAVE's official firmware releases, oldest first.
+    public static let official: [Self] = [.v15, .v16]
 
     /// Recognises an official release.
     ///

@@ -20,6 +20,19 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
         return identity
     }()
 
+    /// What M-VAVE's official V16 reports: `FM-1_016`.
+    public static let officialV16: FM1Identity = {
+        guard let identity = Self(text: "FM-1_016") else { preconditionFailure("FM-1_016 is an identity.") }
+        return identity
+    }()
+
+    /// True when this is what one of M-VAVE's official releases reports: V15 or V16.
+    ///
+    /// Some firmwares report the official identity on purpose, as TransitFM1 does.
+    public var isOfficial: Bool {
+        self == .officialV15 || self == .officialV16
+    }
+
     /// The full text, e.g. `FM-1_916`.
     public let text: String
 

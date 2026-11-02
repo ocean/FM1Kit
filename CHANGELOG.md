@@ -7,6 +7,11 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Added
 
+- `OfficialFirmware.v16`: M-VAVE's V16 (`FM-1_016`), which their downloads page has served since
+  21 October 2026, with `FM1Identity.officialV16` and `FM1Identity.isOfficial`. `OfficialFirmware`
+  gains `identity`, `isRedistributable` (only V15 may be included in an app; download V16 from
+  M-VAVE) and `official` (V15 and V16). `FM1DeviceSummary` names V16, and V16 over V16 is a
+  `reinstall`, as for V15. Not yet tested on hardware: see stage R.
 - `InstallOptions.confirmsReinstallingOfficial` and `InstallCheck.canReinstallOfficial`:
   installing M-VAVE's official firmware (V15) on an FM-1 that reports its identity, once the
   person confirms it's running a firmware that reports it on purpose, such as TransitFM1.
@@ -16,6 +21,9 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Changed
 
+- `bootloaderMismatch` and `refusesV15OverOtherBootloaders` explain that V16 brings a different
+  bootloader from V15, so firmwares with Felucca's original check refuse V16 on an FM-1 with
+  V15's bootloader, and V15 once V16's is installed.
 - `bootloaderMismatch` and `packageRefused` name MIDIMON 0.4 as well as LOOM-8 as the firmware
   to install first, and put that before download mode: a firmware with Felucca's original check
   takes either, and they take V15 and open firmware (tested on hardware). Their advice is now

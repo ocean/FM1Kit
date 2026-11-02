@@ -8,9 +8,9 @@ public enum InstallKind: Sendable, Hashable {
     /// confirm with ``InstallOptions/confirmsSwitchingFirmware``.
     case switchingFirmware
     /// The firmware already running, which isn't reinstalled: V15 is believed to refuse its own
-    /// identity, and open firmware is already running this build. M-VAVE's official firmware over
-    /// an FM-1 reporting its identity can be installed with ``InstallOptions/confirmsReinstallingOfficial``
-    /// (``InstallCheck/canReinstallOfficial``).
+    /// identity, V16 is treated the same until it's tested, and open firmware is already running
+    /// this build. M-VAVE's official firmware over an FM-1 reporting its identity can be installed
+    /// with ``InstallOptions/confirmsReinstallingOfficial`` (``InstallCheck/canReinstallOfficial``).
     case reinstall
     /// A package with the identity a custom firmware is reporting: a reinstall, or another release
     /// of a firmware that keeps one identity across releases (as Felucca-derived firmwares can).
@@ -44,13 +44,13 @@ public struct InstallCheck: Sendable, Hashable {
             let isSameLine = package.identity.isOpenFirmware && capability.family == FM1Capability.fm1Family
             kind = isSameBuild ? .reinstall : isSameLine ? .update : .switchingFirmware
         } else if device == package.identity {
-            kind = device == .officialV15 ? .reinstall : .sameIdentity
+            kind = device.isOfficial ? .reinstall : .sameIdentity
         } else {
             kind = .switchingFirmware
         }
     }
 
-    /// True when the FM-1 reports the identity of M-VAVE's official firmware (V15) and the
+    /// True when the FM-1 reports the identity of M-VAVE's official firmware (V15 or V16) and the
     /// package has it too, so the install is a
     /// ``InstallKind/reinstall`` that ``InstallOptions/confirmsReinstallingOfficial`` allows.
     ///
@@ -76,7 +76,7 @@ public struct InstallOptions: Sendable, Hashable {
     /// another release of the same firmware.
     public var confirmsSameIdentity = false
 
-    /// Allows installing M-VAVE's official firmware (V15) on an FM-1 that reports its identity
+    /// Allows installing M-VAVE's official firmware (V15 or V16) on an FM-1 that reports its identity
     /// (``InstallCheck/canReinstallOfficial``).
     ///
     /// Set this once the person updating has confirmed the FM-1 is running a firmware that

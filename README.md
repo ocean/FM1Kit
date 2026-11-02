@@ -163,7 +163,7 @@ protocol in software for the iOS Simulator and tests.
 | Type | What it does |
 |---|---|
 | `FwscPackage` | Reads a `.fwsc` package: its identity, the image the device reads, and its SHA-256 |
-| `OfficialFirmware` | Recognises M-VAVE's official releases (V15 and Open V12) by size and checksum |
+| `OfficialFirmware` | Recognises M-VAVE's releases (V15, V16 and Open V12) by size and checksum, and says which may be included in an app (only V15) |
 | `FM1Identity` | Parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader |
 | `FM1Updater` | Finds the device, checks and installs, resumes, restores V15's voices, and reports progress as `UpdateEvent`s |
 | `InstallCheck`, `InstallOptions` | What an install would do, and confirming a switch of firmware |

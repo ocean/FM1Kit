@@ -105,6 +105,9 @@ struct FriendlyAPITests {
             identity: FM1Identity(model: "FM-1", version: 8_000_012), portName: "", serialNumber: nil)
         #expect(open.firmwareName == "M-VAVE open firmware")
         #expect(open.firmwareVersion == "12")
+        let v16 = FM1DeviceSummary(identity: .officialV16, portName: "", serialNumber: nil)
+        #expect(v16.firmwareName == "M-VAVE V16")
+        #expect(v16.firmwareVersion == "16")
         let felucca = FM1DeviceSummary(
             identity: FM1Identity(model: "FM-1", version: 916), portName: "", serialNumber: nil)
         #expect(felucca.firmwareName == nil)

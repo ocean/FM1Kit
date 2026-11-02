@@ -27,18 +27,20 @@ public struct FM1DeviceSummary: Sendable, Hashable, Identifiable {
     /// finishes it.
     public var isWaitingMidUpdate: Bool { identity.isLoader }
 
-    /// The firmware's name, for the firmwares FM1Kit knows: "M-VAVE V15" or "M-VAVE open
+    /// The firmware's name, for the firmwares FM1Kit knows: "M-VAVE V15", "M-VAVE V16" or "M-VAVE open
     /// firmware". `nil` for others, which apps can name from their own catalogue by
     /// ``identity``, and while ``isWaitingMidUpdate``.
     public var firmwareName: String? {
         if identity == .officialV15 { return "M-VAVE V15" }
+        if identity == .officialV16 { return "M-VAVE V16" }
         return identity.isOpenFirmware ? "M-VAVE open firmware" : nil
     }
 
-    /// The firmware's version, for the firmwares FM1Kit knows: "15" for V15, "12" for open
+    /// The firmware's version, for the firmwares FM1Kit knows: "15" for V15, "16" for V16, "12" for open
     /// firmware V12. `nil` whenever ``firmwareName`` is.
     public var firmwareVersion: String? {
         if identity == .officialV15 { return "15" }
+        if identity == .officialV16 { return "16" }
         guard identity.isOpenFirmware else { return nil }
         return identity.model == "FM-1"
             ? String(identity.version - FM1Identity.openVersions.lowerBound) : String(identity.version)
