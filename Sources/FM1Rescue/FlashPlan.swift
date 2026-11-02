@@ -317,8 +317,8 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
     case bootloaderTooLarge(Int)
     /// The package's firmware wasn't made for this FM-1's chip key, so it wouldn't start.
     case wrongChipKey(UInt16)
-    /// The package's settings regions overlap the FM-1's factory data or boot area, or aren't
-    /// whole sectors.
+    /// A firmware declares saved data over the boot area, `0xFC000` onwards or the factory data,
+    /// or not in whole sectors, so it can't be erased safely.
     case settingsOverFactoryData
     /// The flash, or the backup, shows it's another model's, or nothing shows it's an FM-1's.
     case notAnFM1
@@ -351,8 +351,8 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
                     """, key)
         case .settingsOverFactoryData:
             """
-            This package declares its settings where they can't be erased safely, so nothing was \
-            written. Install it without erasing settings.
+            One of the firmwares declares saved data where it can't be erased safely, so nothing \
+            was written. Install it without erasing saved data.
             """
         case .notAnFM1:
             """

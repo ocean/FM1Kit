@@ -147,11 +147,11 @@ struct FlashWriteSafetyTests {
         }
     }
 
-    @Test(arguments: [0x2000..<0x3000, 0x9_3000..<0x9_3800])
+    @Test(arguments: [0x2000..<0x3000, 0x9_3000..<0x9_3800, 0xF_B000..<0xF_D000])
     func refusesSettingsThatCantBeErasedSafely(region: Range<Int>) throws {
         let package = try SampleFlash.package(SampleFlash.flash(regions: [("VM", region)]))
         #expect(throws: FlashPlanError.settingsOverFactoryData) {
-            try FlashPlan.installing(package, onto: SampleFlash.backup(SampleFlash.flash()), erasingSettings: true)
+            try FlashPlan.installing(package, onto: SampleFlash.backup(SampleFlash.flash()), erasingSavedData: true)
         }
     }
 

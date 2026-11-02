@@ -21,6 +21,16 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Changed
 
+- `FlashPlan.installing(_:onto:includingBootloader:erasingSettings:)` is now
+  `installing(_:onto:includingBootloader:erasingSavedData:)`, and erases more: everything from
+  the end of the new image up to `0xFBFFF`, which covers every saved-data region firmwares
+  declare (`VM`, `BTIF`, V15's voice banks in `USR`, V16's `SEQ64`) and what they leave outside
+  them, so the new firmware starts from its defaults instead of meeting another firmware's
+  leftovers. V16 leaves data in V15's `USR` region that makes V15 play one note at a time, which
+  only this clears (tested on hardware, stage R). It never touches the boot area, `0xFC000`
+  onwards or the factory data. Installing V15 this way writes its factory voices and the rest of
+  its `USR` data straight back into the erased voice banks, so it's never silent and needs no
+  voice restore. `fm1probe flash-install --erase-settings` is now `--erase-saved-data`.
 - `bootloaderMismatch` and `refusesV15OverOtherBootloaders` explain that V16 brings a different
   bootloader from V15, so firmwares with Felucca's original check refuse V16 on an FM-1 with
   V15's bootloader, and V15 once V16's is installed.

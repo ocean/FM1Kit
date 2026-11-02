@@ -28,9 +28,25 @@ extension FwscPackage {
         return voices(matching: Self.factoryVoicesSHA256)
     }
 
+    /// V15's whole `USR` part, deciphered, or `nil` unless this is the official V15 package.
+    ///
+    /// It starts with the factory voices, then holds the rest of V15's factory data. An FM-1
+    /// running V15 keeps it as it is from `0xEA000`, the start of the `USR` region, so writing
+    /// it there puts the voices and that data back as they were from the factory.
+    package func factoryUserData() -> [UInt8]? {
+        guard OfficialFirmware.matching(self) == .v15 else { return nil }
+        return userData(withVoices: Self.factoryVoicesSHA256)
+    }
+
     /// The first 16 KB of the `USR` part, or `nil` unless it deciphers to its checksum and the
     /// voices have this SHA-256.
     func voices(matching sha256: String) -> [UInt8]? {
+        userData(withVoices: sha256).map { Array($0.prefix(Self.factoryVoicesLength)) }
+    }
+
+    /// The `USR` part, deciphered, or `nil` unless it deciphers to its checksum and its first
+    /// 16 KB, the voices, have this SHA-256.
+    package func userData(withVoices sha256: String) -> [UInt8]? {
         guard
             let part = container.userData,
             part.isEnciphered,
@@ -41,8 +57,8 @@ extension FwscPackage {
         }
         let plain = Self.decipherUserData(logicalImage, range: part.offset..<(part.offset + part.storedSize))
         guard FirmwareContainer.crc16(plain.prefix(part.size)) == part.checksum else { return nil }
-        let voices = Array(plain.prefix(Self.factoryVoicesLength))
-        return Self.sha256Hex(voices) == sha256 ? voices : nil
+        let userData = Array(plain.prefix(part.size))
+        return Self.sha256Hex(userData.prefix(Self.factoryVoicesLength)) == sha256 ? userData : nil
     }
 
     /// Deciphers (or enciphers) part of the logical image the way the `USR` part is stored: in

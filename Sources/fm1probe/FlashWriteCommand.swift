@@ -10,7 +10,7 @@ enum FlashWrite {
     /// own bootloader.
     case bootloader(String)
     /// A firmware package's image.
-    case firmware(String, includingBootloader: Bool, erasingSettings: Bool)
+    case firmware(String, includingBootloader: Bool, erasingSavedData: Bool)
 
     /// The command that runs it, to repeat if it needs sudo.
     var command: String {
@@ -39,7 +39,7 @@ func writeFlash(_ arguments: [String]) throws {
             .firmware(
                 arguments[1],
                 includingBootloader: arguments.contains("--with-bootloader"),
-                erasingSettings: arguments.contains("--erase-settings")
+                erasingSavedData: arguments.contains("--erase-saved-data")
             )
         }
     let simulated = arguments.firstIndex(of: "--simulated").flatMap { index in
@@ -131,10 +131,10 @@ private func makePlan(_ write: FlashWrite, onto current: FlashBackup) throws -> 
             return try FlashPlan.installing(BootloaderInstaller(package: package).bootloader, onto: current)
         }
         return try FlashPlan.installingBootloader(from: package, onto: current)
-    case .firmware(let path, let includingBootloader, let erasingSettings):
+    case .firmware(let path, let includingBootloader, let erasingSavedData):
         let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
         return try FlashPlan.installing(
-            package, onto: current, includingBootloader: includingBootloader, erasingSettings: erasingSettings)
+            package, onto: current, includingBootloader: includingBootloader, erasingSavedData: erasingSavedData)
     }
 }
 

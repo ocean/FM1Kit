@@ -200,7 +200,7 @@ swift run fm1probe download-mode         # ask V15 or Felucca to restart into do
 sudo .build/debug/fm1probe flash-backup FOLDER  # read the whole flash in download mode (after swift build)
 sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup back, saving the flash to FOLDER first
 sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
-sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-settings)
+sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
 ```
 
 The `flash-` commands take `--simulated BACKUP.bin` to rehearse against a simulated FM-1 holding

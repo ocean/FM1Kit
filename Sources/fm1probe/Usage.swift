@@ -52,7 +52,8 @@ let usage = """
                                                install a firmware in download mode, keeping the
                                                bootloader, settings and voices
                --with-bootloader               also write the package's bootloader
-               --erase-settings                also erase the firmware's settings and Bluetooth pairings
+               --erase-saved-data              also erase every firmware's saved data, up to 0xFBFFF,
+                                               so the new one starts from its defaults
                                                Each reads the flash and saves it to FOLDER first, shows
                                                what changes, and writes only after you type YES; it
                                                then checks every change. Needs sudo.

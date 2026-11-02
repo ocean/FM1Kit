@@ -104,7 +104,7 @@ struct FlashWriteTests {
         #expect(after.firmware.files == .intact)
     }
 
-    @Test func installsFirmwareWithItsBootloaderAndErasesItsSettings() throws {
+    @Test func installsFirmwareWithItsBootloaderAndErasesSavedData() throws {
         let incoming = SampleFlash.flash(code: SampleFlash.code(fill: 0x77))
         let package = try SampleFlash.package(incoming)
         var original = SampleFlash.flash(bootloader: BootloaderImage.sample().bytes)
@@ -112,11 +112,11 @@ struct FlashWriteTests {
         let chip = SimulatedDownloadMode(flash: original)
         let (session, current) = try Self.read(chip)
         let plan = try FlashPlan.installing(
-            package, onto: current, includingBootloader: true, erasingSettings: true)
+            package, onto: current, includingBootloader: true, erasingSavedData: true)
         try session.write(plan)
         #expect(chip.flash[0..<0x8000] == incoming[0..<0x8000])
-        #expect(chip.flash[0x9_3000..<0x9_5000].allSatisfy { $0 == 0xFF })
-        #expect(chip.flash[0x9_5000...] == original[0x9_5000...])
+        #expect(chip.flash[0x8000..<0xF_C000].allSatisfy { $0 == 0xFF })
+        #expect(chip.flash[0xF_C000...] == original[0xF_C000...])
     }
 
     @Test func warnsWhenTheFirmwareKeepsItsSettingsElsewhere() throws {
@@ -124,8 +124,44 @@ struct FlashWriteTests {
         let current = SampleFlash.backup(SampleFlash.flash())
         let plan = try FlashPlan.installing(try SampleFlash.package(incoming), onto: current)
         #expect(plan.warnings.count == 1)
-        let erasing = try FlashPlan.installing(try SampleFlash.package(incoming), onto: current, erasingSettings: true)
+        let erasing = try FlashPlan.installing(try SampleFlash.package(incoming), onto: current, erasingSavedData: true)
         #expect(erasing.warnings.isEmpty)
+    }
+
+    @Test func writesV15sFactoryVoicesBackWhenErasing() throws {
+        let regions = [("VM", 0x9_3000..<0xE_9000), ("BTIF", 0xE_9000..<0xE_A000), ("USR", 0xE_A000..<0xF_C000)]
+        var original = SampleFlash.flash(regions: regions)
+        original.replaceSubrange(0xE_A000..<0xF_0000, with: repeatElement(0x55, count: 0x6000))
+        let factory = (0..<0x1_1E0A).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ 1) }
+        let chip = SimulatedDownloadMode(flash: original)
+        let (session, current) = try Self.read(chip)
+        let plan = try FlashPlan.installing(
+            try SampleFlash.package(SampleFlash.flash(regions: regions)),
+            onto: current,
+            includingBootloader: false,
+            erasingSavedData: true,
+            factoryUserData: factory
+        )
+        #expect(plan.notes.contains("Writes V15's factory voices and data back (0xEA000–0xFBE09)."))
+        try session.write(plan)
+        #expect(Array(chip.flash[0xE_A000..<0xF_BE0A]) == factory)
+        #expect(chip.flash[0xF_BE0A..<0xF_C000].allSatisfy { $0 == 0xFF })
+        #expect(chip.flash[0x9_3000..<0xE_A000].allSatisfy { $0 == 0xFF })
+    }
+
+    @Test func erasesEveryFirmwaresSavedDataButNotWhatNoneDeclares() throws {
+        var original = SampleFlash.flash(regions: [("VM", 0x9_3000..<0xE_9000), ("BTIF", 0xE_9000..<0xE_A000)])
+        for address in [0x9_3000, 0xC_0000, 0xE_9000, 0xF_5000, 0xF_C000, 0xF_F000] { original[address] = 0x01 }
+        let incoming = SampleFlash.flash(regions: [("VM", 0xB_A000..<0xD_A000), ("SEQ64", 0xD_A000..<0xE_C000)])
+        let package = try SampleFlash.package(incoming, size: 0xA_9000)
+        let chip = SimulatedDownloadMode(flash: original)
+        let (session, current) = try Self.read(chip)
+        let plan = try FlashPlan.installing(package, onto: current, erasingSavedData: true)
+        #expect(plan.notes.contains("Erases saved data (0xA9000–0xFBFFF)."))
+        try session.write(plan)
+        #expect(chip.flash[0xA_9000..<0xF_C000].allSatisfy { $0 == 0xFF })
+        #expect(chip.flash[0xF_C000] == 0x01)
+        #expect(chip.flash[0xF_F000] == 0x01)
     }
 
     @Test func refusesFirmwareMadeForAnotherChipKey() throws {

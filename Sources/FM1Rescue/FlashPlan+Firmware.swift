@@ -7,18 +7,26 @@ extension FlashPlan {
     /// straight to the flash, without the firmware running or its update loader.
     ///
     /// The application area is written; the bootloader is kept unless `includingBootloader` is
-    /// set, which also writes the package's boot area (M-VAVE's bootloader, for V15). Settings
-    /// and voices stay as they are unless `erasingSettings` is set, which erases the settings
-    /// and Bluetooth regions the package's firmware declares. A different firmware may not
-    /// understand what another left there; restoring a backup made while it was installed goes
-    /// back cleanly.
+    /// set, which also writes the package's boot area (M-VAVE's bootloader, for V15).
+    ///
+    /// Saved data stays as it is unless `erasingSavedData` is set. Each firmware declares where
+    /// it keeps its settings, presets, projects and Bluetooth pairings, and many share the same
+    /// space in different formats, so what one leaves behind can confuse the next. Some write
+    /// outside what they declare too: V16 leaves data in V15's `USR` region that makes V15 play
+    /// one note at a time. Erasing clears everything from the end of the new image up to
+    /// `0xFBFFF`, which covers every region the firmwares seen so far declare (such as `VM`,
+    /// `BTIF`, `USR` with V15's voice banks, and V16's `SEQ64`), so the incoming firmware starts
+    /// from its defaults. It never touches the boot area, `0xFC000` onwards (which holds data
+    /// under every firmware, though none declares it) or the factory data.
+    /// Restoring a backup made while a firmware was installed goes back to it exactly. When the
+    /// incoming firmware is V15, its factory voices and the rest of its `USR` data are written
+    /// back into the erased `USR` region, as the factory left them, so it isn't silent.
     ///
     /// - Parameters:
     ///   - package: A firmware package for the FM-1.
     ///   - current: The FM-1's flash as just read.
     ///   - includingBootloader: Also write the package's boot area.
-    ///   - erasingSettings: Also erase the firmware's settings (`VM`) and Bluetooth (`BTIF`)
-    ///     regions.
+    ///   - erasingSavedData: Also erase every firmware's saved data, up to `0xFBFFF`.
     /// - Returns: The plan.
     /// - Throws: ``FlashPlanError/notFirmware`` for an installer package,
     ///   ``FlashPlanError/wrongChipKey(_:)`` when its firmware wasn't made for this FM-1, or
@@ -27,7 +35,25 @@ extension FlashPlan {
         _ package: FwscPackage,
         onto current: FlashBackup,
         includingBootloader: Bool = false,
-        erasingSettings: Bool = false
+        erasingSavedData: Bool = false
+    ) throws(FlashPlanError) -> Self {
+        try installing(
+            package,
+            onto: current,
+            includingBootloader: includingBootloader,
+            erasingSavedData: erasingSavedData,
+            factoryUserData: package.factoryUserData()
+        )
+    }
+
+    /// Plans installing a firmware, writing `factoryUserData` into the `USR` region it declares
+    /// when erasing saved data.
+    static func installing(
+        _ package: FwscPackage,
+        onto current: FlashBackup,
+        includingBootloader: Bool,
+        erasingSavedData: Bool,
+        factoryUserData: [UInt8]?
     ) throws(FlashPlanError) -> Self {
         guard let image = package.flashImage else { throw .notFirmware }
         var warnings = try checkedFM1(current)
@@ -51,7 +77,7 @@ extension FlashPlan {
             notes.append("Also writes the package's boot area, with its bootloader.")
         }
         let installed = current.regions()
-        if !erasingSettings, !installed.isEmpty, installed != incoming.regions() {
+        if !erasingSavedData, !installed.isEmpty, installed != incoming.regions() {
             warnings.append(
                 """
                 The installed firmware keeps its settings in other places than \(package.product); what it \
@@ -59,15 +85,23 @@ extension FlashPlan {
                 installed goes back to it cleanly.
                 """)
         }
-        if erasingSettings {
-            for region in try incoming.settingsRegions() {
-                guard !region.range.overlaps(factoryData), region.range.lowerBound >= bootArea.upperBound else {
-                    throw .settingsOverFactoryData
-                }
-                target.replaceSubrange(region.range, with: repeatElement(0xFF, count: region.range.count))
-                allowed.append(region.range)
-                let what = region.name == "VM" ? "its settings" : "its Bluetooth pairings"
-                notes.append("Erases \(what) (\(Self.describe(region.range))).")
+        if erasingSavedData {
+            let ranges = try Self.savedDataRanges(of: [current, incoming], after: image.count)
+            for range in ranges {
+                target.replaceSubrange(range, with: repeatElement(0xFF, count: range.count))
+                allowed.append(range)
+            }
+            if !ranges.isEmpty {
+                notes.append("Erases saved data (\(ranges.map(Self.describe).joined(separator: ", "))).")
+            }
+            if let factoryUserData,
+                let user = incoming.regions().first(where: { $0.name == "USR" }),
+                factoryUserData.count <= user.range.count,
+                ranges.contains(where: { $0.contains(user.range.lowerBound) && $0.upperBound >= user.range.upperBound })
+            {
+                let written = user.range.lowerBound..<(user.range.lowerBound + factoryUserData.count)
+                target.replaceSubrange(written, with: factoryUserData)
+                notes.append("Writes V15's factory voices and data back (\(Self.describe(written))).")
             }
         } else if package.hasFactoryVoices {
             notes.append("The voice banks stay as they are; V15's factory voices can be restored once it's running.")
@@ -80,6 +114,30 @@ extension FlashPlan {
             notes: notes,
             warnings: warnings
         )
+    }
+
+    /// Where data is kept that no firmware declares but every one leaves in place, from `0xFC000`
+    /// up to the factory data.
+    static let undeclaredData = 0xF_C000..<factoryData.lowerBound
+
+    /// The saved data to erase: everything from `start`, where the new image ends, up to
+    /// `0xFC000`, once the regions these firmwares declare have been checked to lie inside it.
+    ///
+    /// - Throws: ``FlashPlanError/settingsOverFactoryData`` for a region that isn't whole
+    ///   sectors inside the flash, or that reaches the boot area, `0xFC000` onwards or the
+    ///   factory data.
+    static func savedDataRanges(of flashes: [FlashBackup], after start: Int) throws(FlashPlanError) -> [Range<Int>] {
+        for flash in flashes {
+            for region in try flash.savedDataRegions() {
+                guard region.range.lowerBound >= bootArea.upperBound, !region.range.overlaps(undeclaredData),
+                    !region.range.overlaps(factoryData)
+                else {
+                    throw .settingsOverFactoryData
+                }
+            }
+        }
+        let lower = (start + sectorLength - 1) / sectorLength * sectorLength
+        return lower < undeclaredData.lowerBound ? [lower..<undeclaredData.lowerBound] : []
     }
 
     /// A range of flash addresses as text, such as "0x04000–0x92FFF".
@@ -95,11 +153,14 @@ extension FlashBackup {
         let range: Range<Int>
     }
 
-    /// The settings (`VM`) and Bluetooth (`BTIF`) regions the firmware declares, refusing any
-    /// that isn't whole sectors inside the flash.
-    func settingsRegions() throws(FlashPlanError) -> [Region] {
+    /// Every region the firmware declares for saved data, refusing any that isn't whole sectors
+    /// inside the flash.
+    ///
+    /// That's every declared region but the protected firmware area (`PRCT`): its settings
+    /// (`VM`), Bluetooth pairings (`BTIF`), voice banks (`USR`) or V16's patterns (`SEQ64`).
+    func savedDataRegions() throws(FlashPlanError) -> [Region] {
         let declared = applicationTable().filter { entry in
-            [0x12, 0x92].contains(entry.attribute) && ["VM", "BTIF"].contains(entry.name) && entry.length > 0
+            [0x12, 0x92].contains(entry.attribute) && entry.name != "PRCT" && entry.length > 0
         }
         return try declared.map { entry throws(FlashPlanError) in
             guard entry.address.isMultiple(of: FlashPlan.sectorLength),
