@@ -133,7 +133,7 @@ extension FwscPackage {
     /// the SHA-256 of its flash image, such as SikkenWorks' ETCH, BEETLE and B1, take V15
     /// whichever bootloader is installed, though not M-VAVE's open firmware: their code holds
     /// that hash. Firmwares that install every package with a loader of their own, such as
-    /// Quixotic7's TransitFM1 and RemoteFM1, take V15 too, though not M-VAVE's open firmware:
+    /// Quixotic7's TransitFM1 and RemoteFM1, take V15 too, though not M-VAVE's open firmware or V16:
     /// their code holds the text `LOADER NOT STAGED`, which they show when that loader isn't
     /// ready. `false` for an installer package.
     public var refusesV15OverOtherBootloaders: Bool {

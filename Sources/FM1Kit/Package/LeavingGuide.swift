@@ -14,7 +14,8 @@ public enum UpdateCode: String, Sendable, Hashable, Codable, CaseIterable {
     /// SikkenWorks' ETCH, BEETLE and B1 do: it takes V15 onto any bootloader.
     case recognisesV15
     /// A loader of its own for every package, as Quixotic7's TransitFM1 and RemoteFM1 have: it
-    /// takes V15 onto any bootloader, and keeps the bootloader the FM-1 has.
+    /// takes V15 onto any bootloader, and keeps the bootloader the FM-1 has. It refuses firmware
+    /// images of any size but V15's, so V16 and open firmware.
     case ownLoader
     /// Update code FM1Kit doesn't recognise.
     case unknown
@@ -157,8 +158,8 @@ public struct LeavingGuide: Sendable, Hashable, Codable {
         case .ownLoader:
             switch destination {
             case .v15, .feluccaPlatform: return .direct
-            case .openFirmware: return .throughFixedFirmware
-            case .v16, .mBootloader: return .uncertain
+            case .v16, .openFirmware: return .throughFixedFirmware
+            case .mBootloader: return .uncertain
             }
         case .unknown:
             return .uncertain
@@ -204,10 +205,10 @@ public struct LeavingGuide: Sendable, Hashable, Codable {
                 "If it's refused, nothing changes: install \(Self.fixedFirmwares) first, then \(name) from that.",
             ]
         }
-        if reportsOfficialIdentity, destination.bootArea != nil {
+        if reportsOfficialIdentity, destination == .v15 {
             steps.append("\(firmwareName) reports itself as V15: confirm it isn't really V15 when asked.")
         }
-        if updateCode == .ownLoader, destination.bootArea != nil {
+        if updateCode == .ownLoader, destination.bootArea != nil, route(to: destination) == .direct {
             steps.append(
                 "\(firmwareName) installs with its own loader, so the FM-1 keeps the bootloader it has, "
                     + "rather than getting \(name)'s.")
@@ -244,6 +245,7 @@ public struct LeavingGuide: Sendable, Hashable, Codable {
     /// Why this firmware refuses `destination`, after "can't install it directly".
     private func refusalReason(for destination: LeavingDestination) -> String {
         if destination == .mBootloader { return ": its update check only takes firmwares" }
+        if updateCode == .ownLoader { return ": it only takes firmware images the size of V15's" }
         // Felucca 1.6.1 refuses these at the header, before comparing bootloaders.
         guard destination == .v15, let bootArea, bootArea != destination.bootArea else { return "" }
         let current =

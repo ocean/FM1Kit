@@ -161,7 +161,9 @@ install M-VAVE's packages only when the FM-1 has the bootloader the package brin
 bootloader has been changed, by m-bootloader or by M-VAVE's open firmware, they refuse V15, and
 the install stops with ``FM1UpdateError/bootloaderMismatch(requests:)``. They refuse
 m-bootloader's installer, update loaders they don't recognise and, in copies of Felucca 1.6.1,
-open firmware straight after the header, with ``FM1UpdateError/packageRefused(requests:)``.
+open firmware and V16 straight after the header, with ``FM1UpdateError/packageRefused(requests:)``.
+TransitFM1, which installs with a loader of its own, refuses open firmware and V16 the same way:
+it takes only firmware images the size of V15's (V16 tested on hardware in November 2026).
 ``FwscPackage/refusesV15OverOtherBootloaders`` says whether a package is one of them, so apps
 can tell people before they install it.
 

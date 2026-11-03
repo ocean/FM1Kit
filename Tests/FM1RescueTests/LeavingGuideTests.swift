@@ -67,12 +67,17 @@ struct LeavingGuideTests {
         let guide = try #require(LeavingGuide(package: package, name: "TransitFM1", bootArea: .v16))
         #expect(guide.route(to: .v15) == .direct)
         #expect(guide.route(to: .openFirmware) == .throughFixedFirmware)
-        #expect(guide.route(to: .v16) == .uncertain)
-        #expect(guide.warnings.count == 1)
-        #expect(guide.warnings.first?.hasPrefix("TransitFM1 reports itself as V15") == true)
+        #expect(guide.route(to: .v16) == .throughFixedFirmware)
+        #expect(guide.warnings.count == 2)
+        #expect(guide.warnings.first?.contains("can't install V16 straight away") == true)
+        #expect(guide.warnings.last?.hasPrefix("TransitFM1 reports itself as V15") == true)
         let steps = guide.instructions(to: .v15)
         #expect(steps.contains("TransitFM1 reports itself as V15: confirm it isn't really V15 when asked."))
         #expect(steps.contains { $0.contains("keeps the bootloader it has") })
+        let toV16 = guide.instructions(to: .v16)
+        #expect(
+            toV16.first == "TransitFM1 can't install V16 directly: it only takes firmware images the size of V15's.")
+        #expect(!toV16.contains { $0.contains("keeps the bootloader it has") || $0.contains("isn't really V15") })
     }
 
     @Test func keepsTheBootloaderWhenAFirmwareComesWithItsOwnLoader() throws {

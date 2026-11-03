@@ -5,6 +5,14 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `LeavingGuide` now sends people from TransitFM1 to V16 through MIDIMON 0.4 or LOOM-8:
+  TransitFM1 refuses V16 at the header (tested on an FM-1 in stage S), since it takes only
+  firmware images the size of V15's. Its steps to V16 no longer say the FM-1 keeps its bootloader,
+  or that TransitFM1 must be confirmed as not V15.
+- `packageRefused`'s explanation names TransitFM1, and says MIDIMON 0.4 and LOOM-8 take V16 too.
+
 ## [0.5.0] - 2026-11-02
 
 M-VAVE's V16, a guide to switching away from each firmware, and a fresh start that clears every

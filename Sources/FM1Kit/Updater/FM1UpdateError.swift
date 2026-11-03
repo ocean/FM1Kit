@@ -209,9 +209,10 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             it refused the package, and should carry on as before. Its screen may show FAILED and a \
             code. Firmwares with Felucca's original update check refuse m-bootloader's installer and \
             update loaders they don't recognise this way, and those based on Felucca 1.6.1 refuse \
-            M-VAVE's open firmware and V16 too. First install a firmware with Felucca's updated check, such \
-            as MIDIMON 0.4 or LOOM-8, which takes V15 and open firmware, or install it from a Mac in \
-            the chip's USB download mode.
+            M-VAVE's open firmware and V16 too. TransitFM1 refuses them as well, since it takes only \
+            firmware images the size of V15's. First install a firmware with Felucca's updated check, \
+            such as MIDIMON 0.4 or LOOM-8, which takes V15, V16 and open firmware, or install it from \
+            a Mac in the chip's USB download mode.
             """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """
