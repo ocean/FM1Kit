@@ -45,10 +45,12 @@ public actor FM1Updater {
     /// Whether the updater would send SysEx to a port.
     ///
     /// - Parameter port: A port pair from ``MIDITransport/ports()``.
-    /// - Returns: `true` when the port's name contains one of ``probeablePortNameFragments``.
+    /// - Returns: `true` when the port's name, or the name its USB device reports, contains one
+    ///   of ``probeablePortNameFragments``.
     public static func isProbeable(_ port: MIDIPortDescriptor) -> Bool {
-        let name = port.name.lowercased()
-        return probeablePortNameFragments.contains { name.contains($0) }
+        [port.name, port.usbProductName].compactMap { $0?.lowercased() }.contains { name in
+            probeablePortNameFragments.contains { name.contains($0) }
+        }
     }
 
     /// Asks what the connected FM-1 is running.

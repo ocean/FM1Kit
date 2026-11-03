@@ -5,6 +5,17 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `MIDIPortDescriptor.usbProductName`: the name the USB device reports for itself now, read from
+  IOKit on macOS (`nil` on iOS). macOS keeps the name it first saw for a device's USB IDs and
+  socket, so after switching to a firmware that shares another's IDs, as CLEANSWEEP and ESTAMPIE
+  do, `name` can still be the old firmware's.
+- `FM1Updater.isProbeable(_:)` also matches the USB device's own name.
+- fm1probe's `ports`, `identify` and `devices` show the USB device's own name when macOS still
+  shows an older one, such as "FM-1 CLEANSWEEP (macOS still calls it FM-1 ESTAMPIE)", and
+  `identify --port NAME` matches either name.
+
 ## [0.5.1] - 2026-11-03
 
 TransitFM1 refuses V16, as tested on an FM-1 in stage S, so the switching guide now sends people

@@ -95,6 +95,11 @@ do {
 The updater only sends SysEx to ports whose names look like an FM-1
 (``FM1Updater/isProbeable(_:)``), so other MIDI gear connected at the same time is left alone.
 
+macOS keeps the name it first saw for a USB device's IDs and socket, so a firmware that shares
+another's USB IDs can show under the other's name. On macOS,
+``MIDIPortDescriptor/usbProductName`` is the name the device reports now; show it when it differs
+from ``MIDIPortDescriptor/name``.
+
 ### Choose a device when more than one is connected
 
 People may connect more than one FM-1, or other M-VAVE devices, at the same time. An updater

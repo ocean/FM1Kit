@@ -118,6 +118,13 @@ struct FriendlyAPITests {
         #expect(loader.firmwareName == nil)
     }
 
+    @Test func probesByTheNameTheUSBDeviceReportsToo() {
+        let renamed = MIDIPortDescriptor(id: "a", name: "Synth 2", usbProductName: "FM-1 CLEANSWEEP")
+        let other = MIDIPortDescriptor(id: "b", name: "KeyStep 37", usbProductName: "Arturia KeyStep 37")
+        #expect(FM1Updater.isProbeable(renamed))
+        #expect(!FM1Updater.isProbeable(other))
+    }
+
     @Test func summarisesNothingWhenNoFM1Answers() async throws {
         #expect(try await FM1Updater(transport: EmptyTransport(), timing: UpdaterTests.fastTiming).summary() == nil)
     }

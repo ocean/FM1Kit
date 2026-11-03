@@ -42,6 +42,15 @@ func printDevices(_ devices: [FM1DeviceSummary]) {
     for (index, device) in devices.enumerated() {
         let state = device.isWaitingMidUpdate ? "update loader" : device.firmwareName ?? "firmware running"
         let serial = device.serialNumber.map { ", serial \($0)" } ?? ""
-        print("  \(index + 1). \(device.identity.text)  (\(state))  on \(device.portName)\(serial)")
+        print("  \(index + 1). \(device.identity.text)  (\(state))  on \(portLabel(device.port))\(serial)")
     }
+}
+
+/// A port's name, with the name its USB device reports now when macOS still shows an older one.
+///
+/// macOS keeps the name it first saw for a USB device's IDs and socket, so a firmware that shares
+/// another's IDs, as CLEANSWEEP and ESTAMPIE do, can show under the other's name.
+func portLabel(_ port: MIDIPortDescriptor) -> String {
+    guard let current = port.usbProductName, current != port.name else { return port.name }
+    return "\(current) (macOS still calls it \(port.name))"
 }

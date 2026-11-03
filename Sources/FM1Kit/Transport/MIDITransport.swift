@@ -12,6 +12,12 @@ public struct MIDIPortDescriptor: Hashable, Sendable, Identifiable {
     /// M-VAVE's V15 and open firmware report the same number for a unit, so it can tell one
     /// FM-1 from another; Felucca reports none.
     public let serialNumber: String?
+    /// The name the USB device reports for itself now, when the system lets FM1Kit read it.
+    ///
+    /// macOS keeps the name it first saw for a USB device's IDs and socket, so after switching
+    /// to a firmware that shares another's IDs, ``name`` can still be the old firmware's. This is
+    /// the current one. `nil` on iOS, and when it can't be read.
+    public let usbProductName: String?
 
     /// Describes a port pair.
     ///
@@ -19,10 +25,12 @@ public struct MIDIPortDescriptor: Hashable, Sendable, Identifiable {
     ///   - id: An identifier the transport can open the pair by.
     ///   - name: The name to show and to match against ``FM1Updater/probeablePortNameFragments``.
     ///   - serialNumber: The USB device's serial number, if it reports one.
-    public init(id: String, name: String, serialNumber: String? = nil) {
+    ///   - usbProductName: The name the USB device reports for itself, if it can be read.
+    public init(id: String, name: String, serialNumber: String? = nil, usbProductName: String? = nil) {
         self.id = id
         self.name = name
         self.serialNumber = serialNumber
+        self.usbProductName = usbProductName
     }
 }
 

@@ -71,7 +71,7 @@ case "ports":
     let ports = await transport.ports()
     if ports.isEmpty { print("No MIDI port pairs found.") }
     for port in ports {
-        print("\(FM1Updater.isProbeable(port) ? "probe" : "skip ")  \(port.name)  [\(port.id)]")
+        print("\(FM1Updater.isProbeable(port) ? "probe" : "skip ")  \(portLabel(port))  [\(port.id)]")
     }
 
 case "identify":
@@ -79,7 +79,9 @@ case "identify":
     let repeats = max(option("--repeat").flatMap(Int.init) ?? 1, 1)
     let wanted = option("--port")
     let ports = await transport.ports().filter { port in
-        wanted.map { port.name.localizedCaseInsensitiveContains($0) } ?? FM1Updater.isProbeable(port)
+        wanted.map { wanted in
+            [port.name, port.usbProductName].contains { $0?.localizedCaseInsensitiveContains(wanted) == true }
+        } ?? FM1Updater.isProbeable(port)
     }
     if ports.isEmpty {
         print(
@@ -90,7 +92,7 @@ case "identify":
     var anyAnswered = false
     var answeringPorts = 0
     for port in ports {
-        print("\(port.name):")
+        print("\(portLabel(port)):")
         if let serial = port.serialNumber { print("  serial: \(serial)") }
         let connection = try await transport.open(port)
         var times: [Double] = []

@@ -2,6 +2,10 @@ import CoreMIDI
 import Foundation
 import os
 
+#if os(macOS)
+import IOKit
+#endif
+
 /// MIDI over CoreMIDI, for real devices on iOS and macOS.
 ///
 /// It uses the Universal MIDI Packet event-list API with the MIDI 1.0 protocol, so SysEx travels
@@ -85,7 +89,13 @@ public final class CoreMIDITransport: MIDITransport, @unchecked Sendable {
                 ?? destinations.first { Self.name(of: $0) == name }
             guard let destination else { continue }
             let id = "\(Self.uniqueID(of: source)):\(Self.uniqueID(of: destination))"
-            descriptors.append(MIDIPortDescriptor(id: id, name: name, serialNumber: Self.serialNumber(of: entity)))
+            descriptors.append(
+                MIDIPortDescriptor(
+                    id: id,
+                    name: name,
+                    serialNumber: Self.serialNumber(of: entity),
+                    usbProductName: Self.usbProductName(of: entity)
+                ))
         }
         return descriptors
     }
@@ -139,6 +149,36 @@ public final class CoreMIDITransport: MIDITransport, @unchecked Sendable {
         }
         let serial = value.takeRetainedValue() as String
         return serial.isEmpty ? nil : serial
+    }
+
+    /// The name the USB device an entity belongs to reports now, read from IOKit on macOS.
+    ///
+    /// CoreMIDI's own name for the device is the one it stored when it first saw the device's IDs
+    /// on that socket, so it can belong to an earlier firmware.
+    static func usbProductName(of entity: MIDIEntityRef) -> String? {
+        #if os(macOS)
+        var device = MIDIDeviceRef()
+        var location: Int32 = 0
+        // The USB-MIDI driver sets this property; CoreMIDI has no named constant for it.
+        guard entity != 0, MIDIEntityGetDevice(entity, &device) == noErr,
+            MIDIObjectGetIntegerProperty(device, "USBLocationID" as CFString, &location) == noErr,
+            location != 0,
+            var matching = IOServiceMatching("IOUSBHostDevice") as? [String: Any]
+        else {
+            return nil
+        }
+        matching["IOPropertyMatch"] = ["locationID": UInt32(bitPattern: location)]
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, matching as CFDictionary)
+        guard service != 0 else { return nil }
+        defer { IOObjectRelease(service) }
+        for key in ["kUSBProductString", "USB Product Name"] {
+            let value = IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)
+            if let name = value?.takeRetainedValue() as? String, !name.isEmpty { return name }
+        }
+        return nil
+        #else
+        return nil
+        #endif
     }
 
     /// The object's unique ID, or 0 when it has none.
