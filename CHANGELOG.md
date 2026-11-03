@@ -12,6 +12,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   firmware images the size of V15's. Its steps to V16 no longer say the FM-1 keeps its bootloader,
   or that TransitFM1 must be confirmed as not V15.
 - `packageRefused`'s explanation names TransitFM1, and says MIDIMON 0.4 and LOOM-8 take V16 too.
+- `fm1probe install --reinstall-official` describes the install by the package's identity, since
+  it can't tell whether TransitFM1 is being installed over V15 or V15 over TransitFM1.
 
 ## [0.5.0] - 2026-11-02
 

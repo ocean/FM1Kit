@@ -288,7 +288,7 @@ case "install" where arguments.count >= 2:
         }
         switch check.kind {
         case .reinstall where check.canReinstallOfficial && reinstallsOfficial:
-            print("Kind:     the official firmware over one reporting its identity, such as TransitFM1")
+            print("Kind:     \(package.product) over an FM-1 reporting it too, as --reinstall-official allows")
         case .reinstall where check.canReinstallOfficial:
             print("The FM-1 reports \(package.product), so it isn't reinstalled. If it's running a firmware")
             print("that reports that identity, such as TransitFM1, run again with --reinstall-official.")
