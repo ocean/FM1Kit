@@ -375,6 +375,23 @@ bootloader.
 
 If anything goes wrong, `flash-restore` the R0 backup in download mode.
 
+## Stage S: V16 over TransitFM1
+
+V16's firmware image (`flash.bin`) is 0xA9000 bytes, against V15's 0x93000. TransitFM1 0.1.3
+writes the next firmware with its own loader, which by its source refuses an image of any size but
+V15's, so it should refuse V16 before writing anything. Nobody has tried it. TransitFM1 reports
+V15's identity, so installing it over V15 needs `--reinstall-official`. Start on V15 with M-VAVE's
+bootloader.
+
+| Step | Command | What to look for |
+|---|---|---|
+| S0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/s-backups`; switch the FM-1 off and on | A backup to go back to, with `Bootloader: M-VAVE's`. |
+| S1 | `swift run fm1probe install .artifacts/tmp/transit/transit-0.1.3.fwsc --reinstall-official --log .artifacts/tmp/s1.csv` | V15 takes TransitFM1. The screen shows `TRANSIT` and "READY FOR THE NEXT FIRMWARE". |
+| S2 | `swift run fm1probe install .artifacts/tmp/v16/FM-1-v16.fwsc --log .artifacts/tmp/s2.csv` | TransitFM1 refuses V16 before writing, and its screen says why. If it takes V16, play presets from every bank. |
+| S3 | If S2 was refused: `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --reinstall-official --log .artifacts/tmp/s3.csv` | TransitFM1 takes V15, as in Q3. If S2 took V16: R11's erasing `flash-install` of V15 instead, since V16 leaves V15 mono. |
+
+If anything goes wrong, `flash-restore` the S0 backup in download mode.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -837,3 +854,23 @@ So V16 installs and leaves cleanly over USB-MIDI in both directions, with M-VAVE
 each firmware's boot area, but V15 installed after V16, by any route over USB-MIDI, plays one note
 at a time until it's installed fresh in download mode. Felucca 1.6.1 refuses V16 outright and
 V15 over V16's boot area; MIDIMON 0.4 takes both.
+
+### 2026-11-03: stage S, V16 over TransitFM1
+
+The same Mac and FM-1, starting on V15 with M-VAVE's bootloader.
+
+- **S0 passed:** a flash backup read twice, matching, showed V15 (`FM-1_015`) with M-VAVE's
+  bootloader.
+- **S1 passed:** V15 took TransitFM1 0.1.3 with `--reinstall-official` in 27.5 s, through
+  TransitFM1's own loader (`ota-FM-1_900`, 1180 requests). The screen showed `TRANSIT` and "READY
+  FOR THE NEXT FIRMWARE".
+- **S2 passed:** TransitFM1 refused V16 after 2 requests, at the header (`packageRefused`), with
+  nothing written. Its screen showed only "UPDATE FAILED"; after switching off and on it was back
+  on its ready screen.
+- **S3 passed:** TransitFM1 took V15 with `--reinstall-official` in 27.6 s (`ota-FM-1_900`). V15
+  played polyphonically with `PIANO 1`, without restoring the voices: TransitFM1 stores nothing
+  and V16 never ran, so V15's voices and settings were as before.
+
+So TransitFM1 refuses V16, as its code refuses any firmware image of a size other than V15's
+(V16's is 0xA9000 bytes, V15's 0x93000). From TransitFM1, V16 needs MIDIMON 0.4 or LOOM-8 first,
+as from Felucca 1.6.1.
