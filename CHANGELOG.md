@@ -5,6 +5,11 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-03
+
+TransitFM1 refuses V16, as tested on an FM-1 in stage S, so the switching guide now sends people
+from it to V16 through MIDIMON 0.4 or LOOM-8.
+
 ### Fixed
 
 - `LeavingGuide` now sends people from TransitFM1 to V16 through MIDIMON 0.4 or LOOM-8:
@@ -331,7 +336,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.1...HEAD
+[0.5.1]: https://github.com/ocean/FM1Kit/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...0.5.0
 [0.5.0-beta.1]: https://github.com/ocean/FM1Kit/compare/0.4.5...0.5.0-beta.1
 [0.4.5]: https://github.com/ocean/FM1Kit/compare/0.4.4...0.4.5
