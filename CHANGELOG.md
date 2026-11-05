@@ -16,6 +16,12 @@ All notable changes to FM1Kit are recorded here. The project follows
   shows an older one, such as "FM-1 CLEANSWEEP (macOS still calls it FM-1 ESTAMPIE)", and
   `identify --port NAME` matches either name.
 
+### Fixed
+
+- fm1probe no longer goes quiet in a terminal that an earlier program left non-blocking, such
+  as `screen` on a USB serial port that went away. It makes its output blocking again when it
+  starts, and if any output was lost anyway, it says so and exits with an error.
+
 ## [0.5.1] - 2026-11-03
 
 TransitFM1 refuses V16, as tested on an FM-1 in stage S, so the switching guide now sends people

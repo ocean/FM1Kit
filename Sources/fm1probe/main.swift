@@ -8,6 +8,8 @@
 import FM1Kit
 import Foundation
 
+keepOutputReachingTheTerminal()
+
 let arguments = Array(CommandLine.arguments.dropFirst())
 
 /// The value after `flag`, e.g. `--repeat 20`.
