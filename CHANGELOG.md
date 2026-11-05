@@ -16,6 +16,12 @@ All notable changes to FM1Kit are recorded here. The project follows
   shows an older one, such as "FM-1 CLEANSWEEP (macOS still calls it FM-1 ESTAMPIE)", and
   `identify --port NAME` matches either name.
 
+### Changed
+
+- `FlashSession.write(_:progress:)` works from the top of the flash down, so a firmware's
+  start-up code is the last thing replaced. A firmware whose start-up code brings the FM-1 back
+  to download mode by itself still does that if writing stops part-way.
+
 ### Fixed
 
 - fm1probe no longer goes quiet in a terminal that an earlier program left non-blocking, such

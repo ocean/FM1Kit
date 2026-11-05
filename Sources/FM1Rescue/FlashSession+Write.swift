@@ -7,6 +7,10 @@ extension FlashSession {
     /// Carries out a plan: erases and writes only the sectors that change, then checks each run
     /// of them against the chip's CRC-32, erasing and writing it once more if it doesn't match.
     ///
+    /// It works from the top of the flash down, so a firmware's start-up code, at the bottom of
+    /// its area, is the last thing replaced. A firmware whose start-up code brings the FM-1 back
+    /// to download mode by itself after failed starts still does that if writing stops part-way.
+    ///
     /// Save ``FlashPlan/original`` before calling this: it's the way back. The FM-1 must still
     /// hold the flash the plan was made against, which is checked first. The FM-1's screen shows
     /// the progress and `DO NOT SWITCH OFF`. Switching the FM-1 off while it writes can leave it
@@ -35,7 +39,7 @@ extension FlashSession {
         let chunkLength = writeChunkLength()
         let screen = UnitScreen(session: self, isFM1: plan.original.model == .fm1)
         progress(0)
-        var address = plan.sectors[0]
+        var address = plan.sectors[plan.sectors.count - 1]
         do {
             try write(plan, chunkLength: chunkLength, screen: screen, progress: progress, at: &address)
         } catch .writeNotVerified(let run) {
@@ -63,23 +67,26 @@ extension FlashSession {
             UnitScreen.Row(12, " DO NOT SWITCH OFF", colour: UnitScreen.amber),
         ])
         var written = 0
-        for run in plan.runs {
+        for run in plan.runs.reversed() {
             var attempt = 1
             while true {
-                address = run.lowerBound
-                try erase(run)
-                for sector in stride(from: run.lowerBound, to: run.upperBound, by: FlashPlan.sectorLength) {
-                    address = sector
-                    try program(Array(plan.target[sector..<(sector + FlashPlan.sectorLength)]), at: sector, chunkLength)
-                    let done = written + (sector + FlashPlan.sectorLength - run.lowerBound) / FlashPlan.sectorLength
-                    progress(Double(done) / Double(plan.sectors.count))
-                    screen.progress(100 * done / plan.sectors.count)
+                for unit in Self.eraseUnits(of: run).reversed() {
+                    address = unit.lowerBound
+                    try erase(unit)
+                    for sector in stride(from: unit.lowerBound, to: unit.upperBound, by: FlashPlan.sectorLength) {
+                        address = sector
+                        try program(
+                            Array(plan.target[sector..<(sector + FlashPlan.sectorLength)]), at: sector, chunkLength)
+                        written += 1
+                        progress(Double(written) / Double(plan.sectors.count))
+                        screen.progress(100 * written / plan.sectors.count)
+                    }
                 }
                 if try crc32(of: run) == ChipChecksum.crc32(plan.target[run]) { break }
                 guard attempt < 2 else { throw .writeNotVerified(run) }
                 attempt += 1
+                written -= run.count / FlashPlan.sectorLength
             }
-            written += run.count / FlashPlan.sectorLength
         }
         screen.show([
             UnitScreen.Row(5, " DONE - VERIFIED", colour: UnitScreen.mint),
@@ -90,16 +97,27 @@ extension FlashSession {
 
     /// Erases a run of sectors, in 64 KB blocks where they're aligned.
     func erase(_ run: Range<Int>) throws(DownloadModeError) {
+        for unit in Self.eraseUnits(of: run) {
+            _ = try Self.call(
+                connection,
+                unit.count == 0x1_0000 ? ChipCommand.eraseBlock : ChipCommand.eraseSector,
+                ChipCommand.bigEndian(UInt32(unit.lowerBound), byteCount: 4)
+            )
+        }
+    }
+
+    /// A run split into what one erase command clears, in order: 64 KB blocks where they're
+    /// aligned, 4 KB sectors elsewhere.
+    static func eraseUnits(of run: Range<Int>) -> [Range<Int>] {
+        var units: [Range<Int>] = []
         var address = run.lowerBound
         while address < run.upperBound {
             let isBlock = address.isMultiple(of: 0x1_0000) && run.upperBound - address >= 0x1_0000
-            _ = try Self.call(
-                connection,
-                isBlock ? ChipCommand.eraseBlock : ChipCommand.eraseSector,
-                ChipCommand.bigEndian(UInt32(address), byteCount: 4)
-            )
-            address += isBlock ? 0x1_0000 : FlashPlan.sectorLength
+            let length = isBlock ? 0x1_0000 : FlashPlan.sectorLength
+            units.append(address..<(address + length))
+            address += length
         }
+        return units
     }
 
     /// Programs erased flash, skipping chunks that stay erased.

@@ -67,8 +67,21 @@ struct FlashWriteSafetyTests {
         let chip = SimulatedDownloadMode(flash: Self.flash(saved, changing: [0x9_4000, 0x9_5000]))
         chip.disconnectsAfterWrites = 1
         let error = #expect(throws: DownloadModeError.self) { try Self.restore(saved, onto: chip) }
-        #expect(error == .writeInterrupted(at: 0x9_5000, "the device is gone"))
+        #expect(error == .writeInterrupted(at: 0x9_4000, "the device is gone"))
         #expect(error?.errorDescription?.contains("Don't switch the FM-1 off") == true)
+    }
+
+    @Test func replacesTheBottomOfARunLast() throws {
+        let sectors = [0x9_4000, 0x9_5000, 0x9_6000]
+        let saved = Self.flash(SampleFlash.flash(), changing: sectors, to: 0x11)
+        let changed = Self.flash(saved, changing: sectors)
+        let chip = SimulatedDownloadMode(flash: changed)
+        chip.bufferSize = 4096
+        chip.disconnectsAfterWrites = 2
+        #expect(throws: DownloadModeError.self) { try Self.restore(saved, onto: chip) }
+        #expect(chip.erasedSectors == [0x9_6000, 0x9_5000, 0x9_4000])
+        #expect(chip.flash[0x9_5000..<0x9_7000] == saved[0x9_5000..<0x9_7000])
+        #expect(chip.flash[0x9_4000] == 0xFF)
     }
 
     @Test func refusesWhenAnotherFM1IsConnected() throws {

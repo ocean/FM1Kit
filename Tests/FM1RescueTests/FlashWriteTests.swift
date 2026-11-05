@@ -25,7 +25,8 @@ struct FlashWriteTests {
         var fractions: [Double] = []
         try session.write(plan) { fractions.append($0) }
         #expect(chip.flash == saved)
-        #expect(chip.erasedSectors == [0x9_3000, 0xF_F000])
+        // From the top of the flash down.
+        #expect(chip.erasedSectors == [0xF_F000, 0x9_3000])
         #expect(fractions.first == 0)
         #expect(fractions.last == 1)
     }

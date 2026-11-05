@@ -248,7 +248,9 @@ container format of kagaimiq's MIT-licensed jl-misctools. Installing m-bootloade
 download mode follow [m-bootloader](https://github.com/jvitkauskas/m-bootloader)'s
 specification and [M-Flasher](https://github.com/jvitkauskas/m-flasher) (both MIT, Julius
 Vitkauskas), which follows jl-uboot-tool (MIT, Andrey Grigoryev); FM1Rescue bundles
-m-bootloader's flash loader, with its licence. FM1Kit
+m-bootloader's flash loader, with its licence. Writing from the top of the flash down is an
+idea from Charles Vestal's
+[fm1_rescue](https://github.com/hugelton/felucca-bsp/blob/main/tools/fm1_rescue.py). FM1Kit
 contains no code from GPL-licensed installers. Thanks to M-VAVE for being so encouraging of the
 FM-1's custom firmware community, and for publishing their firmware and tools.
 
