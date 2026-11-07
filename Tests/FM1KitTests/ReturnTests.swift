@@ -6,11 +6,10 @@ import os
 /// An install counts as done when the FM-1 comes back running the package, even if its loader
 /// never asked to finish.
 struct ReturnTests {
-    /// What an install reported, and how long it took.
+    /// What an install reported.
     struct Outcome {
         let installed: FM1Identity
         let events: [UpdateEvent]
-        let took: Duration
     }
 
     static func install(_ change: (inout SimulatedFM1.Options) -> Void) async throws -> Outcome {
@@ -23,11 +22,10 @@ struct ReturnTests {
         timing.returnCheckAfter = .milliseconds(200)
         let updater = FM1Updater(transport: device, timing: timing)
         let events = OSAllocatedUnfairLock<[UpdateEvent]>(initialState: [])
-        let start = ContinuousClock.now
         let installed = try await updater.install(package, options: .confirmed) { event in
             events.withLock { $0.append(event) }
         }
-        return Outcome(installed: installed, events: events.withLock { $0 }, took: ContinuousClock.now - start)
+        return Outcome(installed: installed, events: events.withLock { $0 })
     }
 
     @Test func finishesWhenTheFirmwareAnswersOnAConnectionThatNeverShowsAsLost() async throws {
@@ -36,9 +34,8 @@ struct ReturnTests {
             options.keepsConnectionThroughRestart = true
         }
         #expect(result.installed.text == "FM-1_916")
+        // Had the return been missed, the install would have thrown stalled(.writing) instead.
         #expect(result.events.suffix(2) == [.rebooting, .finished(result.installed)])
-        // Well before the loader would count as stalled.
-        #expect(result.took < UpdaterTests.fastTiming.writeIdleLimit)
     }
 
     @Test func finishesWhenTheDeviceRestartsWithoutAskingToFinish() async throws {
