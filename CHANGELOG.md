@@ -5,6 +5,20 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
+FM1Kit knows the newer flash chip in FM-1s sold since autumn 2026, and asks firmwares built on
+felucca-bsp for their whole identity. An install finishes when the new firmware answers, even
+if the loader never asked to finish, and an interrupted write now tells people not to switch
+the FM-1 off. Installs, m-bootloader over V15's and V16's boot areas and `--wait` were tried on
+an FM-1 with the first chip (stages T to X), with the extra identity query in every install.
+Not yet seen on hardware: an FM-1 with the newer chip, a firmware that shortens its identity, and
+a loader that restarts without asking to finish.
+
+To move from 0.5: `InstallProgress.Stage.checking` is gone (the second pass counts as
+`installing`). `UpdateEvent.checking` is unchanged, but it's the loader's second pass, in which
+Felucca's loader writes: show it as installing, not checking. Use `.upToNextMinor(from: "0.6.0")`.
+
 ### Added
 
 - `MIDIPortDescriptor.usbProductName`: the name the USB device reports for itself now, read from
@@ -15,18 +29,74 @@ All notable changes to FM1Kit are recorded here. The project follows
 - fm1probe's `ports`, `identify` and `devices` show the USB device's own name when macOS still
   shows an older one, such as "FM-1 CLEANSWEEP (macOS still calls it FM-1 ESTAMPIE)", and
   `identify --port NAME` matches either name.
+- `USBDownloadModeConnection.open(waitingUpTo:)` waits for an FM-1 to appear in download mode
+  and captures it at once, looking every 20 ms. It's for an FM-1 whose firmware crashes at
+  start-up and passes through download mode by itself, only for a few seconds each time.
+  fm1probe's `flash-` commands take `--wait SECONDS` for it.
+- `FM1FlashChip`: the FM-1's flash chips, the first units' P25Q80 (0x856014) and the UC25HQ80
+  (0xB36014) of those sold since autumn 2026. Firmwares that only know the first keep saves on
+  the newer one only until it's switched off, and often can't take an update.
+- `FM1Identity.flashChipID(inHandshakeReply:)`, `FoundDevice.flashChipID`, and
+  `FM1DeviceSummary.flashChipID` and `hasNewerFlashChip`: the flash chip, as
+  firmwares built on felucca-bsp since November 2026 report it in the handshake reply
+  (Felucca#320), such as ESTAMPIE; `nil` from others. fm1probe's `identify` shows it, and the
+  `flash-` commands say when an FM-1 has the newer chip.
+- `FwscPackage.flashChipSupport` (`FlashChipSupport`): which flash chips a firmware's code
+  checks for, from the 32-bit constants it holds: both (`bothChips`), the first FM-1s' alone
+  (`firstChipOnly`, which on the newer chip usually keeps saves only until switched off), or
+  neither (`noCheck`, as V15). fm1probe's `inspect` shows it. Every fixed firmware seen so far
+  holds both IDs. V16 names the first chip and another, but not the newer one; whether it saves
+  on the newer chip isn't known.
+- `FM1Message.fullIdentityQuery`: firmwares built on felucca-bsp since November 2026 answer the
+  handshake with their identity cut to its name, '_' and three digits, such as `FM-1_123` for
+  `FM-1_1234567`, because M-UPGRADE 3.11 refuses longer ones, and give the whole identity when
+  asked with this. FM1Updater asks after a three-digit answer, and after any answer that carried
+  no flash chip, for firmwares that report it only when asked (not V15's or V16's, nor the
+  loader's), waiting `UpdaterTiming.fullIdentityWait` (300 ms) for firmwares that don't answer
+  it. So these firmwares are named, checked and confirmed after an install by their whole
+  identity, and their flash chip is known either way.
+- `FlashPlan.installing(_:onto:)` warns before installing m-bootloader on the newer flash chip,
+  on which it has hardly been tried, and refuses a version that would stop at `BAD CONFIG` on
+  every start: before 1.3 with V16's boot configuration, before 2.0 with one m-bootloader 2 has
+  shortened (`FlashPlanError.bootloaderTooOld(_:minimum:)`).
 
 ### Changed
 
 - `FlashSession.write(_:progress:)` works from the top of the flash down, so a firmware's
   start-up code is the last thing replaced. A firmware whose start-up code brings the FM-1 back
   to download mode by itself still does that if writing stops part-way.
+- `FlashPlan.installingBootloader(from:onto:)` writes the package's whole boot area, its boot
+  configuration included, as an official update does, instead of keeping the FM-1's. M-VAVE's
+  bootloader reads the configuration, which m-bootloader 2 shortens, and V16's differs from
+  V15's.
 
 ### Fixed
 
+- The errors for an update interrupted while writing say to keep the FM-1 switched on and
+  resume, as its screen stays dark while it updates and it may not start again until the update
+  is finished, rather than that it stays in update mode until one finishes. On an FM-1 (stage
+  W3), Felucca's loader answered again 12 s after the cable went back in; with its screen dark,
+  the FM-1 was then switched off, and it no longer started. fm1probe's install warning says the
+  same.
+- `UpdateEvent.checking` and `InstallProgress` no longer present a loader's second pass as a
+  check: Felucca's loader checks the package in its first pass and erases and writes in its
+  second. `InstallProgress` reports it as `installing`, and `InstallProgress.Stage.checking` is
+  removed. fm1probe calls it the second pass.
+- An install finishes when the package's firmware answers after nearly all of the application
+  area has been written and the loader has gone quiet (`UpdaterTiming.returnCheckAfter`, 5 s),
+  or when the FM-1 goes away at that point and comes back running firmware, even if the loader
+  never asked to finish. Before, an FM-1 that restarted into the new firmware without asking,
+  as one installing AMB-1 did, could leave `install` waiting out `writeIdleLimit` and throwing
+  `stalled(.writing)`, with the new firmware already playing. If it comes back in its loader,
+  the error is still `disconnected(.writing)`, so the write can be resumed.
 - fm1probe no longer goes quiet in a terminal that an earlier program left non-blocking, such
   as `screen` on a USB serial port that went away. It makes its output blocking again when it
   starts, and if any output was lost anyway, it says so and exits with an error.
+- `FlashPlan` takes the newer flash chip as an FM-1's when the flash doesn't show the model, as
+  with broken firmware, instead of refusing to restore or install.
+- `FlashPlan.installing(_:onto:)` installs m-bootloader on an FM-1 with V16's boot area, whose
+  configuration starts after V16's larger bootloader, and on one where m-bootloader 2 shortened
+  it, instead of saying the boot area can't be read.
 
 ## [0.5.1] - 2026-11-03
 
@@ -359,7 +429,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.5.1...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/ocean/FM1Kit/compare/0.5.1...0.6.0
 [0.5.1]: https://github.com/ocean/FM1Kit/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...0.5.0
 [0.5.0-beta.1]: https://github.com/ocean/FM1Kit/compare/0.4.5...0.5.0-beta.1
