@@ -233,33 +233,8 @@ public actor FM1Updater {
         expecting buildID: FM1BuildID?,
         events: @escaping @Sendable (UpdateEvent) -> Void
     ) async throws -> FM1Identity {
-        let writing: ServeOutcome
-        do {
-            defer { loader.connection.close() }
-            events(.loaderFound(loader.identity))
-            try loader.connection.send(FM1Message.upgradeCommand)
-            try await pause(timing.afterUpgradeCommand)
-            var progress = WriteProgress(region: package.container.applicationRange)
-            writing = try await serve(
-                loader.connection,
-                image: package.logicalImage,
-                phase: .writing,
-                idleLimit: timing.writeIdleLimit
-            ) { request, _ in
-                events(progress.record(request))
-            }
-        }
-        guard writing.finished else {
-            throw writing.lost
-                ? FM1UpdateError.disconnected(phase: .writing, requests: writing.requests)
-                : FM1UpdateError.stalled(phase: .writing, requests: writing.requests)
-        }
-
-        events(.rebooting)
-        try await Task.sleep(for: timing.firmwareBoot)
-        guard let returned = try await waitFor(timing.returnSearch, where: { !$0.isLoader }) else {
-            throw FM1UpdateError.deviceDidNotReturn
-        }
+        let writing = try await serveLoader(package, from: loader, events: events)
+        let returned = try await returnedDevice(after: writing, events: events)
         defer { returned.connection.close() }
         guard returned.identity == package.identity else {
             throw FM1UpdateError.identityMismatch(expected: package.product, reported: returned.identity.text)
@@ -282,6 +257,8 @@ public actor FM1Updater {
         var lost = false
         /// The last read answered.
         var lastRead: Range<Int>?
+        /// The device running firmware again, found while the loader was quiet.
+        var returned: FoundDevice?
     }
 
     /// Answers read requests until the device asks to finish `phase`, goes quiet, or disappears.
@@ -294,8 +271,12 @@ public actor FM1Updater {
     ///   - image: The package's logical image, which the requests address.
     ///   - phase: The half of the update being served, which decides the finish address.
     ///   - idleLimit: How long the device may stay silent before the phase counts as stalled.
+    ///   - lookingAfterQuiet: How long the device may stay silent before `lookForReturn` is
+    ///     called, and again each time this passes; `nil` never calls it.
     ///   - progress: Called after each answered read with the read and the number of reads so far.
-    /// - Returns: How the phase ended: finished, stalled or disconnected, with the reads answered.
+    ///   - lookForReturn: Looks for the device running firmware again, which ends the phase.
+    /// - Returns: How the phase ended: finished, stalled, disconnected or returned, with the reads
+    ///   answered.
     /// - Throws: ``FM1UpdateError/badRequest(address:length:)`` for a request outside the image,
     ///   ``FM1UpdateError/unexpectedFinish(phase:)`` for a request to finish the other half, or
     ///   `CancellationError`.
@@ -304,11 +285,14 @@ public actor FM1Updater {
         image: [UInt8],
         phase: FM1UpdateError.Phase,
         idleLimit: Duration,
-        progress: (FM1ReadRequest, Int) -> Void
+        lookingAfterQuiet: Duration? = nil,
+        progress: (FM1ReadRequest, Int) -> Void,
+        lookForReturn: () async throws -> FoundDevice? = { nil }
     ) async throws -> ServeOutcome {
         let finishAddress = phase == .staging ? FM1Message.stageFinishAddress : FM1Message.writeFinishAddress
         var outcome = ServeOutcome()
         var lastActivity = ContinuousClock.now
+        var lastLook = lastActivity
         while true {
             try Task.checkCancellation()
             // Checked on every pass: other messages from the device don't count as activity.
@@ -319,6 +303,11 @@ public actor FM1Updater {
                 if connection.isLost {
                     outcome.lost = true
                     return outcome
+                }
+                if let lookingAfterQuiet, ContinuousClock.now - max(lastActivity, lastLook) >= lookingAfterQuiet {
+                    outcome.returned = try await lookForReturn()
+                    if outcome.returned != nil { return outcome }
+                    lastLook = ContinuousClock.now
                 }
                 continue
             }

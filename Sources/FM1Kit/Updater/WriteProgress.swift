@@ -3,19 +3,20 @@ import Foundation
 /// Works out how far the update loader has got, whatever order it reads the image in.
 ///
 /// Real loaders differ: M-VAVE's V15 loader reads its image once, backwards, while Felucca's
-/// reads forwards and then reads the same region again, probably checking what it wrote. So
+/// reads forwards to check the package and then reads the same region again, erasing and
+/// writing as it goes (each 4 KB block's erase shows as a pause of about 60 ms). So
 /// progress is the share of the region read so far, not the furthest offset. The region is the
 /// firmware image's application area, which every loader seen writes; reads outside it (the
 /// boot area some loaders rewrite first, and the header) leave progress unchanged. Once most of
-/// the region has been read, a run of full-size reads of ground already covered starts a checking
-/// pass, with its own progress: the share of what was written that has been read again. Single
+/// the region has been read, a run of full-size reads of ground already covered starts a second
+/// pass, with its own progress: the share of the first pass's ground read again. Single
 /// or short re-reads don't count: loaders re-read parts of the header as they start and finish.
 ///
 /// A loader could skip part of the region, so writing progress can end below 1.
 struct WriteProgress {
     /// How much of the region must be read before re-reads can count as checking.
     static let checkingThreshold = 0.5
-    /// How many full-size re-reads in a row start a checking pass.
+    /// How many full-size re-reads in a row start a second pass.
     static let rereadsBeforeChecking = 3
 
     /// The part of the logical image that counts towards progress.
@@ -24,7 +25,7 @@ struct WriteProgress {
     private var written = IndexSet()
     /// Every byte of the region read again while checking.
     private var checked = IndexSet()
-    /// Full-size re-reads in a row that might be the start of a checking pass.
+    /// Full-size re-reads in a row that might be the start of a second pass.
     private var rereads: [Range<Int>] = []
     /// Reads answered in the current step.
     private var requests = 0
@@ -45,7 +46,7 @@ struct WriteProgress {
     ///
     /// - Parameter request: The read the loader made, already checked to lie within the image.
     /// - Returns: ``UpdateEvent/writing(fraction:requests:)``, or
-    ///   ``UpdateEvent/checking(fraction:requests:)`` once a checking pass has started.
+    ///   ``UpdateEvent/checking(fraction:requests:)`` once a second pass has started.
     mutating func record(_ request: FM1ReadRequest) -> UpdateEvent {
         let start = Int(request.address)
         let range = (start..<(start + request.length)).clamped(to: region)
@@ -83,14 +84,30 @@ struct WriteProgress {
         return report(.writing(fraction: writtenFraction, requests: requests))
     }
 
+    /// True once nearly all of the region has been read in the pass under way, so the loader may
+    /// restart without asking to finish.
+    ///
+    /// Once a second pass starts, only its progress counts, as Felucca's loader writes in it.
+    var isNearlyWritten: Bool {
+        (isChecking ? checkedFraction : writtenFraction) >= Self.nearlyWrittenThreshold
+    }
+
+    /// How much of the region must be read for ``isNearlyWritten``.
+    static let nearlyWrittenThreshold = 0.95
+
     /// The share of the region written so far.
     private var writtenFraction: Double {
         region.isEmpty ? 1 : min(Double(written.count) / Double(region.count), 1)
     }
 
-    /// Progress through the checking pass.
+    /// The share of the first pass's ground read again in the second.
+    private var checkedFraction: Double {
+        written.isEmpty ? 0 : min(Double(checked.count) / Double(written.count), 1)
+    }
+
+    /// Progress through the second pass.
     private var checkingEvent: UpdateEvent {
-        .checking(fraction: min(Double(checked.count) / Double(written.count), 1), requests: requests)
+        .checking(fraction: checkedFraction, requests: requests)
     }
 
     /// The last event again, with the new request count, for a read outside the region.

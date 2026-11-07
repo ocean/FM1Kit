@@ -15,6 +15,10 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var loaderSearch: Duration = .seconds(30)
     /// Give up writing when the loader has been silent this long.
     public var writeIdleLimit: Duration = .seconds(60)
+    /// Once nearly all of the application area has been read, how long the loader may stay silent
+    /// before the updater looks for the new firmware, and then how often it looks again: some
+    /// loaders restart without asking to finish.
+    public var returnCheckAfter: Duration = .seconds(5)
     /// Pause after writing while the device reboots into the new firmware.
     public var firmwareBoot: Duration = .seconds(3)
     /// How long to look for the device after writing.

@@ -41,3 +41,44 @@ extension SimulatedFM1 {
         }
     }
 }
+
+/// A connection to the simulated device, which ends when the device restarts.
+final class SimulatedConnection: MIDIConnection, @unchecked Sendable {
+    // Sendable: `device` is only written in `init`; the inboxes are thread-safe.
+
+    let port: MIDIPortDescriptor
+    let generation: Int
+    /// Messages from the device, for ``receive(timeout:)``.
+    let toHost = SysexInbox()
+    /// Responses from the host, for the device's session.
+    let fromHost = SysexInbox()
+    private weak var device: SimulatedFM1?
+
+    init(device: SimulatedFM1, port: MIDIPortDescriptor, generation: Int) {
+        self.device = device
+        self.port = port
+        self.generation = generation
+    }
+
+    var isLost: Bool {
+        guard let device else { return true }
+        return !device.options.keepsConnectionThroughRestart && !device.isCurrent(generation)
+    }
+
+    func send(_ sysex: [UInt8]) throws {
+        guard let device, device.isCurrent(generation) else { throw MIDITransportError.portGone }
+        device.handle(sysex, from: self)
+    }
+
+    func receive(timeout: Duration) async -> [UInt8]? {
+        await toHost.next(timeout: timeout)
+    }
+
+    func drain() {
+        toHost.drain()
+    }
+
+    func close() {
+        toHost.close()
+    }
+}

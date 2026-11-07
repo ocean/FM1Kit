@@ -42,6 +42,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var rebootDuration: Duration = .milliseconds(1500)
         /// How long the device waits for each response before giving up.
         public var responseTimeout: Duration = .seconds(5)
+        /// Restart into the new firmware after writing without asking to finish, as some loaders do.
+        public var restartsWithoutFinishing = false
+        /// Leave the connection open across a restart without showing it as lost, as CoreMIDI can
+        /// when the FM-1 comes back on the same endpoint.
+        public var keepsConnectionThroughRestart = false
         /// Simulate the cable being pulled once the write reaches this fraction (0...1).
         public var unplugDuringWriteAt: Double?
         /// The build open firmware reports at first; after an install, the armed or known build.
@@ -302,8 +307,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
                 }
             }
         }
-        let finish = FM1ReadRequest(address: FM1Message.writeFinishAddress, length: 8)
-        guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }
+        if !options.restartsWithoutFinishing {
+            let finish = FM1ReadRequest(address: FM1Message.writeFinishAddress, length: 8)
+            guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }
+        }
         log("Wrote \(package.product); rebooting.")
         // Real open firmware reports the build compiled into it: here, the one it was armed with, or
         // else the build ID FM1Kit knows for the package.
@@ -364,45 +371,5 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     /// Adds a line to ``events``.
     func log(_ text: String) {
         eventLog.withLock { $0.append(text) }
-    }
-}
-
-/// A connection to the simulated device, which ends when the device restarts.
-final class SimulatedConnection: MIDIConnection, @unchecked Sendable {
-    // Sendable: `device` is only written in `init`; the inboxes are thread-safe.
-
-    let port: MIDIPortDescriptor
-    let generation: Int
-    /// Messages from the device, for ``receive(timeout:)``.
-    let toHost = SysexInbox()
-    /// Responses from the host, for the device's session.
-    let fromHost = SysexInbox()
-    private weak var device: SimulatedFM1?
-
-    init(device: SimulatedFM1, port: MIDIPortDescriptor, generation: Int) {
-        self.device = device
-        self.port = port
-        self.generation = generation
-    }
-
-    var isLost: Bool {
-        !(device?.isCurrent(generation) ?? false)
-    }
-
-    func send(_ sysex: [UInt8]) throws {
-        guard let device, device.isCurrent(generation) else { throw MIDITransportError.portGone }
-        device.handle(sysex, from: self)
-    }
-
-    func receive(timeout: Duration) async -> [UInt8]? {
-        await toHost.next(timeout: timeout)
-    }
-
-    func drain() {
-        toHost.drain()
-    }
-
-    func close() {
-        toHost.close()
     }
 }
