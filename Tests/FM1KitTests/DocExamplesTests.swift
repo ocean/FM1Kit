@@ -31,7 +31,7 @@ struct DocExamplesTests {
             switch event {
             case .staging(let requests): print("Preparing… \(requests)")
             case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
-            case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+            case .checking(let fraction, _): print("Second pass \(Int(fraction * 100))%")
             case .finished(let identity): print("Now running \(identity)")
             default: break
             }
@@ -45,7 +45,7 @@ struct DocExamplesTests {
             switch event {
             case .staging(let requests): print("Preparing… \(requests)")
             case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
-            case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+            case .checking(let fraction, _): print("Second pass \(Int(fraction * 100))%")
             case .finished(let identity): print("Now running \(identity)")
             default: break
             }

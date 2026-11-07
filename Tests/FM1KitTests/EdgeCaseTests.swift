@@ -255,9 +255,7 @@ struct UpdaterEdgeCaseTests {
         device.prepare(for: package)
         let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
         let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
-        try await updater.install(package, options: .confirmed) { event in
-            events.withLock { $0.append(event) }
-        }
+        try await updater.install(package, options: .confirmed) { event in events.withLock { $0.append(event) } }
         let recorded = events.withLock { $0 }
 
         // Collapse repeated progress events to see the sequence of steps.

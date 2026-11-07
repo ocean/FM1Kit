@@ -33,8 +33,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var writeChunkLength = 512
         /// Read the image from the end backwards while writing, as M-VAVE's V15 loader does.
         public var writesBackwards = false
-        /// Read the whole image a second time after writing, as Felucca's loader does (probably
-        /// to check what it wrote).
+        /// Read the whole image a second time, as Felucca's loader does: it checks the package in
+        /// its first pass and writes in its second.
         public var checksAfterWriting = false
         /// Device-side pause between requests.
         public var requestInterval: Duration = .milliseconds(4)

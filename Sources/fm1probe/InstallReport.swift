@@ -11,7 +11,7 @@ final class InstallReport: Sendable {
         case staging = "Staging"
         case waitingForLoader = "Waiting for the loader"
         case writing = "Writing"
-        case checking = "Checking"
+        case checking = "Second pass"
         case rebooting = "Restarting"
         case finished = "Finished"
     }
@@ -27,6 +27,9 @@ final class InstallReport: Sendable {
         var lastPrintedTenth = -1
         var summary: [String] = []
     }
+
+    /// What's printed when the loader starts a second pass.
+    static let secondPassNote = "The loader is reading the image again; Felucca's loader writes in this pass"
 
     /// How often staging progress is printed, in requests.
     static let stagingPrintInterval = 25
@@ -57,7 +60,8 @@ final class InstallReport: Sendable {
             case .checking(let fraction, let requests):
                 let start =
                     state.step == .checking
-                    ? [] : Self.begin(.checking, in: &state, note: "The loader is reading the image again; checking")
+                    ? []
+                    : Self.begin(.checking, in: &state, note: Self.secondPassNote)
                 return start + Self.noteFraction(fraction, requests: requests, in: &state)
             case .rebooting:
                 return Self.begin(.rebooting, in: &state, note: "Writing finished; restarting into the new firmware")

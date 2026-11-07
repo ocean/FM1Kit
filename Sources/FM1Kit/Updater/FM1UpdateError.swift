@@ -227,13 +227,15 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             """
         case .stalled(.writing, let requests):
             """
-            The update loader stopped after \(requests) requests. Keep the FM-1 connected and resume \
-            the update; it stays in update mode until one finishes.
+            The update loader stopped after \(requests) requests. Keep the FM-1 connected and switched \
+            on, and resume the update. Its screen stays dark while it updates: don't switch it off, \
+            as it may not start again until the update is finished.
             """
         case .disconnected(.writing, let requests):
             """
-            The update loader disconnected after \(requests) requests. Reconnect the FM-1 and resume \
-            the update; it stays in update mode until one finishes.
+            The update loader disconnected after \(requests) requests. Reconnect the FM-1 and resume the \
+            update, without switching it off: its screen stays dark while it updates, and it may not \
+            start again until the update is finished.
             """
         case .loaderNotFound:
             "The update loader didn't appear. Reconnect the FM-1 and resume the update."
@@ -255,8 +257,8 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
         case .unexpectedFinish(.writing):
             """
             The update loader asked to finish checking the package while it was writing, so the update \
-            was stopped. Keep the FM-1 connected and resume the update; it stays in update mode until \
-            one finishes.
+            was stopped. Keep the FM-1 connected and switched on, and resume the update: its screen \
+            stays dark while it updates, and it may not start again until the update is finished.
             """
         }
     }

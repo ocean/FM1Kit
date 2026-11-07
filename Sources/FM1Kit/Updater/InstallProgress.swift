@@ -2,7 +2,7 @@
 /// friendly stage.
 ///
 /// ``UpdateEvent``s follow the protocol closely: staging has no known length, the loader's
-/// checking pass happens only with some firmwares, and restarts take a while with nothing to
+/// second pass happens only with some firmwares, and restarts take a while with nothing to
 /// report. This folds them into a single bar that's simple to show. Feed it every event:
 ///
 /// ```swift
@@ -22,10 +22,8 @@ public struct InstallProgress: Sendable, Hashable {
     public enum Stage: Sendable, Hashable, CaseIterable {
         /// The FM-1 is checking the firmware before it restarts.
         case gettingReady
-        /// The FM-1 is writing the new firmware.
+        /// The FM-1 is writing the new firmware, in one pass or two.
         case installing
-        /// The FM-1 is reading back what it wrote, which only some firmwares do.
-        case checking
         /// The FM-1 is restarting, and FM1Kit is waiting for it to come back.
         case restarting
 
@@ -34,7 +32,6 @@ public struct InstallProgress: Sendable, Hashable {
             switch self {
             case .gettingReady: "Getting ready"
             case .installing: "Installing"
-            case .checking: "Checking"
             case .restarting: "Restarting"
             }
         }
@@ -78,7 +75,8 @@ public struct InstallProgress: Sendable, Hashable {
         case .writing(let written, _):
             advance(to: .installing, Self.loaderFoundAt + (Self.writingEndsAt - Self.loaderFoundAt) * written)
         case .checking(let checked, _):
-            advance(to: .checking, Self.writingEndsAt + (Self.checkingEndsAt - Self.writingEndsAt) * checked)
+            // Felucca's loader writes in this pass, so it's still installing.
+            advance(to: .installing, Self.writingEndsAt + (Self.checkingEndsAt - Self.writingEndsAt) * checked)
         case .rebooting:
             advance(to: .restarting, Self.checkingEndsAt)
         case .finished:

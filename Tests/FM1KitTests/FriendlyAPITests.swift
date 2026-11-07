@@ -74,7 +74,7 @@ struct FriendlyAPITests {
         #expect(fractions == fractions.sorted())
         #expect(progress.fraction == 1)
         #expect(progress.isFinished)
-        #expect(stages == [.gettingReady, .restarting, .installing, .checking, .restarting])
+        #expect(stages == [.gettingReady, .restarting, .installing, .restarting])
     }
 
     @Test func stagingApproachesItsShareWithoutReachingIt() {

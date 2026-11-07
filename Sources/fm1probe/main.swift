@@ -334,9 +334,12 @@ case "install" where arguments.count >= 2:
             """
             \(switchWarning)
             This writes \(package.product) to the FM-1. Keep the cable connected and the FM-1 switched on
-            until it finishes. Ctrl-C stops the install:
+            until it finishes. Its screen may stay dark while it writes: that's normal, so don't switch it
+            off. If the cable comes out, plug it straight back in and finish with --resume. Ctrl-C stops
+            the install:
             - while staging, the FM-1 should still start normally afterwards;
-            - while writing, it waits in its update loader for `fm1probe install \(path) --resume`.
+            - while writing, it waits in its update loader, as long as it stays switched on, for
+              `fm1probe install \(path) --resume`.
 
             """)
         print("Type YES to install it, or anything else to stop: ", terminator: "")
@@ -375,7 +378,7 @@ case "install" where arguments.count >= 2:
         report.printSummary(total: ContinuousClock.now - start)
         switch report.step {
         case .writing, .checking:
-            print("\nStopped while writing. The FM-1 waits in its update loader; finish with --resume.")
+            print("\nStopped while writing. Don't switch the FM-1 off; finish with --resume.")
         case .rebooting, .finished:
             print("\nStopped after writing. Check what the FM-1 is running with `fm1probe identify`.")
         case .starting, .staging, .waitingForLoader:

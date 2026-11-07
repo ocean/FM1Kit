@@ -9,14 +9,19 @@ public enum UpdateEvent: Sendable, Hashable {
     case waitingForLoader
     /// The update loader answered, and writing is about to start.
     case loaderFound(FM1Identity)
-    /// The loader is writing: it has read `fraction` (0 to 1) of the firmware's application
-    /// area in `requests` reads.
+    /// The loader is reading the firmware: it has read `fraction` (0 to 1) of the firmware's
+    /// application area in `requests` reads.
     ///
-    /// Every loader seen reads the whole area, but one that skipped part of it would stop short
-    /// of 1.
+    /// M-VAVE's loaders write in this pass. Felucca's only checks the package in it, and writes in
+    /// a second pass (``checking(fraction:requests:)``). Every loader seen reads the whole area,
+    /// but one that skipped part of it would stop short of 1.
     case writing(fraction: Double, requests: Int)
-    /// The loader is reading the image again, probably checking what it wrote: it has re-read
-    /// `fraction` (0 to 1) of what it wrote in `requests` reads. Not every loader does this.
+    /// The loader is reading the firmware a second time: it has re-read `fraction` (0 to 1) of it
+    /// in `requests` reads. Not every loader does this.
+    ///
+    /// Felucca's loader erases and writes the flash in this pass, so it's no safer to interrupt
+    /// than the first: tell the person to keep the FM-1 connected and switched on until the update
+    /// finishes, and that its screen stays dark meanwhile.
     case checking(fraction: Double, requests: Int)
     /// Writing has finished and the device is restarting into its new firmware.
     case rebooting
