@@ -13,6 +13,13 @@ public enum FM1Message {
     /// Asks the running firmware (or the update loader) who it is.
     public static let handshakeQuery: [UInt8] = [0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7]
 
+    /// Asks for the whole identity, version included.
+    ///
+    /// Firmwares built on felucca-bsp since November 2026 answer ``handshakeQuery`` with their
+    /// identity's name, '_' and three digits only, because M-VAVE's M-UPGRADE 3.11 refuses a
+    /// longer one, and this with all of it. Other firmwares and the update loader don't answer it.
+    public static let fullIdentityQuery = command(identityCommand, payload: [1])
+
     /// Starts an update session.
     ///
     /// It's sent twice: once to the running firmware to start staging, then once to the update

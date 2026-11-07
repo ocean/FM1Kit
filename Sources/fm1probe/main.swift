@@ -48,6 +48,17 @@ struct HandshakeAnswer {
     var elapsed: Duration
 }
 
+/// A flash chip's JEDEC ID and what it means, such as "0xB36014 (UC25HQ80, the newer chip)".
+func flashChipDescription(_ id: UInt32) -> String {
+    let hexID = String(format: "0x%06X", id)
+    switch id {
+    case FM1FlashChip.uc25hq80:
+        return hexID + " (UC25HQ80, the newer chip: firmwares that don't know it keep saves only until switched off)"
+    case FM1FlashChip.p25q80: return hexID + " (P25Q80, the first FM-1s' chip)"
+    default: return hexID + " (not a chip FM-1s have)"
+    }
+}
+
 /// Sends the handshake query and waits up to a second for the identity reply.
 func handshake(_ connection: any MIDIConnection) async -> HandshakeAnswer? {
     connection.drain()
@@ -101,7 +112,12 @@ case "identify":
         var identities: Set<String> = []
         for attempt in 1...repeats {
             if let answer = await handshake(connection) {
-                if times.isEmpty { print("  reply: \(hex(answer.reply))") }
+                if times.isEmpty {
+                    print("  reply: \(hex(answer.reply))")
+                    if let chip = FM1Identity.flashChipID(inHandshakeReply: answer.reply) {
+                        print("  flash chip: " + flashChipDescription(chip))
+                    }
+                }
                 times.append(milliseconds(answer.elapsed))
                 identities.insert(answer.identity.text)
             } else if repeats > 1 {

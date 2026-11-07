@@ -4,6 +4,9 @@ public struct FoundDevice: Sendable {
     public let connection: any MIDIConnection
     /// What the device said it is.
     public let identity: FM1Identity
+    /// The flash chip's JEDEC ID, such as ``FM1FlashChip/uc25hq80``, when the firmware reports
+    /// it in its handshake reply, as firmwares built on felucca-bsp since November 2026 do.
+    public let flashChipID: UInt32?
     /// The port it was found on, as the transport listed it.
     let port: MIDIPortDescriptor
 }
@@ -38,8 +41,9 @@ extension FM1Updater {
     public func find(where filter: @Sendable (FM1Identity) -> Bool = { _ in true }) async -> FoundDevice? {
         for port in await probeablePorts() {
             guard let connection = try? await transport.open(port) else { continue }
-            if let identity = await handshake(connection), filter(identity) {
-                return FoundDevice(connection: connection, identity: identity, port: port)
+            if let answer = await handshakeAnswer(connection), filter(answer.identity) {
+                return FoundDevice(
+                    connection: connection, identity: answer.identity, flashChipID: answer.flashChipID, port: port)
             }
             connection.close()
         }
@@ -54,8 +58,10 @@ extension FM1Updater {
         var found: [FoundDevice] = []
         for port in await probeablePorts() {
             guard let connection = try? await transport.open(port) else { continue }
-            if let identity = await handshake(connection), filter(identity) {
-                found.append(FoundDevice(connection: connection, identity: identity, port: port))
+            if let answer = await handshakeAnswer(connection), filter(answer.identity) {
+                found.append(
+                    FoundDevice(
+                        connection: connection, identity: answer.identity, flashChipID: answer.flashChipID, port: port))
             } else {
                 connection.close()
             }

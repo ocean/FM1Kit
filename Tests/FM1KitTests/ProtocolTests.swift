@@ -120,3 +120,98 @@ struct RecordedDeviceTests {
         #expect(FM1Message.upgradeCommand == [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7])
     }
 }
+
+struct FlashChipTests {
+    @Test func readsTheChipAFirmwareReportsAfterItsIdentity() throws {
+        let identity = try #require(FM1Identity(text: "FM-1_378000"))
+        let reply = identity.handshakeReply(flashChipID: FM1FlashChip.uc25hq80)
+        #expect(FM1Identity(handshakeReply: reply) == identity)
+        #expect(FM1Identity.flashChipID(inHandshakeReply: reply) == 0xB3_6014)
+        #expect(FM1FlashChip.name(0xB3_6014) == "UC25HQ80")
+        // Bytes 24 to 26 of the 27 after the header, as felucca-bsp's ota.c sends them.
+        let body = try #require(FM1Message.unframe(reply))
+        #expect(Array(body[30..<33]) == [0xB3, 0x60, 0x14])
+    }
+
+    @Test func findsNoChipInAReplyWithoutOne() throws {
+        #expect(FM1Identity.flashChipID(inHandshakeReply: RecordedDeviceTests.recordedReply) == nil)
+        #expect(FM1Identity.flashChipID(inHandshakeReply: FM1Message.handshakeQuery) == nil)
+    }
+
+    @Test func aFoundDeviceCarriesTheChip() async throws {
+        var options = UpdaterTests.fastOptions
+        options.flashChipID = FM1FlashChip.uc25hq80
+        let updater = FM1Updater(transport: SimulatedFM1(options: options), timing: UpdaterTests.fastTiming)
+        let device = try #require(await updater.find())
+        device.connection.close()
+        #expect(device.flashChipID == FM1FlashChip.uc25hq80)
+        let older = FM1Updater(
+            transport: SimulatedFM1(options: UpdaterTests.fastOptions), timing: UpdaterTests.fastTiming)
+        let olderDevice = try #require(await older.find())
+        olderDevice.connection.close()
+        #expect(olderDevice.flashChipID == nil)
+        #expect(try await updater.summary()?.hasNewerFlashChip == true)
+        #expect(await older.devices().first?.hasNewerFlashChip == false)
+    }
+}
+
+extension FlashChipTests {
+    @Test func readsNoChipFromAnIdentityThatRunsIntoIt() throws {
+        let loader = try #require(FM1Identity(text: "ota-FM1C_db1642b2b6fa5c2c"))
+        let reply = loader.handshakeReply(flashChipID: FM1FlashChip.uc25hq80)
+        #expect(FM1Identity(handshakeReply: reply) == loader)
+        #expect(FM1Identity.flashChipID(inHandshakeReply: reply) == nil)
+    }
+}
+
+/// Firmwares built on felucca-bsp since November 2026 shorten their handshake answer for
+/// M-UPGRADE, and give the whole identity when asked for it.
+struct ShortenedIdentityTests {
+    @Test func theQueriesAreTheDocumentedOnes() {
+        #expect(FM1Message.command(FM1Message.identityCommand) == FM1Message.handshakeQuery)
+        let full = FM1Message.parseCommand(FM1Message.fullIdentityQuery)
+        #expect(full?.command == 0x11)
+        #expect(full?.payload == [1])
+    }
+
+    @Test func asksForTheWholeIdentityAfterAShortenedOne() async throws {
+        var options = UpdaterTests.fastOptions
+        options.installedIdentity = try #require(FM1Identity(text: "FM-1_1234567"))
+        options.shortensIdentity = true
+        options.flashChipID = FM1FlashChip.uc25hq80
+        let updater = FM1Updater(transport: SimulatedFM1(options: options), timing: UpdaterTests.fastTiming)
+        let device = try #require(await updater.find())
+        device.connection.close()
+        #expect(device.identity.text == "FM-1_1234567")
+        #expect(device.flashChipID == FM1FlashChip.uc25hq80)
+    }
+
+    @Test func asksForTheFlashChipWhenThePlainAnswerLeavesItOut() async throws {
+        var options = UpdaterTests.fastOptions
+        options.installedIdentity = try #require(FM1Identity(text: "FM-1_378000"))
+        options.reportsFlashChipOnlyWhenAsked = true
+        options.flashChipID = FM1FlashChip.uc25hq80
+        let device = SimulatedFM1(options: options)
+        let updater = FM1Updater(transport: device, timing: UpdaterTests.fastTiming)
+        let summary = try #require(await updater.summary())
+        #expect(summary.identity.text == "FM-1_378000")
+        #expect(summary.hasNewerFlashChip)
+    }
+
+    @Test func asksNoMoreOfAWholeIdentityThatCarriesTheChip() throws {
+        let identity = try #require(FM1Identity(text: "FM-1_378000"))
+        #expect(identity.mayTellMore(thanAnswerWith: FM1FlashChip.p25q80) == false)
+        #expect(identity.mayTellMore(thanAnswerWith: nil))
+        #expect(try #require(FM1Identity(text: "FM-1_900")).mayTellMore(thanAnswerWith: FM1FlashChip.p25q80))
+        #expect(FM1Identity.officialV16.mayTellMore(thanAnswerWith: nil) == false)
+        #expect(try #require(FM1Identity(text: "ota-FM-1_378000")).mayTellMore(thanAnswerWith: nil) == false)
+    }
+
+    @Test func keepsAThreeDigitIdentityWhenNothingMoreComes() async throws {
+        let updater = FM1Updater(
+            transport: SimulatedFM1(options: UpdaterTests.fastOptions), timing: UpdaterTests.fastTiming)
+        #expect(await updater.identify()?.text == "FM-1_900")
+        #expect(FM1Identity.officialV15.mayBeShortened == false)
+        #expect(try #require(FM1Identity(text: "ota-FM-1_900")).mayBeShortened == false)
+    }
+}

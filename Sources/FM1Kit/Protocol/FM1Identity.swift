@@ -144,6 +144,29 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
     /// The identity as the device reports it, e.g. `FM-1_916`.
     public var description: String { text }
 
+    /// True when this answer to the handshake query may be the start of a longer identity.
+    ///
+    /// felucca-bsp's firmwares cut it to its name, '_' and three digits for M-UPGRADE, and
+    /// ``FM1Message/fullIdentityQuery`` asks for the rest. Never for the loader or M-VAVE's
+    /// releases, whose identities are whole.
+    var mayBeShortened: Bool {
+        guard !isLoader, !isOfficial, let underscore = text.lastIndex(of: "_") else { return false }
+        return text[text.index(after: underscore)...].count == 3
+    }
+
+    /// True when ``FM1Message/fullIdentityQuery`` may tell more than this answer to the handshake
+    /// query did: the whole identity, if it may be shortened, or the flash chip, if it carried none.
+    ///
+    /// Firmwares may report the chip only when asked for the full identity, keeping the plain answer
+    /// as older installers expect it. Never for the loader or M-VAVE's releases.
+    ///
+    /// - Parameter flashChipID: The flash chip the answer carried, if any.
+    /// - Returns: Whether to ask.
+    func mayTellMore(thanAnswerWith flashChipID: UInt32?) -> Bool {
+        guard !isLoader, !isOfficial else { return false }
+        return mayBeShortened || flashChipID == nil
+    }
+
     /// Parses the device's reply to ``FM1Message/handshakeQuery``.
     ///
     /// Fails for any other message, or a reply whose checksum doesn't match.
@@ -166,17 +189,46 @@ public struct FM1Identity: Hashable, Sendable, CustomStringConvertible, Codable 
         self.init(text: String(text))
     }
 
+    /// The flash chip's JEDEC ID in a handshake reply, such as ``FM1FlashChip/uc25hq80``.
+    ///
+    /// Firmwares built on felucca-bsp since November 2026 put it in the reply's last three bytes,
+    /// after the identity's text and zeros (Felucca#320); others leave them zero. An identity
+    /// that runs into them, as open firmware's update loader's does, carries none.
+    ///
+    /// - Parameter sysex: A complete `F0 … F7` reply to ``FM1Message/handshakeQuery``.
+    /// - Returns: The ID, or `nil` when the reply doesn't carry one or isn't a handshake reply.
+    public static func flashChipID(inHandshakeReply sysex: [UInt8]) -> UInt32? {
+        guard let identity = Self(handshakeReply: sysex), identity.text.utf8.count < flashChipOffset,
+            let body = FM1Message.unframe(sysex)
+        else {
+            return nil
+        }
+        let start = FM1Message.headerLength + flashChipOffset
+        let id = UInt32(body[start]) << 16 | UInt32(body[start + 1]) << 8 | UInt32(body[start + 2])
+        return id == 0 ? nil : id
+    }
+
     /// Encodes the handshake reply as the device sends it, for simulated devices and tests.
     ///
+    /// - Parameter flashChipID: The flash chip's JEDEC ID to report after an identity shorter
+    ///   than 24 characters, or 0 for none.
     /// - Returns: A complete `F0 … F7` message carrying this identity.
-    public func handshakeReply() -> [UInt8] {
-        let textLength = Self.replyLength - FM1Message.headerLength - 1
-        var body = FM1Message.header(command: FM1Message.identityCommand, bodyLength: textLength)
-        body += Array(text.utf8.prefix(textLength))
+    public func handshakeReply(flashChipID: UInt32 = 0) -> [UInt8] {
+        let bodyLength = Self.replyLength - FM1Message.headerLength - 1
+        var body = FM1Message.header(command: FM1Message.identityCommand, bodyLength: bodyLength)
+        body += Array(text.utf8.prefix(bodyLength))
         body += Array(repeating: 0, count: Self.replyLength - 1 - body.count)
+        if text.utf8.count < Self.flashChipOffset {
+            let start = FM1Message.headerLength + Self.flashChipOffset
+            body.replaceSubrange(
+                start..<(start + 3), with: [16, 8, 0].map { UInt8(truncatingIfNeeded: flashChipID >> $0) })
+        }
         body.append(FM1Message.checksum(body[FM1Message.headerLength...]))
         return FM1Message.frame(body)
     }
+
+    /// Where the flash chip's JEDEC ID starts in the reply's 27 bytes after its header.
+    static let flashChipOffset = 24
 
     /// The handshake reply's length once unpacked.
     static let replyLength = 34

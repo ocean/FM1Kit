@@ -37,6 +37,9 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var libraryReplyWait: Duration = .seconds(1)
     /// Handshake attempts per port.
     public var handshakeAttempts = 2
+    /// How long to wait for the whole identity after a reply that may be shortened or carried no
+    /// flash chip, which M-VAVE's firmwares and those built before November 2026 never answer.
+    public var fullIdentityWait: Duration = .milliseconds(300)
 
     /// Creates the standard timings, ready to adjust.
     public init() {}

@@ -55,7 +55,7 @@ public actor FM1Updater {
 
     /// Asks what the connected FM-1 is running.
     ///
-    /// Only the handshake query is sent, so this never changes the device.
+    /// Only the handshake queries are sent, so this never changes the device.
     ///
     /// - Returns: What the device reports, or `nil` if no FM-1 answered.
     public func identify() async -> FM1Identity? {
@@ -80,6 +80,11 @@ public actor FM1Updater {
 
     /// Sends the handshake query and waits for the identity reply, retrying as configured.
     func handshake(_ connection: any MIDIConnection) async -> FM1Identity? {
+        await handshakeAnswer(connection)?.identity
+    }
+
+    /// The handshake's identity, and the flash chip when the firmware reports it.
+    func handshakeAnswer(_ connection: any MIDIConnection) async -> (identity: FM1Identity, flashChipID: UInt32?)? {
         connection.drain()
         for _ in 0..<timing.handshakeAttempts {
             guard (try? connection.send(FM1Message.handshakeQuery)) != nil else { return nil }
@@ -87,8 +92,29 @@ public actor FM1Updater {
             while ContinuousClock.now < deadline {
                 guard let reply = await connection.receive(timeout: deadline - ContinuousClock.now) else { break }
                 if let identity = FM1Identity(handshakeReply: reply) {
-                    return identity
+                    let answer = (identity, FM1Identity.flashChipID(inHandshakeReply: reply))
+                    guard identity.mayTellMore(thanAnswerWith: answer.1),
+                        let full = await fullIdentity(connection, startingWith: identity)
+                    else { return answer }
+                    return (full.identity, full.flashChipID ?? answer.1)
                 }
+            }
+        }
+        return nil
+    }
+
+    /// The whole identity and flash chip of a firmware whose handshake reply may have left them
+    /// out, or `nil` if it doesn't answer ``FM1Message/fullIdentityQuery`` with an identity that
+    /// continues `start`.
+    func fullIdentity(_ connection: any MIDIConnection, startingWith start: FM1Identity) async
+        -> (identity: FM1Identity, flashChipID: UInt32?)?
+    {
+        guard (try? connection.send(FM1Message.fullIdentityQuery)) != nil else { return nil }
+        let deadline = ContinuousClock.now + timing.fullIdentityWait
+        while ContinuousClock.now < deadline {
+            guard let reply = await connection.receive(timeout: deadline - ContinuousClock.now) else { break }
+            if let identity = FM1Identity(handshakeReply: reply), identity.text.hasPrefix(start.text) {
+                return (identity, FM1Identity.flashChipID(inHandshakeReply: reply))
             }
         }
         return nil

@@ -1,8 +1,27 @@
 import os
 
-/// The simulated FM-1's answers to open firmware's capability and arming commands, and to V15's
-/// voice erases and writes.
+/// The simulated FM-1's answers to the handshake, to open firmware's capability and arming
+/// commands, and to V15's voice erases and writes.
 extension SimulatedFM1 {
+    /// Answers a handshake query with the identity and the flash chip.
+    ///
+    /// With ``Options/shortensIdentity`` the identity is shortened, as felucca-bsp's firmwares
+    /// do, and with ``Options/reportsFlashChipOnlyWhenAsked`` the chip is left out. Only with one
+    /// of them is a query for the full identity answered; the loader never does.
+    func answerHandshake(asksForFullIdentity: Bool, on connection: SimulatedConnection) {
+        guard let identity = currentIdentity else { return }
+        let shortens = options.shortensIdentity && !identity.isLoader
+        let holdsBackChip = options.reportsFlashChipOnlyWhenAsked && !identity.isLoader
+        if asksForFullIdentity, !shortens, !holdsBackChip { return }
+        var answer = identity
+        if shortens, !asksForFullIdentity, let underscore = identity.text.firstIndex(of: "_") {
+            let digits = identity.text[identity.text.index(after: underscore)...].prefix(3)
+            answer = FM1Identity(text: String(identity.text[...underscore] + digits)) ?? identity
+        }
+        let reportsChip = !identity.isLoader && (asksForFullIdentity || !holdsBackChip)
+        connection.toHost.deliver(answer.handshakeReply(flashChipID: reportsChip ? options.flashChipID : 0))
+    }
+
     /// Answers a capability query or arming request, as open firmware does; others ignore them.
     func handleOpenFirmwareCommand(_ command: UInt8, payload: [UInt8], from connection: SimulatedConnection) {
         guard currentIdentity?.isOpenFirmware == true else { return }

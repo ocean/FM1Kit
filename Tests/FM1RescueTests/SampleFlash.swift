@@ -7,17 +7,26 @@ import Foundation
 /// bootloader, and an app area enciphered with the chip key.
 enum SampleFlash {
     static let chipKey: UInt16 = 0x980F
-    /// Where the boot configuration starts, after the bootloader.
+    /// Where the boot configuration starts, after V15's bootloader.
     static let configuration = 0x38D0
+    /// Where it starts after V16's larger bootloader.
+    static let v16Configuration = 0x3938
+    /// Where m-bootloader 2 moves its shortened configuration.
+    static let shortenedConfiguration = 0x3FDC
+    /// A boot configuration standing in for a stock one: the unit's own bytes, kept as they are.
+    static let stockConfiguration = (0..<0x100).map { UInt8($0) }
 
     /// 1 MB of flash holding a bootloader, `app.bin` and declared regions.
     static func flash(
         bootloader: [UInt8] = stockBootloader(),
         code: [UInt8] = Self.code(),
-        regions: [(name: String, range: Range<Int>)] = [("VM", 0x9_3000..<0x9_5000)]
+        regions: [(name: String, range: Range<Int>)] = [("VM", 0x9_3000..<0x9_5000)],
+        configurationAt start: Int = configuration,
+        configuration blob: [UInt8] = stockConfiguration
     ) -> [UInt8] {
         var flash = SimulatedDownloadMode.sampleFlash()
-        flash.replaceSubrange(0..<0x4000, with: bootArea(holding: bootloader))
+        let area = bootArea(holding: bootloader, configurationAt: start, configuration: blob)
+        flash.replaceSubrange(0..<0x4000, with: area)
         let app = applicationArea(code: code, regions: regions)
         flash.replaceSubrange(0x4000..<(0x4000 + app.count), with: app)
         return flash
@@ -39,14 +48,18 @@ enum SampleFlash {
 
     /// The boot area as stored: a flash header, the file table, the bootloader and the unit's
     /// configuration.
-    static func bootArea(holding container: [UInt8]) -> [UInt8] {
+    static func bootArea(
+        holding container: [UInt8],
+        configurationAt start: Int = configuration,
+        configuration blob: [UInt8] = stockConfiguration
+    ) -> [UInt8] {
         var area = [UInt8](repeating: 0xFF, count: 0x4000)
         var header = (0..<32).map { UInt8(truncatingIfNeeded: $0 &* 3) }
         sign(&header)
         area.replaceSubrange(0..<32, with: FlashBackup.decipher(header[...]))
         let records = [
             record("uboot.boot", address: 0xA0, length: container.count, crc: ChipChecksum.crc16(container)),
-            record("isd_config.ini", address: configuration, length: 0x100, crc: 0x1234),
+            record("isd_config.ini", address: start, length: blob.count, crc: 0x1234),
             record("app_dir_head", address: 0x4000, length: 0x20, crc: 0x5678),
         ]
         for (index, fields) in records.enumerated() {
@@ -55,8 +68,17 @@ enum SampleFlash {
         }
         let stored = FlashBackup.decipher(container[0..<16]) + FlashBackup.decipher(container[16...])
         area.replaceSubrange(0xA0..<(0xA0 + stored.count), with: stored)
-        area.replaceSubrange(configuration..<(configuration + 0x100), with: (0..<0x100).map { UInt8($0) })
+        area.replaceSubrange(start..<(start + blob.count), with: blob)
         return area
+    }
+
+    /// A boot configuration as stock ones are laid out: the 34-byte chip-key record, then
+    /// `SYS_CLK` and other settings, each a value length, a key ending in a zero and the value.
+    static func configuration(clock: Int, length: Int = 0x2BB) -> [UInt8] {
+        var blob = [UInt8](repeating: 0x3C, count: 34)
+        blob += [4] + Array("SYS_CLK".utf8) + [0] + littleEndian(clock, 4)
+        blob += [2] + Array("HSB_DIV".utf8) + [0] + [0, 0]
+        return blob + [UInt8](repeating: 0xFF, count: length - blob.count)
     }
 
     /// The app area as stored: `app.bin` and the region descriptors, enciphered in 32-byte blocks.
@@ -89,12 +111,14 @@ enum SampleFlash {
         return try FwscPackage(data: Data(FwscPackage.sampleFile(logicalImage: image, product: product)))
     }
 
-    static func backup(_ flash: [UInt8], uniqueID: String? = "53494d554c415445") -> FlashBackup {
+    static func backup(
+        _ flash: [UInt8], uniqueID: String? = "53494d554c415445", flashID: UInt32 = 0x85_6014
+    ) -> FlashBackup {
         FlashBackup(
             bytes: flash,
             uniqueID: uniqueID,
             chipKey: chipKey,
-            flashID: 0x85_6014,
+            flashID: flashID,
             loaderVersion: "1.2",
             date: Date()
         )

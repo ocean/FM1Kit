@@ -43,9 +43,8 @@ public struct FlashPlan: Sendable, Hashable {
     public static let factoryData = 0xF_F000..<0x10_0000
     /// The boot area at the start of the flash.
     static let bootArea = 0..<0x4000
-    /// Where the bootloader is stored, and where the boot configuration after it starts.
+    /// Where the bootloader is stored.
     static let bootloaderStart = 0xA0
-    static let configurationStart = 0x38D0
 
     /// True when the flash already holds the target, so there's nothing to write.
     public var isEmpty: Bool { sectors.isEmpty }
@@ -159,7 +158,7 @@ public struct FlashPlan: Sendable, Hashable {
         case .fm1: return []
         case .otherModel: throw .notAnFM1
         case .unknown:
-            guard current.flashID == FlashSession.fm1FlashID else { throw .notAnFM1 }
+            guard FlashSession.fm1FlashIDs.contains(current.flashID) else { throw .notAnFM1 }
             return [
                 """
                 The flash doesn't show which model this is, but its flash chip is the FM-1's. Go on \
@@ -167,134 +166,6 @@ public struct FlashPlan: Sendable, Hashable {
                 """
             ]
         }
-    }
-
-    // MARK: - Bootloaders.
-
-    /// Plans installing m-bootloader from its `.boot` file.
-    ///
-    /// Only the bootloader and its record in the boot area are replaced; the FM-1's own boot
-    /// configuration stays, as m-bootloader's specification asks (§11.2).
-    ///
-    /// - Parameters:
-    ///   - bootloader: The bootloader, which must be built for the FM-1.
-    ///   - current: The FM-1's flash as just read.
-    /// - Returns: The plan.
-    /// - Throws: ``FlashPlanError/wrongBoard(_:)``, ``FlashPlanError/unreadableBootArea`` or
-    ///   ``FlashPlanError/bootloaderTooLarge(_:)``.
-    public static func installing(_ bootloader: BootloaderImage, onto current: FlashBackup)
-        throws(FlashPlanError) -> Self
-    {
-        guard bootloader.board == BootloaderImage.fm1Board else { throw .wrongBoard(bootloader.board) }
-        return try installingBootloader(
-            bootloader.bytes, described: "m-bootloader \(bootloader.version)", onto: current)
-    }
-
-    /// Plans putting back M-VAVE's bootloader from a firmware package, such as V15's, in place
-    /// of m-bootloader, keeping the firmware.
-    ///
-    /// - Parameters:
-    ///   - package: A firmware package whose boot area holds M-VAVE's bootloader.
-    ///   - current: The FM-1's flash as just read.
-    /// - Returns: The plan.
-    /// - Throws: ``FlashPlanError/notFirmware``, ``FlashPlanError/noBootloader``,
-    ///   ``FlashPlanError/unreadableBootArea`` or ``FlashPlanError/bootloaderTooLarge(_:)``.
-    public static func installingBootloader(from package: FwscPackage, onto current: FlashBackup)
-        throws(FlashPlanError) -> Self
-    {
-        guard let image = package.flashImage else { throw .notFirmware }
-        let padded = image + [UInt8](repeating: 0xFF, count: max(0, bootArea.upperBound - image.count))
-        guard let container = FlashBackup.storedBootloader(in: padded) else { throw .noBootloader }
-        guard BootloaderImage(bytes: container) == nil else { throw .noBootloader }
-        return try installingBootloader(container, described: "M-VAVE's bootloader", onto: current)
-    }
-
-    static func installingBootloader(_ container: [UInt8], described description: String, onto current: FlashBackup)
-        throws(FlashPlanError) -> Self
-    {
-        let warnings = try checkedFM1(current)
-        let area = try bootAreaHolding(container, in: current.bytes)
-        return try Self(
-            purpose: .bootloader(description),
-            original: current,
-            target: area + current.bytes[bootArea.upperBound...],
-            allowed: [bootArea],
-            notes: [
-                "Installs \(description). Only the boot area is written; the FM-1's own boot configuration is kept."
-            ],
-            warnings: warnings
-        )
-    }
-
-    /// The boot area with `container` in place of its bootloader, keeping everything else in it.
-    static func bootAreaHolding(_ container: [UInt8], in flash: [UInt8]) throws(FlashPlanError) -> [UInt8] {
-        guard isIntactContainer(container) else { throw .noBootloader }
-        var area = Array(flash[bootArea])
-        let table = bootTable(area)
-        guard table.count >= 3, table[0].name == "uboot.boot", table[0].address == bootloaderStart,
-            table[1].name == "isd_config.ini", table[1].address == configurationStart
-        else {
-            throw .unreadableBootArea
-        }
-        guard bootloaderStart + container.count <= configurationStart else {
-            throw .bootloaderTooLarge(container.count)
-        }
-        var record = table[0].fields
-        let crc = ChipChecksum.crc16(container)
-        record.replaceSubrange(2..<4, with: [UInt8(crc & 0xFF), UInt8(crc >> 8)])
-        record.replaceSubrange(4..<8, with: littleEndian(bootloaderStart))
-        record.replaceSubrange(8..<12, with: littleEndian(container.count))
-        let recordCRC = ChipChecksum.crc16(record[2...])
-        record.replaceSubrange(0..<2, with: [UInt8(recordCRC & 0xFF), UInt8(recordCRC >> 8)])
-        area.replaceSubrange(0x20..<0x40, with: FlashBackup.decipher(record[...]))
-        var stored = FlashBackup.decipher(container[0..<16]) + FlashBackup.decipher(container[16...])
-        stored += [UInt8](repeating: 0xFF, count: configurationStart - bootloaderStart - stored.count)
-        area.replaceSubrange(bootloaderStart..<configurationStart, with: stored)
-        return area
-    }
-
-    /// Whether a bootloader container's header and code checksums match: one bank, its code
-    /// straight after the 16-byte header, as m-bootloader's specification checks (§11.2).
-    static func isIntactContainer(_ container: [UInt8]) -> Bool {
-        guard container.count > 16 else { return false }
-        let field = { (offset: Int, count: Int) in FlashBackup.littleEndian(container, at: offset, byteCount: count) }
-        return field(0, 2) == 1 && field(8, 4) == 16 && 16 + field(2, 2) == container.count
-            && field(12, 2) == Int(ChipChecksum.crc16(container[16...]))
-            && field(14, 2) == Int(ChipChecksum.crc16(container[0..<14]))
-    }
-
-    /// A record in the boot area's file table.
-    struct BootRecord {
-        /// The record, deciphered.
-        let fields: [UInt8]
-        let address: Int
-        let name: String
-    }
-
-    /// The boot area's file table, or nothing if its header is damaged.
-    static func bootTable(_ area: [UInt8]) -> [BootRecord] {
-        let header = FlashBackup.decipher(area[0..<32])
-        guard ChipChecksum.crc16(header[2...]) == UInt16(FlashBackup.littleEndian(header, at: 0, byteCount: 2))
-        else {
-            return []
-        }
-        var records: [BootRecord] = []
-        for start in stride(from: 0x20, to: bootloaderStart, by: 0x20) {
-            let fields = FlashBackup.decipher(area[start..<(start + 32)])
-            guard ChipChecksum.crc16(fields[2...]) == UInt16(FlashBackup.littleEndian(fields, at: 0, byteCount: 2))
-            else {
-                break
-            }
-            let name = String(bytes: fields[16...].prefix { $0 != 0 }, encoding: .ascii) ?? ""
-            records.append(
-                BootRecord(
-                    fields: fields, address: FlashBackup.littleEndian(fields, at: 4, byteCount: 4), name: name))
-        }
-        return records
-    }
-
-    static func littleEndian(_ value: Int) -> [UInt8] {
-        (0..<4).map { UInt8(truncatingIfNeeded: value >> (8 * $0)) }
     }
 }
 
@@ -315,6 +186,9 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
     case unreadableBootArea
     /// The bootloader doesn't fit the boot area; this is its size.
     case bootloaderTooLarge(Int)
+    /// This m-bootloader version wouldn't start with the FM-1's boot configuration, which needs
+    /// `minimum` or newer.
+    case bootloaderTooOld(String, minimum: String)
     /// The package's firmware wasn't made for this FM-1's chip key, so it wouldn't start.
     case wrongChipKey(UInt16)
     /// A firmware declares saved data over the boot area, `0xFC000` onwards or the factory data,
@@ -343,6 +217,11 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
             """
         case .bootloaderTooLarge(let size):
             "This bootloader is \(size) bytes, too large for the boot area. Nothing was written."
+        case .bootloaderTooOld(let version, let minimum):
+            """
+            m-bootloader \(version) would stop at BAD CONFIG on every start with this FM-1's boot \
+            configuration. Install m-bootloader \(minimum) or newer. Nothing was written.
+            """
         case .wrongChipKey(let key):
             String(
                 format: """

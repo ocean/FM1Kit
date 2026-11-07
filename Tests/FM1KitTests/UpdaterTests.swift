@@ -13,6 +13,7 @@ struct UpdaterTests {
         var timing = UpdaterTiming()
         timing.afterUpgradeCommand = .milliseconds(20)
         timing.finishSettle = .milliseconds(20)
+        timing.fullIdentityWait = .milliseconds(50)
         timing.stagingIdleLimit = .seconds(2)
         timing.loaderBoot = .milliseconds(20)
         timing.loaderSearch = .seconds(3)

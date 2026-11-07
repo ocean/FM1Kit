@@ -72,7 +72,10 @@ func openFlashSession(command: String, simulating simulated: SimulatedDownloadMo
     print("Loader:   m-bootloader's flash loader \(session.loaderVersion)\(mhz)")
     let keyNote = session.chipKey == FlashSession.expectedChipKey ? "" : " (0x980F expected)"
     print("Chip key: " + String(format: "0x%04X", session.chipKey) + keyNote)
-    print("Flash:    " + String(format: "0x%06X", session.flashID) + ", 1 MB")
+    let chipNote =
+        session.flashID == FM1FlashChip.uc25hq80
+        ? " (the newer chip, UC25HQ80: firmwares that don't know it keep saves only until switched off)" : ""
+    print("Flash:    " + String(format: "0x%06X", session.flashID) + ", 1 MB" + chipNote)
     print("Unit ID:  \(session.uniqueID ?? "none")")
     return session
 }

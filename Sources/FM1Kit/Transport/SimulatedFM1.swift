@@ -71,6 +71,16 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var stopsAnsweringLibraryAfter: Int?
         /// The USB serial number the device reports, or `nil` for none, as Felucca reports.
         public var serialNumber: String? = "SIMULATED-FM-1"
+        /// The flash chip's JEDEC ID the firmware reports in its handshake reply, or 0 for none,
+        /// as firmwares built before November 2026 report.
+        public var flashChipID: UInt32 = 0
+        /// Answer the handshake query with the identity's name, '_' and three digits only, and
+        /// ``FM1Message/fullIdentityQuery`` with all of it, as felucca-bsp's firmwares do since
+        /// November 2026.
+        public var shortensIdentity = false
+        /// Report the flash chip only in answer to ``FM1Message/fullIdentityQuery``, leaving the
+        /// plain handshake reply as firmwares built before November 2026 send it.
+        public var reportsFlashChipOnlyWhenAsked = false
         /// The m-bootloader version installed at first, or `nil` for M-VAVE's bootloader.
         public var bootloaderVersion: String?
         /// Compare a package's boot area with the FM-1's before staging it, as firmwares with
@@ -187,10 +197,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
 
     /// Reacts to a message the host sent.
     func handle(_ sysex: [UInt8], from connection: SimulatedConnection) {
-        if sysex == FM1Message.handshakeQuery {
-            if let identity = currentIdentity {
-                connection.toHost.deliver(identity.handshakeReply())
-            }
+        if sysex == FM1Message.handshakeQuery || sysex == FM1Message.fullIdentityQuery {
+            answerHandshake(asksForFullIdentity: sysex == FM1Message.fullIdentityQuery, on: connection)
         } else if sysex == FM1Message.upgradeCommand {
             if currentIdentity?.isOpenFirmware == true, state.withLock({ $0.armedBuildID }) == nil {
                 log("Open firmware ignores the upgrade command until it's armed.")

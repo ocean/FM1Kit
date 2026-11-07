@@ -154,7 +154,8 @@ struct OpenFirmwareTests {
         let check = try await FM1Updater(transport: transport, timing: UpdaterTests.fastTiming)
             .check(try UpdaterTests.package(product: "FM-1_015"))
         #expect(check.capability == nil)
-        #expect(transport.connection.sent.withLock { $0 } == [FM1Message.handshakeQuery])
+        // A reply without a flash chip may leave it out, so the full identity is asked for too.
+        #expect(transport.connection.sent.withLock { $0 } == [FM1Message.handshakeQuery, FM1Message.fullIdentityQuery])
     }
 
     @Test func officialReleasesCarryTheirBuildIDs() {

@@ -1,4 +1,5 @@
 #if os(macOS)
+import FM1Kit
 import Foundation
 
 /// An FM-1 in download mode, with m-bootloader's flash loader running on its chip, ready to read
@@ -25,8 +26,11 @@ public final class FlashSession {
 
     /// The FM-1's flash size.
     public static let flashSize = 0x10_0000
-    /// The FM-1's flash chip's JEDEC ID; the SMK-37's differs.
-    static let fm1FlashID: UInt32 = 0x85_6014
+    /// The JEDEC IDs of the FM-1's flash chips.
+    ///
+    /// The first units have a Puya P25Q80, and those sold since autumn 2026 a UC25HQ80. Both are
+    /// 1 MB and take the same commands; the SMK-37's chip differs.
+    static let fm1FlashIDs: Set<UInt32> = [FM1FlashChip.p25q80, FM1FlashChip.uc25hq80]
     /// The chip key M-VAVE's FM-1s use.
     public static let expectedChipKey: UInt16 = 0x980F
 

@@ -28,6 +28,7 @@ func inspect(path: String) throws {
     print("Contents:      header, parts and checksums all intact")
     let isStockLoader = package.loaderSHA256 == OfficialFirmware.stockLoaderSHA256
     print("Loader:        \(package.loaderSHA256)\(isStockLoader ? " (M-VAVE's, reports ota-FM-1_015)" : "")")
+    if let support = package.flashChipSupport { print("Flash chips:   " + flashChipSupportDescription(support)) }
     if let official = OfficialFirmware.matching(package) {
         print("Official:      \(official.name) (verified)")
     }
@@ -64,4 +65,14 @@ private func inspectFlashBackup(_ url: URL) throws {
     print("Bootloader:    \(backup.bootloaderDescription)")
     print("Firmware:      \(firmware.description)")
     print("Files:         \(firmware.filesDescription)")
+}
+
+/// What a firmware's flash chip check means for the person installing it.
+func flashChipSupportDescription(_ support: FlashChipSupport) -> String {
+    switch support {
+    case .bothChips: "checks for both, so it saves on FM-1s with the newer chip (0xB36014)"
+    case .firstChipOnly:
+        "checks for the first FM-1s' (0x856014) alone: on the newer chip it may keep saves only until switched off"
+    case .noCheck: "doesn't check which chip it has"
+    }
 }
