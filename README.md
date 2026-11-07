@@ -62,7 +62,7 @@ try await updater.install(package, options: options) { event in
     switch event {
     case .staging(let requests): print("Preparing… \(requests)")
     case .writing(let fraction, _): print("Writing \(Int(fraction * 100))%")
-    case .checking(let fraction, _): print("Checking \(Int(fraction * 100))%")
+    case .checking(let fraction, _): print("Second pass \(Int(fraction * 100))%")
     case .finished(let identity): print("Now running \(identity)")
     default: break
     }
@@ -203,6 +203,10 @@ sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-b
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
 ```
 
+For an FM-1 whose firmware crashes at start-up and passes through download mode by itself, only
+for a few seconds each time, the `flash-` commands take `--wait SECONDS`: they wait for it and
+catch it as soon as it appears (`USBDownloadModeConnection.open(waitingUpTo:)`).
+
 The `flash-` commands take `--simulated BACKUP.bin` to rehearse against a simulated FM-1 holding
 that backup.
 
@@ -248,8 +252,8 @@ container format of kagaimiq's MIT-licensed jl-misctools. Installing m-bootloade
 download mode follow [m-bootloader](https://github.com/jvitkauskas/m-bootloader)'s
 specification and [M-Flasher](https://github.com/jvitkauskas/m-flasher) (both MIT, Julius
 Vitkauskas), which follows jl-uboot-tool (MIT, Andrey Grigoryev); FM1Rescue bundles
-m-bootloader's flash loader, with its licence. Writing from the top of the flash down is an
-idea from Charles Vestal's
+m-bootloader's flash loader, with its licence. Catching an FM-1 that passes through download
+mode, and writing from the top of the flash down, are ideas from Charles Vestal's
 [fm1_rescue](https://github.com/hugelton/felucca-bsp/blob/main/tools/fm1_rescue.py). FM1Kit
 contains no code from GPL-licensed installers. Thanks to M-VAVE for being so encouraging of the
 FM-1's custom firmware community, and for publishing their firmware and tools.

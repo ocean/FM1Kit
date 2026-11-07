@@ -13,6 +13,15 @@ it's the evidence for tuning `UpdaterTiming` and for any fixes.
   installer or editor open (Chrome's Web MIDI can hold the port).
 - In a terminal: `cd ~/code/FM1Kit`.
 - Note which firmware the FM-1 is running, and keep its `.fwsc` file to hand.
+- **Before any step that may interrupt a write** (pulling the cable, cancelling while writing,
+  a firmware that may refuse part-way), make sure there's a way back that doesn't depend on the
+  firmware: m-bootloader installed (REC at power-on reaches download mode whatever the firmware),
+  or a Transporter (a Raspberry Pi Debug Probe or XIAO RP2040 on the FM-1's USB data lines) to
+  hand. With M-VAVE's bootloader and neither, a half-written firmware can't be reached from a
+  computer at all (stage W3, 2026-11-07).
+- **Never switch the FM-1 off while an update loader is running**, even when the screen stays
+  dark and nothing seems to happen: the loader waits as long as it's on, and switching it off
+  part-way through writing leaves a firmware that doesn't start.
 
 ## Stage A: read-only, firmware running
 
@@ -391,6 +400,103 @@ bootloader.
 | S3 | If S2 was refused: `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --reinstall-official --log .artifacts/tmp/s3.csv` | TransitFM1 takes V15, as in Q3. If S2 took V16: R11's erasing `flash-install` of V15 instead, since V16 leaves V15 mono. |
 
 If anything goes wrong, `flash-restore` the S0 backup in download mode.
+
+## Stage T: V16 over another firmware's saved data
+
+V16's voices come with the firmware (`DX7.bin`), so any install of V16 brings them, but its
+saved-data regions (`SEQ64` and `BTIF` among them) overlap where V15 and other firmwares keep
+theirs: V15's voice banks at `0xEA000`, which CLEANSWEEP also writes back. R9 and C11 only checked
+that V16's voices play after Felucca's and CLEANSWEEP's data. This stage checks the rest of V16
+after each, against a fresh V16 over erased data, to settle whether V16 ever needs the data
+cleared first. Start on V15 with M-VAVE's bootloader.
+
+At each **V16 check**: play presets from every bank; play an eight-note chord; open the sequencer
+and look at a few patterns you never wrote (they should be empty, not noise); look through the
+settings for anything odd; change one setting, switch off and on, and check V16 kept it; pair
+Bluetooth MIDI if you use it.
+
+| Step | Command | What to look for |
+|---|---|---|
+| T0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/t-backups`; switch the FM-1 off and on | A backup to go back to, with `Bootloader: M-VAVE's`. |
+| T1 | `swift run fm1probe install .artifacts/felucca-1.6.1.fwsc --log .artifacts/tmp/t1.csv`; play, change a setting and save a pattern | V15 takes Felucca, and Felucca has written saved data. |
+| T2 | `swift run fm1probe install .artifacts/tmp/hops/ignis32_midimonitor_fm1/midimon-0.4.fwsc --log .artifacts/tmp/t2.csv` | Felucca takes MIDIMON. |
+| T3 | `swift run fm1probe install .artifacts/tmp/v16/FM-1-v16.fwsc --log .artifacts/tmp/t3.csv`, then the V16 check | MIDIMON takes V16, and V16 passes the check over Felucca's data. |
+| T4 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/t-backups`; switch the FM-1 off and on | A backup of V16 over Felucca's data, to compare with T7's. |
+| T5 | `swift run fm1probe install ../cleansweep/build/cleansweep.fwsc --log .artifacts/tmp/t5.csv`; wait for "Done" | V16 takes CLEANSWEEP, and the reset runs to the end. |
+| T6 | `swift run fm1probe install .artifacts/tmp/v16/FM-1-v16.fwsc --log .artifacts/tmp/t6.csv`, then the V16 check | CLEANSWEEP takes V16, and V16 passes the check over V15's data. |
+| T7 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install .artifacts/tmp/v16/FM-1-v16.fwsc .artifacts/tmp/t-backups --erase-saved-data --with-bootloader`, then the V16 check | A fresh V16 over erased data: the baseline. The plan saves the flash first, a backup of V16 over CLEANSWEEP's data. |
+| T8 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/t-backups`; switch the FM-1 off and on | A backup of the fresh V16, to compare with T4's and T7's saved one. |
+| T9 | As R11, saving to `.artifacts/tmp/t-backups` | Back to V15, polyphonic, with every bank. |
+
+Report any difference between the three V16 checks. If anything goes wrong, `flash-restore` the T0
+backup in download mode.
+
+## Stage U: M-VAVE's open firmware and back
+
+Open V14 (`FM-1_8000014`, 492,084 bytes, SHA-256 `7e7b6d26…`) is probably the firmware people try
+most after the stock ones, and M-UPGRADE 3.11 can't find an FM-1 running it (fm1_open#20), so
+FM1Kit's arming is the way back for most. Stage E went from Open V12 to V15 only with
+`install --resume`, before the fix, and stage O tested boot areas, not saved data. Nobody has
+tried V14 on this FM-1, V16 from Open, or Open from V16. Open keeps projects and samples in flash
+(V14: VM at `0x73000`, about 446 KB of samples), across where V15's code and V16's saved data go.
+Start on V15 with M-VAVE's bootloader, where stage T ends.
+
+At each **Open check**: play a few sounds and a sample, save a project, switch off and on, and
+check the project and samples are still there. The **V15 check** is R11's: every bank, chords,
+not one note at a time. The **V16 check** is stage T's.
+
+| Step | Command | What to look for |
+|---|---|---|
+| U0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/u-backups`; switch the FM-1 off and on | A backup to go back to, with `Bootloader: M-VAVE's`. |
+| U1 | `swift run fm1probe install .artifacts/tmp/fm1open-v14/FM-1_8000014.fwsc --log .artifacts/tmp/u1.csv`, then the Open check | V15 takes Open V14 (`FM-1_8000014`). |
+| U2 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/u-backups`; switch the FM-1 off and on | A backup showing where Open saved its project. |
+| U3 | `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --log .artifacts/tmp/u3.csv`, then `swift run fm1probe restore-voices ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc` and the V15 check | An `Open:` line and arming, then V15 in one go, with no `--resume`. Note whether V15 is mono before you restore the voices, and after. |
+| U4 | As U1, logging to `.artifacts/tmp/u4.csv`, then the Open check | V15 takes Open again. Note whether U1's project survived V15. |
+| U5 | `swift run fm1probe install .artifacts/tmp/v16/FM-1-v16.fwsc --log .artifacts/tmp/u5.csv`, then the V16 check | Open takes V16, and V16 passes the check over Open's data. |
+| U6 | As U1, logging to `.artifacts/tmp/u6.csv`, then the Open check | V16 takes Open, and Open's samples and sounds aren't noise from V16's data. |
+| U7 | `swift run fm1probe install ../cleansweep/build/cleansweep.fwsc --log .artifacts/tmp/u7.csv`; wait for "Done" | Open takes CLEANSWEEP, and the reset runs to the end. |
+| U8 | `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --log .artifacts/tmp/u8.csv`, then the V15 check without restoring the voices | CLEANSWEEP takes V15, with its factory voices and chords. |
+
+If a step fails, go back to V15 with R11's erasing `flash-install`, or `flash-restore` the U0
+backup in download mode.
+
+## Stage V: m-bootloader 2.1 and V16's boot area
+
+V16's bootloader is larger than V15's, so its boot configuration starts at `0x3938`, not
+`0x38D0`, and asks for 320 MHz, which m-bootloader 1.2 refuses with `BAD CONFIG`. FM1Kit now
+installs m-bootloader after either bootloader, keeping the configuration where it is, refuses 1.2
+over V16's, and puts M-VAVE's bootloader back with the package's whole boot area, as an official
+update does. Nothing of this has run on hardware. m-bootloader 2.1 (`2.1-861e43d`, from its
+release, in `.artifacts/tmp/mboot-v2.1/`) doesn't read the configuration; M-Flasher would cut it
+to 96 bytes, but FM1Kit keeps it whole. Start on V15 with M-VAVE's bootloader, where stage U
+ends.
+
+| Step | Command | What to look for |
+|---|---|---|
+| V0 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/v-backups`; switch the FM-1 off and on | A backup to go back to, with `Bootloader: M-VAVE's` and `Flash: 0x856014`. |
+| V1 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-bootloader .artifacts/tmp/mboot-v2.1/fm1-uboot.boot .artifacts/tmp/v-backups` | Installs `m-bootloader 2.1-861e43d`. V15 starts. Hold PLAY while switching on: the menu shows 2.1 and `Boot app` starts V15. Hold REC: download mode. |
+| V2 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-bootloader ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc .artifacts/tmp/v-backups` | "with the package's boot configuration"; V15 starts with M-VAVE's bootloader. |
+| V3 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install .artifacts/tmp/v16/FM-1-v16.fwsc .artifacts/tmp/v-backups --with-bootloader --erase-saved-data` | V16 with its own boot area. |
+| V4 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-bootloader .artifacts/tmp/m-bootloader-release/fm1-uboot.boot .artifacts/tmp/v-backups` | Refused: 1.2 "would stop at BAD CONFIG… Install m-bootloader 1.3 or newer. Nothing was written." |
+| V5 | As V1 | m-bootloader 2.1 after V16's bootloader. V16 starts; the menu and download mode work, as in V1. |
+| V6 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-bootloader .artifacts/tmp/v16/FM-1-v16.fwsc .artifacts/tmp/v-backups` | V16 starts with its own bootloader again. |
+| V7 | As R11, saving to `.artifacts/tmp/v-backups` | Back to V15, polyphonic, with every bank. |
+
+If anything goes wrong, `flash-restore` the V0 backup in download mode.
+
+## Stage W: an install that ends without the loader asking to finish
+
+FM-SWITCH installed AMB-1, which then started and played, but the app stayed on "installing"
+and then failed. FM1Kit now also counts an install as done when the package's firmware answers
+while the loader is quiet near the end of writing, or when the FM-1 goes away near the end and
+comes back running firmware rather than its loader. A cut near the end still leaves the write to
+resume. Start on V15, where stage V ends.
+
+| Step | Command | What to look for |
+|---|---|---|
+| W1 | `swift run fm1probe install .artifacts/amb-1.3.fwsc --log .artifacts/tmp/w1-amb.csv` | "Now running" AMB-1's identity within about 10 s of the FM-1 restarting, not after a minute. Note whether the log ends with the finish request (`0x8FFFFFF8`). |
+| W2 | `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --log .artifacts/tmp/w2-v15.csv` | Back to V15, finished as promptly. |
+| W3 | **Don't repeat this step as first written.** Pulling the cable at 97% of the first pass left the FM-1 dark (see the 2026-11-07 results): Felucca's loader writes in its *second* pass. Only pull the cable with a recovery route ready (m-bootloader installed, or a Transporter), and plug straight back in without switching off. | fm1probe stops with "disconnected… without switching it off"; `--resume` finishes the update. |
 
 ## What to report
 
@@ -874,3 +980,71 @@ The same Mac and FM-1, starting on V15 with M-VAVE's bootloader.
 So TransitFM1 refuses V16, as its code refuses any firmware image of a size other than V15's
 (V16's is 0xA9000 bytes, V15's 0x93000). From TransitFM1, V16 needs MIDIMON 0.4 or LOOM-8 first,
 as from Felucca 1.6.1.
+
+### 2026-11-07: stages X (`--wait`), T, U, V and W
+
+The same Mac and FM-1 (flash `0x856014`), starting on Aisling (`FM-1_353000501`, a DUB-1
+build), taken to V15 over USB-MIDI first.
+
+- **X1 passed:** `flash-backup --wait 60` caught the FM-1 the moment `download-mode` put it
+  there and read it (this was also T0). Its "Read the flash twice in 20.5 s" counted the wait;
+  fm1probe now times from the catch.
+- **X2 passed:** `--wait 5` with nothing in download mode stopped after 5 s, "Nothing was written".
+- **T1–T2 passed:** V15 took Felucca 1.6.1 (presets saved in it), Felucca took MIDIMON 0.4.
+- **T3:** MIDIMON took V16 in 22.5 s. **V16 played V15's voices (`PIANO 1` first), not its own
+  (`PIANO 3`).** All banks and chords worked; unused patterns were empty; a saved pattern survived
+  a restart. Settings changed without SAVE → ALL were lost, which is how V16 works (T6 and T7
+  kept them after SAVE → ALL), so that wasn't a fault.
+- **T4:** the backup shows V16's voice store (records starting `D7R2` from `0xED000`) built from
+  V15-format banks: five records, `PIANO 1`, `GUITAR 1`, `BRASS 1`… In stage R (V16 over MIDIMON
+  without Felucca's presets) it held one record and V16 used its own `DX7.bin` voices.
+- **T5–T6 passed:** V16 took CLEANSWEEP (`e2abd87`), and CLEANSWEEP took V16, which then had **its
+  own voices**, kept settings and patterns after SAVE → ALL. The screen went black for about 10 s
+  between CLEANSWEEP's staging and V16's loader answering (filed for CLEANSWEEP as h3k6; its
+  next build shows its install screen throughout, seen in U7).
+- **T7–T8 passed:** a fresh V16 over erased data (27 sectors) had its own voices and kept
+  settings and patterns after SAVE → ALL.
+- **T9 passed:** V15 with its bootloader over erased data, polyphonic, every bank.
+- **U0–U2 passed:** V15 took Open V14 in 17.1 s; Open kept a saved project across a restart.
+  Open saves at `0x73000`–`0x7CFFF` and `0x8C000`, inside V15's image, and also changed
+  `0xFE000`, above the area FM1Kit's erase covers.
+- **U3 passed:** Open was already `ready`; its armed loader (`ota-FM1C_db1642b2b6fa5c2c`) took V15
+  in one go (19.1 s). V15 was polyphonic with `PIANO 1` before restoring the voices.
+- **U4:** V15 took Open again; U1's project was gone, as V15's image overwrites where Open keeps it.
+- **U5:** Open took V16 (21.7 s); **V16 again took V15's voices** (`PIANO 1`), with settings and
+  patterns kept after SAVE → ALL. Before it, `0xE4000`–`0xE9FFF` held an earlier update's staged
+  loader and a record starting `55 AA AA 55`; after a clean V15 install that area is blank.
+- **U6–U8 passed:** V16 took Open (`ota-FM-1_016`), Open took CLEANSWEEP, CLEANSWEEP took V15
+  (polyphonic, `PIANO 1`, every bank, without restoring the voices).
+- **U9 (added):** V15 took V16 directly, as M-UPGRADE does: **V16 kept V15's voices** (`PIANO 1`).
+  So V16 keeps the voices it finds after V15, Felucca or Open, and has its own only over
+  CLEANSWEEP's data or erased flash.
+- **V0–V7 passed:** m-bootloader 2.1 installed over V15's and V16's boot areas with each
+  configuration kept; its menu and REC download mode worked on both. M-VAVE's bootloader went back
+  from the V15 and V16 packages with their boot configurations. 1.2 over V16's was refused:
+  "would stop at BAD CONFIG… Install m-bootloader 1.3 or newer. Nothing was written."
+- **W1–W2 passed:** AMB-1 1.3's loader **did** ask to finish (`Writing finished` at the end of
+  both passes), and the FM-1 reported AMB-1 3.5 s later; back to V15 likewise. The quiet-loader
+  check never ran.
+- **W3 failed, and the FM-1 was left dark.** The cable was pulled at the end of the first pass
+  (1179 reads) and 16 reads into the second. The logs of W1 and T1 show the first pass has no
+  pauses and the second a 60 ms pause every 4 KB (142 of them): **Felucca's loader checks the
+  package in its first pass and erases and writes in its second**, which FM1Kit had called
+  "checking". The loader stayed up on the battery and answered again when the cable went back in
+  (12 s later), but FM1Kit stopped with "disconnected… it stays in update mode until one
+  finishes". With the screen dark and nothing happening, the FM-1 was then switched off and on,
+  which is what anyone would try; `--resume` found nothing. AMB-1's loader (felucca-bsp
+  `6b087c2`, through fm1-base `15dff6d`) would have waited as long as it was on, but it clears
+  its RAM record when it starts and the chip's start-up code doesn't start it from the flash
+  record on a cold boot, so the power cycle ran a firmware that was AMB-1 up to `0x5FFF` and V15
+  after it. After that the FM-1 showed nothing on USB at all (no MIDI,
+  no download mode, with `--wait 120` across several power cycles, with OCT− held, or with a
+  different cable); the charging LED was lit. M-VAVE's bootloader was intact (Felucca's loader
+  never writes `0x0000`–`0x3FFF`). The way back is the FM-1 Transporter (an RP2040 on D+/D−).
+
+Changed in FM1Kit after W3: fm1probe and FM1Kit's errors say the screen stays dark and not to
+switch the FM-1 off, rather than that the loader waits until an update finishes; the second pass
+is no longer called checking (`InstallProgress` reports it as installing); and only the pass
+under way counts as nearly written. Carrying on by itself when the loader answers again after a
+lost connection is held back until it can be tried on an FM-1 with a recovery route.
+
