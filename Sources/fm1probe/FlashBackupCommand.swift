@@ -24,10 +24,11 @@ func enterDownloadMode() async throws {
 /// Reads the whole flash of an FM-1 in download mode (or a simulated one) and saves it to a
 /// folder, as M-Flasher saves backups.
 func backUpFlash(folderPath: String, isSimulated: Bool, traces: Bool) throws {
-    let start = ContinuousClock.now
     let session = openFlashSession(
         command: "flash-backup \(folderPath)", simulating: isSimulated ? SimulatedDownloadMode() : nil, traces: traces)
     defer { session.close() }
+    // Timed once the FM-1 is caught, so `--wait` doesn't count.
+    let start = ContinuousClock.now
     let backup = readFlash(session)
     let files = try save(backup, to: folderPath)
     let seconds = milliseconds(ContinuousClock.now - start) / 1000
@@ -123,9 +124,28 @@ final class TenthsPrinter: Sendable {
 }
 
 /// Opens the FM-1 in download mode, or explains why it can't and exits.
+///
+/// With `--wait SECONDS`, it waits that long for the FM-1 to appear there and catches it as soon
+/// as it does.
 private func openDownloadMode(command: String, traces: Bool) -> any DownloadModeConnection {
+    let wait = downloadModeWait()
     do {
-        let usb = try USBDownloadModeConnection.open()
+        let usb: USBDownloadModeConnection
+        if let wait {
+            // Without root it stops at once, so only promise to wait with it.
+            if geteuid() == 0 {
+                print(
+                    """
+                    Waiting up to \(wait.components.seconds) s for the FM-1 in download mode. Switch it on \
+                    now, or hold REC while switching it on (m-bootloader). If macOS asks to allow the \
+                    accessory, click Allow.
+                    """)
+            }
+            usb = try USBDownloadModeConnection.open(waitingUpTo: wait)
+            print("\(timestamp())  Caught the FM-1 in download mode.")
+        } else {
+            usb = try USBDownloadModeConnection.open()
+        }
         if traces {
             let start = ContinuousClock.now
             usb.trace = { line in
@@ -135,12 +155,27 @@ private func openDownloadMode(command: String, traces: Bool) -> any DownloadMode
         return usb
     } catch DownloadModeError.needsRoot {
         print("This needs administrator rights: run `swift build`, then")
-        print("`sudo .build/debug/fm1probe \(command)`.")
+        let waitOption = wait.map { " --wait \($0.components.seconds)" } ?? ""
+        print("`sudo .build/debug/fm1probe \(command)\(waitOption)`.")
+        exit(1)
+    } catch DownloadModeError.notFound where wait != nil {
+        print("Stopped: the FM-1 didn't appear in download mode in time. Nothing was written.")
         exit(1)
     } catch {
         print("Stopped: \(error.localizedDescription)")
         exit(1)
     }
+}
+
+/// How long `--wait SECONDS` says to wait for download mode, if it's given; exits when it isn't
+/// a number of seconds from 1 to 600.
+private func downloadModeWait() -> Duration? {
+    guard arguments.contains("--wait") else { return nil }
+    guard let seconds = option("--wait").flatMap(Int.init), (1...600).contains(seconds) else {
+        print("--wait needs a number of seconds from 1 to 600, such as --wait 120.")
+        exit(1)
+    }
+    return .seconds(seconds)
 }
 
 /// Run with sudo, the files saved still belong to the person who ran it.

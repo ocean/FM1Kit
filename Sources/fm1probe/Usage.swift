@@ -41,6 +41,9 @@ let usage = """
                                                and save it as M-Flasher does; needs sudo
                --simulated                     read a simulated FM-1 instead
                --trace                         print every USB transfer
+               --wait SECONDS                  wait for the FM-1 to appear in download mode and
+                                               catch it, for one whose firmware crashes at start-up
+                                               and only passes through it
            fm1probe flash-restore BACKUP.bin FOLDER [options]
                                                put a full flash backup back on an FM-1 in download
                                                mode; another FM-1's keeps this one's factory data
@@ -59,6 +62,7 @@ let usage = """
                                                then checks every change. Needs sudo.
                --simulated BACKUP.bin          run against a simulated FM-1 holding this backup
                --trace                         print every USB transfer
+               --wait SECONDS                  as for flash-backup
            fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
                                                M-VAVE's open firmware to a new folder, after asking
                                                to confirm
