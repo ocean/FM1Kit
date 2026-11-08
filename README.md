@@ -249,6 +249,9 @@ firmwares built on Felucca's platform restart into download mode when asked
 (`FM1Updater.enterDownloadMode()`). FM1Rescue backs up, restores and writes the flash in download
 mode, on a Mac only: iPhones and iPads can't use it at all.
 
+An FM-1 that shows nothing on USB, not even download mode, needs the chip's boot ROM:
+[RECOVERY.md](RECOVERY.md) walks through reaching it with the FM-1 Transporter.
+
 ## Credits
 
 The protocol implementation is written from the
