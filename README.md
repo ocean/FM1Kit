@@ -201,14 +201,23 @@ sudo .build/debug/fm1probe flash-backup FOLDER  # read the whole flash in downlo
 sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup back, saving the flash to FOLDER first
 sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
+swift run fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin  # make a flash image for the FM-1 Transporter
 ```
 
 For an FM-1 whose firmware crashes at start-up and passes through download mode by itself, only
-for a few seconds each time, the `flash-` commands take `--wait SECONDS`: they wait for it and
+for a few seconds each time, the download-mode `flash-` commands take `--wait SECONDS`: they wait for it and
 catch it as soon as it appears (`USBDownloadModeConnection.open(waitingUpTo:)`).
 
-The `flash-` commands take `--simulated BACKUP.bin` to rehearse against a simulated FM-1 holding
-that backup.
+They also take `--simulated BACKUP.bin` to rehearse against a simulated FM-1 holding that
+backup.
+
+An FM-1 that never reaches download mode, because the firmware that would restart into it can't
+start, needs the chip's boot ROM: the [FM-1 Transporter](https://github.com/kurogedelic/FM-1-transporter)
+reaches it with an RP2040 wired to the FM-1's USB data lines. Its web app backs up the flash and
+writes a full flash image, only the sectors from 0x4000 to 0x92FFF that differ. `flash-image`
+makes that image from a firmware package and the backup it just took
+(`FlashPlan.installingWithTransporter(_:onto:flashID:)`); add `--flash-id` with the ID the
+Transporter showed, such as `856014`, since its backups have no `.json`. It talks to no device.
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
 and records the results so far.

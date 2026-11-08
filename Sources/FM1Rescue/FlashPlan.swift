@@ -198,6 +198,8 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
     case notAnFM1
     /// A change fell outside what the plan may touch: a mistake in FM1Kit. This is the sector.
     case outsideAllowedRange(Int)
+    /// The firmware changes a sector the FM-1 Transporter won't write; this is the sector.
+    case outsideTransporterRange(Int)
 
     /// What happened and what to do next.
     public var errorDescription: String? {
@@ -241,6 +243,12 @@ public enum FlashPlanError: Error, Hashable, LocalizedError {
         case .outsideAllowedRange(let sector):
             String(
                 format: "FM1Kit planned a change outside what it may touch (0x%05X), so nothing was written.", sector)
+        case .outsideTransporterRange(let sector):
+            String(
+                format: """
+                    This firmware changes flash the FM-1 Transporter won't write (0x%05X); it writes only \
+                    0x04000–0x92FFF. Nothing was written.
+                    """, sector)
         }
     }
 }

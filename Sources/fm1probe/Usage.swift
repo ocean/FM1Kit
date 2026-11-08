@@ -63,6 +63,12 @@ let usage = """
                --simulated BACKUP.bin          run against a simulated FM-1 holding this backup
                --trace                         print every USB transfer
                --wait SECONDS                  as for flash-backup
+           fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin [options]
+                                               make the full flash image the FM-1 Transporter's web
+                                               app writes, from a firmware package and the backup
+                                               the Transporter just took; talks to no device
+               --flash-id HEX                  the flash ID the Transporter showed, such as 856014,
+                                               for a backup without a .json
            fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
                                                M-VAVE's open firmware to a new folder, after asking
                                                to confirm

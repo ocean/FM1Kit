@@ -232,6 +232,9 @@ case "flash-backup" where arguments.count >= 2:
 case "flash-restore", "flash-bootloader", "flash-install":
     try writeFlash(arguments)
 
+case "flash-image":
+    try makeTransporterImage(arguments)
+
 case "install-bootloader" where arguments.count >= 2:
     try await installBootloader(
         path: arguments[1],

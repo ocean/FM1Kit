@@ -5,6 +5,16 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `FlashPlan.installingWithTransporter(_:onto:flashID:)` and `FlashPlan.transporterWritable`:
+  plans a firmware install for the [FM-1 Transporter](https://github.com/kurogedelic/FM-1-transporter),
+  which reaches the chip's boot ROM when no firmware starts, against its backup of the FM-1. The
+  plan's `target` is the full flash image its web app writes; a firmware reaching past
+  0x92FFF, which it won't write, is refused with `FlashPlanError.outsideTransporterRange(_:)`.
+- fm1probe's `flash-image FILE.fwsc BACKUP.bin IMAGE.bin [--flash-id HEX]` saves that image,
+  talking to no device.
+
 ## [0.6.0] - 2026-11-07
 
 FM1Kit knows the newer flash chip in FM-1s sold since autumn 2026, and asks firmwares built on
