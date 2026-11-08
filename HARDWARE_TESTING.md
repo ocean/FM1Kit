@@ -1039,7 +1039,9 @@ build), taken to V15 over USB-MIDI first.
   record on a cold boot, so the power cycle ran a firmware that was AMB-1 up to `0x5FFF` and V15
   after it. After that the FM-1 showed nothing on USB at all (no MIDI,
   no download mode, with `--wait 120` across several power cycles, with OCT− held, or with a
-  different cable); the charging LED was lit. M-VAVE's bootloader was intact (Felucca's loader
+  different cable), nor on 2026-11-08 with OCT−, OCT+ and HOME held at or after power-on, OCT+,
+  HOME, REC or REC with OCT− (`--wait 300`); the charging LED was lit. M-VAVE's bootloader was
+  intact (Felucca's loader
   never writes `0x0000`–`0x3FFF`). The way back is the FM-1 Transporter (an RP2040 on D+/D−).
 
 Changed in FM1Kit after W3: fm1probe and FM1Kit's errors say the screen stays dark and not to
