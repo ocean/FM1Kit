@@ -38,7 +38,14 @@ What it can and can't change:
 - **The Transporter's firmware writes only whole 4 KB sectors from `0x4000` to `0x92FFF`**,
   whatever it's asked. The boot area below `0x4000`, which holds the bootloader, is never written.
   Neither are the settings, voices and factory data from `0x93000` up.
-- So this route can put the firmware back. It can't repair a damaged bootloader.
+- That limit is the Transporter firmware's own choice, not the hardware's. The boot ROM and
+  loader can write any sector. The boot area holds the flash header, the bootloader and the
+  unit's own boot configuration, and a wrong write there is easy to make. So this release
+  puts the firmware back, but doesn't repair a damaged bootloader.
+- The boot ROM is reached before anything in the flash runs, so it should still answer with a
+  damaged bootloader, and the Transporter can back the flash up. Writing the boot area would
+  need the Transporter rebuilt from its source with a lower write limit (`JL_WRITE_MIN` in
+  `src/jieli_uboot.h`), and the boot area from that FM-1's own backup.
 
 ## What you need
 
