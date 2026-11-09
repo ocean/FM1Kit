@@ -14,11 +14,24 @@ func checkPackage(_ arguments: [String]) throws {
     do {
         package = try FwscPackage(data: data)
     } catch {
-        print("[FAIL] Package")
-        print("  \(error.localizedDescription)")
+        if isJSON {
+            printJSON(ErrorJSON(format: "fm1probe-check-1", file: path, error: error.localizedDescription))
+        } else {
+            print("[FAIL] Package")
+            print("  \(error.localizedDescription)")
+        }
         exit(1)
     }
     let report = PackageCheck(package)
+    let strict = arguments.contains("--strict")
+    if isJSON {
+        printJSON(
+            CheckJSON(
+                file: path, product: package.product, sha256: package.sha256, passes: report.passes,
+                worst: report.worst, findings: report.findings))
+        if !report.passes || (strict && report.worst == .warning) { exit(1) }
+        return
+    }
     print("\(package.product), SHA-256 \(package.sha256)")
     for finding in report.findings {
         print("")
@@ -27,7 +40,6 @@ func checkPackage(_ arguments: [String]) throws {
         print("  " + finding.summary)
     }
     print("")
-    let strict = arguments.contains("--strict")
     switch report.worst {
     case .failure:
         print("Not ready: fix the failures above.")

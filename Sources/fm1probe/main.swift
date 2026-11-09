@@ -70,7 +70,7 @@ func handshake(_ connection: any MIDIConnection) async -> HandshakeAnswer? {
         if let identity = FM1Identity(handshakeReply: reply) {
             return HandshakeAnswer(reply: reply, identity: identity, elapsed: ContinuousClock.now - start)
         }
-        print("  (other message while waiting: \(hex(reply)))")
+        printAside("  (other message while waiting: \(hex(reply)))")
     }
     return nil
 }
@@ -88,66 +88,7 @@ case "ports":
     }
 
 case "identify":
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
-    let repeats = max(option("--repeat").flatMap(Int.init) ?? 1, 1)
-    let wanted = option("--port")
-    let ports = await transport.ports().filter { port in
-        wanted.map { wanted in
-            [port.name, port.usbProductName].contains { $0?.localizedCaseInsensitiveContains(wanted) == true }
-        } ?? FM1Updater.isProbeable(port)
-    }
-    if ports.isEmpty {
-        print(
-            wanted.map { "No port matches \"\($0)\"." }
-                ?? "No port looks like an FM-1. Run `fm1probe ports`, then try --port NAME.")
-        exit(1)
-    }
-    var anyAnswered = false
-    var answeringPorts = 0
-    for port in ports {
-        print("\(portLabel(port)):")
-        if let serial = port.serialNumber { print("  serial: \(serial)") }
-        let connection = try await transport.open(port)
-        var times: [Double] = []
-        var identities: Set<String> = []
-        for attempt in 1...repeats {
-            if let answer = await handshake(connection) {
-                if times.isEmpty {
-                    print("  reply: \(hex(answer.reply))")
-                    if let chip = FM1Identity.flashChipID(inHandshakeReply: answer.reply) {
-                        print("  flash chip: " + flashChipDescription(chip))
-                    }
-                }
-                times.append(milliseconds(answer.elapsed))
-                identities.insert(answer.identity.text)
-            } else if repeats > 1 {
-                print("  attempt \(attempt): no answer")
-            }
-            if repeats > 1 { try? await Task.sleep(for: .milliseconds(200)) }
-        }
-        connection.close()
-        guard !identities.isEmpty else {
-            print("  no answer")
-            continue
-        }
-        anyAnswered = true
-        for text in identities.sorted() {
-            let isLoader = FM1Identity(text: text)?.isLoader == true
-            print(
-                "  reports: \(text)  (\(isLoader ? "update loader: mid-update or USB recovery" : "firmware running"))")
-        }
-        if identities.count > 1 { print("  warning: the answers disagreed") }
-        answeringPorts += 1
-        let average = times.reduce(0, +) / Double(times.count)
-        let fastest = Int((times.min() ?? 0).rounded())
-        let slowest = Int((times.max() ?? 0).rounded())
-        print("  answered \(times.count) of \(repeats); reply time \(Int(average.rounded())) ms", terminator: "")
-        print(" (fastest \(fastest), slowest \(slowest))")
-    }
-    if answeringPorts > 1 {
-        print("\(answeringPorts) FM-1s answered: run `fm1probe devices`, then choose one with --device")
-    }
-    if !anyAnswered { exit(1) }
+    try await identify()
 
 case "monitor":
     let transport = try CoreMIDITransport(clientName: "fm1probe")
@@ -212,7 +153,7 @@ case "watch":
     watching.cancel()
     print("Stopped watching after \(seconds) s.")
 
-case "inspect" where arguments.count == 2:
+case "inspect" where arguments.count >= 2:
     try inspect(path: arguments[1])
 
 case "check" where arguments.count >= 2:

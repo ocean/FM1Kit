@@ -3,6 +3,11 @@ import FM1Kit
 /// Prints every device that answers, numbered for `--device`.
 func listDevices() async throws {
     let devices = await FM1Updater(transport: try CoreMIDITransport(clientName: "fm1probe")).devices()
+    if isJSON {
+        printJSON(DevicesJSON(devices))
+        if devices.isEmpty { fail() }
+        return
+    }
     if devices.isEmpty {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
         fail()

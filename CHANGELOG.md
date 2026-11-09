@@ -21,6 +21,10 @@ All notable changes to FM1Kit are recorded here. The project follows
   how people can switch from it to V15 and V16 with V15's bootloader or m-bootloader, and whether
   the FM-1 Transporter can put it back. fm1probe's `check FILE.fwsc [--strict]` prints it and
   exits with 1 on a failure, or on a warning with `--strict`.
+- fm1probe's `devices`, `identify`, `inspect` and `check` take `--json`: one JSON object on
+  standard output, whose `format` names its layout and version (`fm1probe-devices-1`,
+  `fm1probe-identify-1`, `fm1probe-inspect-1`, `fm1probe-check-1`). Fields that aren't known are
+  left out, and anything else goes to standard error.
 
 ## [0.6.0] - 2026-11-07
 

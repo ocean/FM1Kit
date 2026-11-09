@@ -5,6 +5,10 @@ import Foundation
 /// Shows what a package holds, which m-bootloader a `.boot` file holds, or what a flash backup
 /// holds; sends nothing.
 func inspect(path: String) throws {
+    if isJSON {
+        try inspectAsJSON(path: path)
+        return
+    }
     if path.lowercased().hasSuffix(".bin") {
         try inspectFlashBackup(URL(fileURLWithPath: path))
         return
@@ -74,5 +78,38 @@ func flashChipSupportDescription(_ support: FlashChipSupport) -> String {
     case .firstChipOnly:
         "checks for the first FM-1s' (0x856014) alone: on the newer chip it may keep saves only until switched off"
     case .noCheck: "doesn't check which chip it has"
+    }
+}
+
+/// `inspect --json`: what the file holds, as JSON.
+private func inspectAsJSON(path: String) throws {
+    let url = URL(fileURLWithPath: path)
+    do {
+        if path.lowercased().hasSuffix(".bin") {
+            var json = InspectJSON(file: path, kind: "flashBackup")
+            json.flashBackup = InspectJSON.FlashBackup(try FlashBackup(contentsOf: url))
+            printJSON(json)
+            return
+        }
+        let data = try Data(contentsOf: url)
+        if path.lowercased().hasSuffix(".boot") {
+            guard let bootloader = BootloaderImage(data: data) else {
+                printJSON(
+                    ErrorJSON(
+                        format: "fm1probe-inspect-1", file: path,
+                        error: "This isn't an m-bootloader .boot file, or it's damaged."))
+                exit(1)
+            }
+            var json = InspectJSON(file: path, kind: "bootloader")
+            json.bootloader = InspectJSON.Bootloader(bootloader)
+            printJSON(json)
+            return
+        }
+        var json = InspectJSON(file: path, kind: "package")
+        json.package = InspectJSON.Package(try FwscPackage(data: data))
+        printJSON(json)
+    } catch {
+        printJSON(ErrorJSON(format: "fm1probe-inspect-1", file: path, error: error.localizedDescription))
+        exit(1)
     }
 }

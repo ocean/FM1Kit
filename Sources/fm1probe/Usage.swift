@@ -1,20 +1,23 @@
 /// What fm1probe can do, shown for `help` or arguments it doesn't understand.
 let usage = """
     usage: fm1probe ports                      list MIDI port pairs and which would be probed
-           fm1probe devices                    list every FM-1 that answers, numbered for --device
+           fm1probe devices [--json]           list every FM-1 that answers, numbered for --device
            fm1probe identify [options]         ask the connected FM-1 what it's running
                --repeat N                      ask N times and report timings and failures
                --port NAME                     ask this port even if its name doesn't look like an FM-1
+               --json                          print the answers as JSON
            fm1probe monitor [SECONDS]          print every SysEx message any port sends (default 30 s);
                                                sends nothing
            fm1probe watch [SECONDS]            print the ports each time devices come or go (default 60 s)
            fm1probe inspect FILE               show a package's identity, size and hash, or which
                                                m-bootloader a .boot file or installer package holds,
-                                               or the bootloader and firmware in a flash backup (.bin)
+                                               or the bootloader and firmware in a flash backup (.bin);
+                                               --json prints it as JSON
            fm1probe check FILE.fwsc [--strict] a firmware developer's pre-release report: chip key,
                                                flash chips, saved data, which firmwares install it and
                                                how people switch away from it; exits with 1 on a
-                                               failure, or on a warning with --strict
+                                               failure, or on a warning with --strict; --json prints
+                                               the findings as JSON
            fm1probe install FILE.fwsc [options]
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
@@ -79,6 +82,10 @@ let usage = """
                --simulated                     run against a simulated FM-1 running open firmware
                --log FILE                      write every message to and from the device to a new
                                                CSV file
+
+    With --json, devices, identify, inspect and check print one JSON object on standard output,
+    whose "format" names its layout, such as "fm1probe-check-1"; fields that aren't known are left
+    out. Anything else they say goes to standard error.
 
     With more than one FM-1 connected, install, install-bootloader, restore-voices, backup and
     download-mode need --device N (as `fm1probe devices` numbers them) or --device SERIAL.

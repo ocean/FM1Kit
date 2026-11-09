@@ -192,7 +192,7 @@ swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's runn
 swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum (or a .boot file's, or a .bin backup's firmware)
-swift run fm1probe check FILE.fwsc       # pre-release report for firmware developers (--strict for CI)
+swift run fm1probe check FILE.fwsc       # pre-release report for firmware developers (--strict for CI, --json)
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
@@ -204,6 +204,10 @@ sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-b
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
 swift run fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin  # make a flash image for the FM-1 Transporter
 ```
+
+`devices`, `identify`, `inspect` and `check` take `--json` for scripts and CI: one JSON object
+on standard output, whose `format` names its layout and version (such as `fm1probe-check-1`).
+Fields that aren't known are left out.
 
 For an FM-1 whose firmware crashes at start-up and passes through download mode by itself, only
 for a few seconds each time, the download-mode `flash-` commands take `--wait SECONDS`: they wait for it and
