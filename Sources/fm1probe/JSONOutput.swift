@@ -6,6 +6,9 @@ import Foundation
 // its layout and version, such as "fm1probe-check-1". A new field keeps the version; a field
 // that changes or goes away moves it on.
 
+// The JSON types' properties are read only by the encoder Swift writes for them.
+// swiftlint:disable unused_declaration
+
 /// True when the command should print JSON rather than text.
 let isJSON = arguments.contains("--json")
 
@@ -121,7 +124,8 @@ struct IdentifyJSON: Encodable {
         /// The first reply, in hex.
         let reply: String?
         let identities: [String]
-        let isUpdateLoader: Bool?
+        /// "firmware" or "updateLoader"; left out when nothing answered.
+        let running: String?
         let flashChip: FlashChipJSON?
         let replyMilliseconds: Timing?
     }
@@ -239,3 +243,5 @@ extension InspectJSON.FlashBackup {
         )
     }
 }
+
+// swiftlint:enable unused_declaration

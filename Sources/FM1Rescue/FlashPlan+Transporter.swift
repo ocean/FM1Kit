@@ -1,6 +1,5 @@
 #if os(macOS)
 public import FM1Kit
-import Foundation
 
 extension FlashPlan {
     /// The flash the FM-1 Transporter writes: whole 4 KB sectors from `0x4000` to `0x92FFF`.

@@ -208,7 +208,7 @@ public final class FlashSession {
     }
 }
 
-/// One of m-bootloader's flash loader builds, as bundled with FM1Rescue.
+/// One of m-bootloader's flash loader builds, as built into FM1Rescue.
 struct FlashLoaderImage {
     /// Where it's built to run.
     let address: UInt32
@@ -220,16 +220,13 @@ struct FlashLoaderImage {
     /// The two builds, at `0x01C20000` and `0x01C28000`, so a new one never overwrites one
     /// that's running.
     static let bundled: [Self] = [
-        load("mflr-loader-a", address: 0x01C2_0000),
-        load("mflr-loader-b", address: 0x01C2_8000),
+        load(loaderABase64, address: 0x01C2_0000),
+        load(loaderBBase64, address: 0x01C2_8000),
     ].compactMap(\.self)
 
-    private static func load(_ name: String, address: UInt32) -> Self? {
-        guard let url = Bundle.module.url(forResource: name, withExtension: "bin"),
-            let data = try? Data(contentsOf: url)
-        else {
-            return nil
-        }
+    /// Decodes an embedded build; see `scripts/embed-flash-loaders.py`.
+    private static func load(_ base64: String, address: UInt32) -> Self? {
+        guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters) else { return nil }
         let bytes = [UInt8](data)
         let marker = Array("MFLR".utf8)
         guard let start = (0...(bytes.count - 7)).first(where: { bytes[$0..<($0 + 4)].elementsEqual(marker) })

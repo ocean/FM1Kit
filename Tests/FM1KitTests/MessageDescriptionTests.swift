@@ -55,9 +55,8 @@ struct MessageDescriptionTests {
     }
 
     @Test func saysWhenAKnownCommandIsDamaged() {
-        var body = SevenBit.unpack(
-            FM1Message.command(FM1Message.voiceWriteCommand, payload: [5, 0, 0, 0, 0, 1, 0, 0, 9]).dropFirst()
-                .dropLast())
+        let message = FM1Message.command(FM1Message.voiceWriteCommand, payload: [5, 0, 0, 0, 0, 1, 0, 0, 9])
+        var body = SevenBit.unpack(message.dropFirst().dropLast())
         body[body.count - 1] ^= 0x01
         #expect(
             describe([0xF0] + SevenBit.pack(body) + [0xF7], .toDevice)

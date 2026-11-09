@@ -14,6 +14,40 @@ import os
 ///   - seconds: How long to run, or `nil` to run until stopped.
 /// - Throws: When the package can't be read or CoreMIDI can't create the ports.
 func simulate(packagePath: String?, seconds: Int?) async throws {
+    let fm1 = SimulatedFM1(options: simulatorOptions())
+    if let packagePath {
+        let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: packagePath)))
+        fm1.prepare(for: package)
+        print("Expecting \(package.product) (SHA-256 \(package.sha256.prefix(16))…); each byte sent is checked.")
+    } else {
+        print("No package given, so the simulated FM-1 answers but ignores the upgrade command.")
+    }
+    let published = try CoreMIDIVirtualDevice(
+        publishing: fm1,
+        clientName: "fm1probe simulate",
+        observer: messagePrinter(showsHex: arguments.contains("--hex"), showsEveryRead: arguments.contains("--all")))
+    let running = Task { try await published.run() }
+    let identity = fm1.currentIdentity?.text ?? "nothing"
+    print("A simulated FM-1 reporting \(identity) is on the virtual port \"\(SimulatedFM1.portName)\".")
+    print(seconds.map { "Running for \($0) s." } ?? "Running until Ctrl-C.")
+
+    let deadline = seconds.map { ContinuousClock.now + .seconds($0) }
+    var shown = 0
+    while deadline.map({ ContinuousClock.now < $0 }) ?? true {
+        try await Task.sleep(for: .milliseconds(100))
+        let events = fm1.events
+        for event in events.dropFirst(shown) {
+            print("\(timestamp())  simulated FM-1: \(event)")
+        }
+        shown = events.count
+    }
+    running.cancel()
+    _ = await running.result
+    print("Stopped. The simulated FM-1 reports \(fm1.currentIdentity?.text ?? "nothing, restarting").")
+}
+
+/// The simulated FM-1's options, from `--identity`, `--flash-chip` and `--loader`.
+private func simulatorOptions() -> SimulatedFM1.Options {
     var options = SimulatedFM1.Options()
     if let text = option("--identity") {
         guard let identity = FM1Identity(text: text) else {
@@ -34,20 +68,14 @@ func simulate(packagePath: String?, seconds: Int?) async throws {
     options.startsInRecoveryMode = arguments.contains("--loader")
     options.serialNumber = nil
     options.responseTimeout = .seconds(10)
+    return options
+}
 
-    let fm1 = SimulatedFM1(options: options)
-    if let packagePath {
-        let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: packagePath)))
-        fm1.prepare(for: package)
-        print("Expecting \(package.product) (SHA-256 \(package.sha256.prefix(16))…); each byte sent is checked.")
-    } else {
-        print("No package given, so the simulated FM-1 answers but ignores the upgrade command.")
-    }
-    let showsHex = arguments.contains("--hex")
-    let showsEveryRead = arguments.contains("--all")
+/// Prints each message as it passes, counting image reads rather than printing each unless
+/// `showsEveryRead`.
+private func messagePrinter(showsHex: Bool, showsEveryRead: Bool) -> CoreMIDIVirtualDevice.Observer {
     let reads = OSAllocatedUnfairLock(initialState: 0)
-    let published = try CoreMIDIVirtualDevice(publishing: fm1, clientName: "fm1probe simulate") {
-        sysex, direction, port in
+    return { sysex, direction, port in
         let description = FM1MessageDescription(sysex, direction: direction)
         // An install asks for hundreds of reads a second, so only every 100th is counted unless --all.
         if !showsEveryRead, description.kind == "read" || description.kind == "response" {
@@ -67,22 +95,4 @@ func simulate(packagePath: String?, seconds: Int?) async throws {
             print("    \(hex(sysex))")
         }
     }
-    let running = Task { try await published.run() }
-    let identity = fm1.currentIdentity?.text ?? "nothing"
-    print("A simulated FM-1 reporting \(identity) is on the virtual port \"\(SimulatedFM1.portName)\".")
-    print(seconds.map { "Running for \($0) s." } ?? "Running until Ctrl-C.")
-
-    let deadline = seconds.map { ContinuousClock.now + .seconds($0) }
-    var shown = 0
-    while deadline.map({ ContinuousClock.now < $0 }) ?? true {
-        try await Task.sleep(for: .milliseconds(100))
-        let events = fm1.events
-        for event in events.dropFirst(shown) {
-            print("\(timestamp())  simulated FM-1: \(event)")
-        }
-        shown = events.count
-    }
-    running.cancel()
-    _ = await running.result
-    print("Stopped. The simulated FM-1 reports \(fm1.currentIdentity?.text ?? "nothing, restarting").")
 }

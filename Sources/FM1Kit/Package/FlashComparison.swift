@@ -82,7 +82,7 @@ public struct FlashComparison: Sendable {
         )
         for name in Self.names(files.0, files.1) {
             let entries = (files.0.first { $0.name == name }, files.1.first { $0.name == name })
-            for entry in [entries.0, entries.1].compactMap({ $0 }) {
+            for entry in [entries.0, entries.1].compactMap(\.self) {
                 claimed.append(Self.flashRange(ofFile: entry))
             }
             let start = (entries.1 ?? entries.0).map { ApplicationArea.start + $0.address } ?? 0
@@ -92,7 +92,7 @@ public struct FlashComparison: Sendable {
         let regions = (tables.0.filter(Self.isSavedData), tables.1.filter(Self.isSavedData))
         for name in Self.names(regions.0, regions.1) {
             let entries = (regions.0.first { $0.name == name }, regions.1.first { $0.name == name })
-            for entry in [entries.0, entries.1].compactMap({ $0 }) {
+            for entry in [entries.0, entries.1].compactMap(\.self) {
                 claimed.append(entry.address..<(entry.address + entry.length))
             }
             let start = (entries.1 ?? entries.0)?.address ?? 0
@@ -108,7 +108,10 @@ public struct FlashComparison: Sendable {
         let rest = Self.unclaimed(0..<length, claimed)
         parts.append((Int.max, Self.compareRest(rest, first.bytes, second.bytes)))
 
-        self.parts = parts.enumerated().sorted { ($0.element.start, $0.offset) < ($1.element.start, $1.offset) }
+        self.parts =
+            parts
+            .enumerated()
+            .sorted { ($0.element.start, $0.offset) < ($1.element.start, $1.offset) }
             .map(\.element.part)
     }
 
@@ -148,7 +151,8 @@ public struct FlashComparison: Sendable {
     }
 
     private static func compareFiles(
-        _ name: String, _ entries: (ApplicationArea.Entry?, ApplicationArea.Entry?),
+        _ name: String,
+        _ entries: (ApplicationArea.Entry?, ApplicationArea.Entry?),
         _ areas: (ApplicationArea, ApplicationArea)
     ) -> Part {
         switch entries {
@@ -173,17 +177,23 @@ public struct FlashComparison: Sendable {
                 changes.append("contents differ")
             }
             return Part(
-                name: "file \(name)", range: range, outcome: changes.isEmpty ? .same : .changed,
+                name: "file \(name)",
+                range: range,
+                outcome: changes.isEmpty ? .same : .changed,
                 detail: changes.isEmpty
                     ? String(format: "%d bytes, CRC 0x%04X", first.length, first.dataCRC)
                     : changes.joined(separator: ", "))
         case (let first?, nil):
             return Part(
-                name: "file \(name)", range: flashRange(ofFile: first), outcome: .removed,
+                name: "file \(name)",
+                range: flashRange(ofFile: first),
+                outcome: .removed,
                 detail: "\(first.length) bytes")
         case (nil, let second?):
             return Part(
-                name: "file \(name)", range: flashRange(ofFile: second), outcome: .added,
+                name: "file \(name)",
+                range: flashRange(ofFile: second),
+                outcome: .added,
                 detail: "\(second.length) bytes")
         case (nil, nil):
             return Part(name: "file \(name)", range: nil, outcome: .same, detail: "")
@@ -191,7 +201,9 @@ public struct FlashComparison: Sendable {
     }
 
     private static func compareRegions(
-        _ name: String, _ entries: (ApplicationArea.Entry?, ApplicationArea.Entry?), _ first: [UInt8],
+        _ name: String,
+        _ entries: (ApplicationArea.Entry?, ApplicationArea.Entry?),
+        _ first: [UInt8],
         _ second: [UInt8]
     ) -> Part {
         let ranges = (
@@ -201,7 +213,9 @@ public struct FlashComparison: Sendable {
         switch ranges {
         case (let firstRange?, let secondRange?) where firstRange != secondRange:
             return Part(
-                name: "region \(name)", range: secondRange, outcome: .changed,
+                name: "region \(name)",
+                range: secondRange,
+                outcome: .changed,
                 detail: "declared at \(describe(firstRange)) in the first")
         case (let range?, _?):
             let inBoth = range.upperBound <= first.count && range.upperBound <= second.count
@@ -232,7 +246,9 @@ public struct FlashComparison: Sendable {
             details.append("the images are \(hex(first.count)) and \(hex(second.count)) bytes long")
         }
         return Part(
-            name: "everything else", range: nil, outcome: details.isEmpty ? .same : .changed,
+            name: "everything else",
+            range: nil,
+            outcome: details.isEmpty ? .same : .changed,
             detail: details.isEmpty ? "the same" : details.joined(separator: "; "))
     }
 

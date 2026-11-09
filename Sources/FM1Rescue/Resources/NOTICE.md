@@ -1,8 +1,9 @@
-# Bundled files
+# Embedded files
 
 `mflr-loader-a.bin` and `mflr-loader-b.bin` are the flash loader that runs on the FM-1's chip in
-its USB download mode, built for RAM `0x01C20000` and `0x01C28000`. They're byte-identical to the
-files in m-bootloader's release
+its USB download mode, built for RAM `0x01C20000` and `0x01C28000`. FM1Rescue builds them into
+its code (`FlashLoaderImage+Embedded.swift`, made by `scripts/embed-flash-loaders.py`), so
+fm1probe is one file. They're byte-identical to the files in m-bootloader's release
 [v1.2](https://github.com/jvitkauskas/m-bootloader/releases/tag/v1.2), as its `SHA256SUMS` lists
 them:
 
@@ -12,9 +13,9 @@ ab35a1ff14d9eceb57055311bfff1d10a87cd21fee8f6628ce0261d580f383f9  mflr-loader-b.
 ```
 
 FM1Kit's `ApplicationArea.swift`, which `FlashBackup+Firmware.swift` uses, reads the app area's
-file table and cipher as M-Flasher's `formats.rs` (in the same repository) does, ported to Swift. `FlashPlan.swift`,
-`FlashPlan+Firmware.swift` and `FlashSession+Write.swift` port M-Flasher's planning and writing
-(`ops.rs`, `jl.rs` and `formats.rs`).
+file table and cipher as M-Flasher's `formats.rs` (in the same repository) does, ported to
+Swift. `FlashPlan.swift`, `FlashPlan+Firmware.swift` and `FlashSession+Write.swift` port
+M-Flasher's planning and writing (`ops.rs`, `jl.rs` and `formats.rs`).
 
 MIT License, Copyright (c) 2026 Julius Vitkauskas:
 

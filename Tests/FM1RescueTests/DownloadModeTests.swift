@@ -46,6 +46,23 @@ struct DownloadModeTests {
         #expect(FlashLoaderImage.bundled.map(\.version) == ["1.2", "1.2"])
     }
 
+    /// The loaders built into the code are m-bootloader v1.2's, byte for byte, and match the
+    /// files in Resources: `scripts/embed-flash-loaders.py` has been run since they last changed.
+    @Test func embedsTheReleasedLoaders() throws {
+        let released = [
+            "7286e044586ba693d0c3bacd4a05aa44cee090dd30c085caebe0db8421000794",
+            "ab35a1ff14d9eceb57055311bfff1d10a87cd21fee8f6628ce0261d580f383f9",
+        ]
+        #expect(FlashLoaderImage.bundled.map { FwscPackage.sha256Hex($0.bytes) } == released)
+        let resources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().appendingPathComponent("../../Sources/FM1Rescue/Resources")
+        for (loader, name) in zip(FlashLoaderImage.bundled, ["mflr-loader-a.bin", "mflr-loader-b.bin"]) {
+            #expect(loader.bytes == [UInt8](try Data(contentsOf: resources.appendingPathComponent(name))))
+        }
+        let notice = try String(contentsOf: resources.appendingPathComponent("NOTICE.md"), encoding: .utf8)
+        #expect(ThirdPartyNotices.text == notice.trimmingCharacters(in: .newlines))
+    }
+
     @Test func startsTheLoaderAndReadsTheChip() throws {
         let chip = SimulatedDownloadMode()
         let session = try FlashSession(connection: chip)

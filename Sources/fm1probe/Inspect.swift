@@ -96,7 +96,8 @@ private func inspectAsJSON(path: String) throws {
             guard let bootloader = BootloaderImage(data: data) else {
                 printJSON(
                     ErrorJSON(
-                        format: "fm1probe-inspect-1", file: path,
+                        format: "fm1probe-inspect-1",
+                        file: path,
                         error: "This isn't an m-bootloader .boot file, or it's damaged."))
                 exit(1)
             }

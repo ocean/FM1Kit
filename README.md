@@ -279,8 +279,8 @@ firmware follow the protocols as M-VAVE's open-source firmware and updater
 container format of kagaimiq's MIT-licensed jl-misctools. Installing m-bootloader and
 download mode follow [m-bootloader](https://github.com/jvitkauskas/m-bootloader)'s
 specification and [M-Flasher](https://github.com/jvitkauskas/m-flasher) (both MIT, Julius
-Vitkauskas), which follows jl-uboot-tool (MIT, Andrey Grigoryev); FM1Rescue bundles
-m-bootloader's flash loader, with its licence. Catching an FM-1 that passes through download
+Vitkauskas), which follows jl-uboot-tool (MIT, Andrey Grigoryev); FM1Rescue builds in
+m-bootloader's flash loader, and `fm1probe licences` prints its licence. Catching an FM-1 that passes through download
 mode, and writing from the top of the flash down, are ideas from Charles Vestal's
 [fm1_rescue](https://github.com/hugelton/felucca-bsp/blob/main/tools/fm1_rescue.py). FM1Kit
 contains no code from GPL-licensed installers. Thanks to M-VAVE for being so encouraging of the

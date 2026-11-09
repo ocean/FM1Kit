@@ -7,6 +7,7 @@ let fm1probeVersion = "0.7.0-dev"
 /// What fm1probe can do, shown for `help` or arguments it doesn't understand.
 let usage = """
     usage: fm1probe --version                  print fm1probe's version
+           fm1probe licences                   print the licences of code and files fm1probe contains
            fm1probe ports                      list MIDI port pairs and which would be probed
            fm1probe devices [--json]           list every FM-1 that answers, numbered for --device
            fm1probe identify [options]         ask the connected FM-1 what it's running

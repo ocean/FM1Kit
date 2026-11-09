@@ -1,5 +1,4 @@
 import CoreMIDI
-import Foundation
 import os
 
 /// Publishes a device's ports as virtual CoreMIDI ports, so other apps can talk to it as they
@@ -118,8 +117,7 @@ public final class CoreMIDIVirtualDevice: @unchecked Sendable {
         // only ever touched from there.
         let assembler = AssemblerBox()
         var destination = MIDIEndpointRef()
-        let destinationStatus = MIDIDestinationCreateWithProtocol(client, name as CFString, ._1_0, &destination) {
-            eventList, _ in
+        let receive: MIDIReceiveBlock = { eventList, _ in
             for packet in eventList.unsafeSequence() {
                 for message in assembler.consume(packet) {
                     observer?(message, .toDevice, name)
@@ -127,6 +125,8 @@ public final class CoreMIDIVirtualDevice: @unchecked Sendable {
                 }
             }
         }
+        let destinationStatus = MIDIDestinationCreateWithProtocol(
+            client, name as CFString, ._1_0, &destination, receive)
         guard destinationStatus == noErr else {
             MIDIEndpointDispose(source)
             throw MIDITransportError.unavailable("MIDIDestinationCreateWithProtocol returned \(destinationStatus)")

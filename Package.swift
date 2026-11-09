@@ -24,10 +24,9 @@ let package = Package(
         .target(
             name: "FM1Rescue",
             dependencies: ["FM1Kit"],
-            resources: [
-                .copy("Resources/mflr-loader-a.bin"), .copy("Resources/mflr-loader-b.bin"),
-                .copy("Resources/NOTICE.md"),
-            ],
+            // The flash loaders and their notice are built into the code by
+            // scripts/embed-flash-loaders.py, so fm1probe needs no resource bundle beside it.
+            exclude: ["Resources"],
             swiftSettings: strictSettings,
             linkerSettings: [.linkedFramework("IOUSBHost", .when(platforms: [.macOS]))]
         ),

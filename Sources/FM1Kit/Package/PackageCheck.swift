@@ -82,7 +82,8 @@ public struct PackageCheck: Sendable, Hashable {
         guard package.isFirmware, let image = package.flashImage else {
             findings = [
                 Finding(
-                    topic: .installing, outcome: .note,
+                    topic: .installing,
+                    outcome: .note,
                     summary: "This package brings an installer, not a firmware, so there's nothing more to check.")
             ]
             return
@@ -109,7 +110,8 @@ public struct PackageCheck: Sendable, Hashable {
         if identity.isOfficial {
             return [
                 Finding(
-                    topic: .identity, outcome: .warning,
+                    topic: .identity,
+                    outcome: .warning,
                     summary: """
                         It reports \(identity.text), M-VAVE's own identity, so apps can't tell it from \
                         M-VAVE's firmware. Give it an identity of its own.
@@ -119,7 +121,8 @@ public struct PackageCheck: Sendable, Hashable {
         if identity.isOpenFirmware {
             return [
                 Finding(
-                    topic: .identity, outcome: .note,
+                    topic: .identity,
+                    outcome: .note,
                     summary: "It reports \(identity.text), in the range of M-VAVE's open firmware.")
             ]
         }
@@ -130,7 +133,8 @@ public struct PackageCheck: Sendable, Hashable {
         let files = area.table().filter { $0.attribute == ApplicationArea.fileAttribute }
         guard let app = files.first(where: { $0.name == "app.bin" }) else {
             return Finding(
-                topic: .chipKey, outcome: .failure,
+                topic: .chipKey,
+                outcome: .failure,
                 summary: String(
                     format: """
                         Its app area doesn't read with the FM-1's chip key (0x%04X): it has no app.bin. \
@@ -143,39 +147,48 @@ public struct PackageCheck: Sendable, Hashable {
         }
         guard damaged.isEmpty else {
             return Finding(
-                topic: .chipKey, outcome: .failure,
+                topic: .chipKey,
+                outcome: .failure,
                 summary:
                     "These files' checksums fail: \(damaged.map(\.name).joined(separator: ", ")). It wouldn't start.")
         }
         return Finding(
-            topic: .chipKey, outcome: .pass,
+            topic: .chipKey,
+            outcome: .pass,
             summary: String(
                 format: "Enciphered for the FM-1's chip key (0x%04X); app.bin is %d bytes and its checksums pass.",
-                ApplicationArea.fm1ChipKey, app.length))
+                ApplicationArea.fm1ChipKey,
+                app.length))
     }
 
     static func flashChips(of package: FwscPackage) -> Finding {
         switch package.flashChipSupport {
         case .bothChips:
             return Finding(
-                topic: .flashChips, outcome: .pass,
+                topic: .flashChips,
+                outcome: .pass,
                 summary: "Its code checks for both FM-1 flash chips, so it saves on FM-1s with the newer one too.")
         case .firstChipOnly:
             return Finding(
-                topic: .flashChips, outcome: .warning,
+                topic: .flashChips,
+                outcome: .warning,
                 summary: String(
                     format: """
                         Its code checks for the first FM-1s' flash chip (0x%06X) alone. On FM-1s sold since \
                         autumn 2026, with the newer chip (0x%06X), it will probably keep saves only until \
                         switched off. Accept both IDs.
-                        """, FM1FlashChip.p25q80, FM1FlashChip.uc25hq80))
+                        """,
+                    FM1FlashChip.p25q80,
+                    FM1FlashChip.uc25hq80))
         case .noCheck:
             return Finding(
-                topic: .flashChips, outcome: .pass,
+                topic: .flashChips,
+                outcome: .pass,
                 summary: "Its code doesn't check which flash chip it has, as V15's doesn't, so it should save on both.")
         case nil:
             return Finding(
-                topic: .flashChips, outcome: .note,
+                topic: .flashChips,
+                outcome: .note,
                 summary: "Its code couldn't be read to see which flash chips it checks for.")
         }
     }
@@ -195,7 +208,8 @@ public struct PackageCheck: Sendable, Hashable {
         guard !regions.isEmpty else {
             return [
                 Finding(
-                    topic: .savedData, outcome: .note,
+                    topic: .savedData,
+                    outcome: .note,
                     summary: "It declares no saved data, so switching firmware leaves nothing of it behind.")
             ]
         }
@@ -225,9 +239,10 @@ public struct PackageCheck: Sendable, Hashable {
         guard findings.isEmpty else { return findings }
         findings.append(
             Finding(
-                topic: .savedData, outcome: .pass,
-                summary:
-                    "It declares \(listed.joined(separator: ", ")), all whole sectors clear of the image and 0xFC000 onwards."
+                topic: .savedData,
+                outcome: .pass,
+                summary: "It declares \(listed.joined(separator: ", ")), "
+                    + "all whole sectors clear of the image and 0xFC000 onwards."
             ))
         let declared = Dictionary(
             regions.map { ($0.name, $0.address..<($0.address + $0.length)) }, uniquingKeysWith: { first, _ in first })
@@ -237,104 +252,13 @@ public struct PackageCheck: Sendable, Hashable {
         if !sharedWithV15.isEmpty {
             findings.append(
                 Finding(
-                    topic: .savedData, outcome: .note,
+                    topic: .savedData,
+                    outcome: .note,
                     summary: """
                         \(sharedWithV15.keys.sorted().joined(separator: ", ")) overlaps space V15 uses differently, \
                         so whatever V15 left there will be read as this firmware's data until it's overwritten. \
                         Check the data's format or a marker before trusting it.
                         """))
-        }
-        return findings
-    }
-
-    static func installing(_ package: FwscPackage) -> [Finding] {
-        let loader: String
-        let feluccaOriginal: Finding
-        switch package.updateLoader {
-        case .feluccas:
-            loader = "Felucca's update loader"
-            feluccaOriginal = Finding(
-                topic: .installing, outcome: .pass,
-                summary:
-                    "Firmwares with Felucca's original update check (Felucca, AMB-1, DUB-1 and others) will install it."
-            )
-        case .mVaves:
-            loader = "M-VAVE's update loader"
-            // M-VAVE's own packages can't change, so it's only worth knowing for them.
-            feluccaOriginal = Finding(
-                topic: .installing, outcome: OfficialFirmware.matching(package) == nil ? .warning : .note,
-                summary: """
-                    Firmwares with Felucca's original update check install it only when the FM-1's bootloader \
-                    matches the package's boot area byte for byte, so not after m-bootloader or V16. Those with \
-                    the fixed check (MIDIMON 0.4, LOOM-8) take it.
-                    """)
-        case .other:
-            loader = "an update loader FM1Kit doesn't recognise"
-            feluccaOriginal = Finding(
-                topic: .installing, outcome: .warning,
-                summary: """
-                    Firmwares with Felucca's original update check accept only M-VAVE's loader or Felucca's, so \
-                    they'll refuse it. Those with the fixed check (MIDIMON 0.4, LOOM-8) take it.
-                    """)
-        }
-        return [
-            Finding(
-                topic: .installing, outcome: .pass,
-                summary: "It brings \(loader). V15, V16 and M-VAVE's open firmware install any package."),
-            feluccaOriginal,
-        ]
-    }
-
-    static func leaving(_ package: FwscPackage) -> [Finding] {
-        guard let stock = LeavingGuide(package: package, bootArea: .v15),
-            let mBootloader = LeavingGuide(package: package, bootArea: .mBootloader)
-        else {
-            return []
-        }
-        let updateCode: String =
-            switch stock.updateCode {
-            case .mVave: "M-VAVE's update code"
-            case .feluccaFixedCheck: "Felucca's fixed update check"
-            case .feluccaOriginalCheck: "Felucca's original update check"
-            case .recognisesV15: "Felucca's original update check, recognising V15"
-            case .ownLoader: "a loader of its own for every package"
-            case .unknown: "update code FM1Kit doesn't recognise"
-            }
-        var findings = [
-            Finding(
-                topic: .leaving, outcome: .note,
-                summary: "Once installed, it installs other firmwares with \(updateCode).")
-        ]
-        let remedy =
-            stock.updateCode == .ownLoader
-            ? "Its own loader takes only images the size of V15's."
-            : "Felucca's fixed update check (felucca-bsp from October 2026) avoids this."
-        for (guide, bootloader) in [(stock, "V15's bootloader"), (mBootloader, "m-bootloader")] {
-            let routes = [LeavingDestination.v15, .v16].map { destination in
-                (destination, guide.route(to: destination))
-            }
-            let blocked = routes.filter { $0.1 == .throughFixedFirmware }.map { $0.0 == .v15 ? "V15" : "V16" }
-            let unsure = routes.filter { $0.1 == .uncertain }.map { $0.0 == .v15 ? "V15" : "V16" }
-            if !blocked.isEmpty {
-                findings.append(
-                    Finding(
-                        topic: .leaving, outcome: .warning,
-                        summary: """
-                            With \(bootloader), it can't install \(blocked.joined(separator: " or ")) directly: going \
-                            back takes MIDIMON 0.4 or LOOM-8 first, or download mode from a Mac. \(remedy)
-                            """))
-            } else if !unsure.isEmpty {
-                findings.append(
-                    Finding(
-                        topic: .leaving, outcome: .note,
-                        summary:
-                            "With \(bootloader), whether it installs \(unsure.joined(separator: " or ")) isn't known."))
-            } else {
-                findings.append(
-                    Finding(
-                        topic: .leaving, outcome: .pass,
-                        summary: "With \(bootloader), it installs V15 and V16 directly."))
-            }
         }
         return findings
     }
@@ -345,12 +269,14 @@ public struct PackageCheck: Sendable, Hashable {
     static func recovery(imageLength: Int) -> Finding {
         imageLength <= transporterLimit
             ? Finding(
-                topic: .recovery, outcome: .pass,
-                summary:
-                    "Its image ends at or before 0x92FFF, so the FM-1 Transporter can put it back on an FM-1 that doesn't start."
+                topic: .recovery,
+                outcome: .pass,
+                summary: "Its image ends at or before 0x92FFF, "
+                    + "so the FM-1 Transporter can put it back on an FM-1 that doesn't start."
             )
             : Finding(
-                topic: .recovery, outcome: .note,
+                topic: .recovery,
+                outcome: .note,
                 summary: String(
                     format: """
                         Its image runs to 0x%05X, past 0x92FFF, where the FM-1 Transporter stops writing, so it \
@@ -361,24 +287,5 @@ public struct PackageCheck: Sendable, Hashable {
     /// A range of flash addresses as text, such as "0x93000–0xE8FFF".
     static func describe(_ range: Range<Int>) -> String {
         String(format: "0x%05X–0x%05X", range.lowerBound, range.upperBound - 1)
-    }
-}
-
-extension FwscPackage {
-    /// Which update loader a package brings, as the update checks of other firmwares tell them apart.
-    package enum UpdateLoader: Sendable, Hashable {
-        /// M-VAVE's, as V15 and V16 bring.
-        case mVaves
-        /// Felucca's, recognised by the text `FELUCCA-LOADER-1`.
-        case feluccas
-        /// Another.
-        case other
-    }
-
-    /// The update loader the package brings.
-    package var updateLoader: UpdateLoader {
-        if loaderSHA256 == OfficialFirmware.stockLoaderSHA256 { return .mVaves }
-        let loader = Array(logicalImage[container.loader.range])
-        return loader.contains(Self.feluccaLoaderMarker) ? .feluccas : .other
     }
 }

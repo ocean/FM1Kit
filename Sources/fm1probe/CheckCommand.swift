@@ -27,8 +27,12 @@ func checkPackage(_ arguments: [String]) throws {
     if isJSON {
         printJSON(
             CheckJSON(
-                file: path, product: package.product, sha256: package.sha256, passes: report.passes,
-                worst: report.worst, findings: report.findings))
+                file: path,
+                product: package.product,
+                sha256: package.sha256,
+                passes: report.passes,
+                worst: report.worst,
+                findings: report.findings))
         if !report.passes || (strict && report.worst == .warning) { exit(1) }
         return
     }

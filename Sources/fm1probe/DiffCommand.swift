@@ -20,6 +20,8 @@ struct DiffField: Encodable {
     }
 }
 
+// Its properties are read only by the encoder Swift writes for it.
+// swiftlint:disable unused_declaration
 /// `diff --json`.
 struct DiffJSON: Encodable {
     let format = "fm1probe-diff-1"
@@ -30,6 +32,7 @@ struct DiffJSON: Encodable {
     let fields: [DiffField]
     let parts: [FlashComparison.Part]
 }
+// swiftlint:enable unused_declaration
 
 /// Runs `diff`: compares two packages or two flash backups, part by part; sends nothing.
 ///

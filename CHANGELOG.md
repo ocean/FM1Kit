@@ -48,8 +48,17 @@ All notable changes to FM1Kit are recorded here. The project follows
   package, and prints each message and what the simulated FM-1 does. `fm1probe install` was run
   against it end to end, from V15 to AMB-1, through CoreMIDI.
 - `SimulatedFM1` says when it ignores the upgrade command because it wasn't given a package.
-- `fm1probe --version`. fm1probe can be installed with Homebrew from `ocean/tap` once this
-  release is out: `brew install ocean/tap/fm1probe` builds it from source.
+- `fm1probe --version`, and `fm1probe licences`, which prints the licences of the code and files
+  it contains. fm1probe can be installed with Homebrew from `ocean/tap` once this release is out:
+  `brew install ocean/tap/fm1probe` builds it from source.
+
+### Changed
+
+- FM1Rescue builds m-bootloader's flash loader into its code, rather than shipping it in a
+  resource bundle, so fm1probe is one file and an app using FM1Rescue has no bundle to copy.
+  Without the bundle beside it, fm1probe's download-mode commands used to crash.
+  `scripts/embed-flash-loaders.py` regenerates the code from `Sources/FM1Rescue/Resources/`, and
+  a test checks it matches them and m-bootloader v1.2's published SHA-256s.
 
 ### Fixed
 
