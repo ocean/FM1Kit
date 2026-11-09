@@ -102,6 +102,12 @@ case "diff" where arguments.dropFirst().filter({ !$0.hasPrefix("--") }).count ==
     let files = arguments.dropFirst().filter { !$0.hasPrefix("--") }
     diff(files[0], files[1])
 
+case "simulate":
+    let seconds = option("--seconds").flatMap(Int.init)
+    let valued = Set(["--identity", "--flash-chip", "--seconds"].compactMap(option))
+    let packagePath = arguments.dropFirst().first { !$0.hasPrefix("--") && !valued.contains($0) }
+    try await simulate(packagePath: packagePath, seconds: seconds)
+
 case "watch":
     let transport = try CoreMIDITransport(clientName: "fm1probe")
     let seconds = arguments.dropFirst().first.flatMap(Int.init) ?? 60

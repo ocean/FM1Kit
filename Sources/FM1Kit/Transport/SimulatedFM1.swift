@@ -227,6 +227,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
 
     /// Starts staging or writing, depending on whether the loader is running.
     private func startSession(on connection: SimulatedConnection) {
+        let hasPackage = state.withLock { $0.expected != nil }
+        if !hasPackage {
+            log("The upgrade command arrived, but no package was given to expect, so it's ignored.")
+        }
         state.withLock { state in
             guard state.session == nil, let expected = state.expected else { return }
             let isLoader = state.mode == .loader

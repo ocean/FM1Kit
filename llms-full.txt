@@ -109,6 +109,7 @@ The package's second library uses the chip's USB download mode, which works even
 - `InstallProgress`, `FM1Advice`, `FM1DeviceSummary` (structs): one progress bar, plain advice for any error, and the connected FM-1 in plain terms.
 - `CoreMIDITransport` (class): CoreMIDI connections to real devices.
 - `SimulatedFM1` (class): a software FM-1 that speaks the update protocol and open firmware's project library, for the iOS Simulator and tests.
+- `CoreMIDIVirtualDevice` (class): publishes a `SimulatedFM1` (or any `MIDITransport`) as virtual CoreMIDI ports, recreating them as it restarts, so other apps can update it.
 
 ## Safety rules it enforces
 
@@ -127,6 +128,7 @@ swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum, or a .bin backup's firmware
 swift run fm1probe check FILE.fwsc       # pre-release report on a package (PackageCheck); exits 1 on failures
 swift run fm1probe diff FIRST SECOND     # compare two packages or two .bin backups part by part (FlashComparison)
+swift run fm1probe simulate FILE.fwsc     # simulated FM-1 on a virtual MIDI port that checks an updater against FILE.fwsc
 # devices, identify, inspect, check and diff take --json: one object, "format" such as "fm1probe-check-1"
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices

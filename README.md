@@ -176,6 +176,7 @@ protocol in software for the iOS Simulator and tests.
 | `USBDownloadModeConnection`, `SimulatedDownloadMode` (FM1Rescue, macOS) | Download mode over USB (needs root), and in software |
 | `CoreMIDITransport` | CoreMIDI connections to real devices |
 | `SimulatedFM1` | A software FM-1 for the Simulator and tests |
+| `CoreMIDIVirtualDevice` | Publishes a `SimulatedFM1` on virtual CoreMIDI ports, for testing other updaters |
 
 FM1Kit sticks to the device. Finding and downloading firmwares is left to your app.
 
@@ -195,6 +196,7 @@ swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum (or a .boot file's, or a .bin backup's firmware)
 swift run fm1probe check FILE.fwsc       # pre-release report for firmware developers (--strict for CI, --json)
 swift run fm1probe diff FIRST SECOND     # compare two packages or two .bin backups, part by part (--json)
+swift run fm1probe simulate FILE.fwsc     # a simulated V15 on a virtual MIDI port, for testing updaters
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
@@ -206,6 +208,13 @@ sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-b
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
 swift run fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin  # make a flash image for the FM-1 Transporter
 ```
+
+To test an updater of your own, or M-UPGRADE, without risking an FM-1, run `fm1probe simulate
+FILE.fwsc`: a simulated FM-1 appears as the MIDI port "FM-1 Midi (simulated)", checks every byte
+the updater sends against the package, restarts into its update loader as a real one does (the
+port goes away and comes back), and prints each message and what it does. `--identity
+FM-1_8000012` makes it report another firmware, `--loader` starts it in its update loader,
+`--flash-chip B36014` reports the newer flash chip, and `--seconds N` stops it after N seconds.
 
 `devices`, `identify`, `inspect`, `check` and `diff` take `--json` for scripts and CI: one JSON object
 on standard output, whose `format` names its layout and version (such as `fm1probe-check-1`).

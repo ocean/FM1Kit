@@ -290,6 +290,19 @@ final class CoreMIDIConnection: MIDIConnection, @unchecked Sendable {
 
     func send(_ sysex: [UInt8]) throws {
         guard !isClosed.withLock({ $0 }) else { throw MIDITransportError.portGone }
+        try Self.withEventList(for: sysex) { eventList in
+            MIDISendEventList(transport.outputPort, destination, eventList)
+        }
+    }
+
+    /// Packs `sysex` into a MIDI 1.0 event list of type 3 packets and passes it to `deliver`.
+    ///
+    /// - Parameters:
+    ///   - sysex: A complete `F0 … F7` message.
+    ///   - deliver: Sends the list, such as `MIDISendEventList` or `MIDIReceivedEventList`.
+    /// - Throws: ``MIDITransportError/sendFailed(_:)`` when the list can't be built or `deliver`
+    ///   returns an error.
+    static func withEventList(for sysex: [UInt8], _ deliver: (UnsafePointer<MIDIEventList>) -> OSStatus) throws {
         let packets = UMPSysex7.packets(for: sysex)
         // Packets with the same timestamp share event packets of up to 64 words; allow a spare.
         let eventPacketCount = packets.count * 2 / Self.wordsPerEventPacket + 2
@@ -311,7 +324,7 @@ final class CoreMIDIConnection: MIDIConnection, @unchecked Sendable {
         }
         guard current != nil else { throw MIDITransportError.sendFailed(-1) }
 
-        let status = MIDISendEventList(transport.outputPort, destination, eventList)
+        let status = deliver(eventList)
         guard status == noErr else { throw MIDITransportError.sendFailed(status) }
     }
 
@@ -334,29 +347,31 @@ final class CoreMIDIConnection: MIDIConnection, @unchecked Sendable {
     }
 }
 
-/// Holds the SysEx assembler for a connection's receive block.
-private final class AssemblerBox: @unchecked Sendable {
+/// Holds the SysEx assembler for a receive block: a connection's, or a virtual destination's.
+final class AssemblerBox: @unchecked Sendable {
     // Sendable: CoreMIDI calls a port's receive block serially, and nothing else touches this.
 
     private var assembler = UMPSysex7.Assembler()
 
     /// The complete SysEx messages that end in this event packet.
+    ///
+    /// The words are read where the packet is, not from a copy of its `words` field: that field
+    /// holds 64, and a packet may carry more, as CoreMIDI's packets between apps do.
     func consume(_ packet: UnsafePointer<MIDIEventPacket>) -> [[UInt8]] {
         let wordCount = Int(packet.pointee.wordCount)
+        guard let offset = MemoryLayout<MIDIEventPacket>.offset(of: \.words) else { return [] }
+        let words = UnsafeBufferPointer(
+            start: (UnsafeRawPointer(packet) + offset).assumingMemoryBound(to: UInt32.self), count: wordCount)
         var messages: [[UInt8]] = []
-        withUnsafeBytes(of: packet.pointee.words) { raw in
-            let words = raw.bindMemory(to: UInt32.self)
-            let available = min(wordCount, words.count)
-            var index = 0
-            while index < available {
-                let size = UMPSysex7.wordCount(forFirstWord: words[index])
-                if size == 2, words[index] >> 28 == UMPSysex7.messageType, index + 1 < available,
-                    let message = assembler.consume(words[index], words[index + 1])
-                {
-                    messages.append(message)
-                }
-                index += size
+        var index = 0
+        while index < words.count {
+            let size = UMPSysex7.wordCount(forFirstWord: words[index])
+            if size == 2, words[index] >> 28 == UMPSysex7.messageType, index + 1 < words.count,
+                let message = assembler.consume(words[index], words[index + 1])
+            {
+                messages.append(message)
             }
+            index += size
         }
         return messages
     }

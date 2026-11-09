@@ -40,6 +40,19 @@ All notable changes to FM1Kit are recorded here. The project follows
   Differences are given as runs of 4 KB sectors.
   fm1probe's `diff FIRST SECOND [--json]` prints it for two packages or two backups, after what
   differs about the files as a whole, and exits with 0, 1 or 2 as diff(1) does.
+- `CoreMIDIVirtualDevice`: publishes a `SimulatedFM1`, or any `MIDITransport`, as virtual CoreMIDI
+  ports, so other apps (M-UPGRADE, a web updater, your own) can talk to it as to an FM-1. When it
+  restarts into its update loader, the ports go away and come back, as a USB device's do.
+- fm1probe's `simulate [FILE.fwsc] [--identity ID] [--loader] [--flash-chip HEX] [--seconds N]`
+  runs one, reporting V15 unless told otherwise, checks every byte an updater sends against the
+  package, and prints each message and what the simulated FM-1 does. `fm1probe install` was run
+  against it end to end, from V15 to AMB-1, through CoreMIDI.
+- `SimulatedFM1` says when it ignores the upgrade command because it wasn't given a package.
+
+### Fixed
+
+- SysEx arriving in a CoreMIDI event packet longer than 64 words was cut short and lost. FM-1s
+  send short packets over USB, but CoreMIDI joins a long message into one packet between apps.
 
 ## [0.6.0] - 2026-11-07
 

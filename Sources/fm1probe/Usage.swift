@@ -26,6 +26,17 @@ let usage = """
                                                part by part: boot area, app table, each file, each
                                                saved-data region and the rest; exits with 0 when
                                                they're the same, 1 when they differ, 2 on trouble
+           fm1probe simulate [FILE.fwsc] [options]
+                                               a simulated FM-1 on the virtual MIDI port "FM-1 Midi
+                                               (simulated)", for testing updaters; it checks every
+                                               byte sent against FILE.fwsc and prints each message
+               --identity ID                   report this firmware, such as FM-1_8000012 (default
+                                               FM-1_015)
+               --loader                        start in the update loader
+               --flash-chip HEX                report this flash chip, such as B36014
+               --seconds N                     stop after N seconds (default: at Ctrl-C)
+               --all                           print every read, not every 100th
+               --hex                           print every message's bytes
            fm1probe install FILE.fwsc [options]
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader

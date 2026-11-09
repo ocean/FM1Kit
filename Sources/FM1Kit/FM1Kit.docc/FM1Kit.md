@@ -49,6 +49,11 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - ``OpenFirmwareBackup``
 - ``OpenFirmwareProject``
 
+### Checking and comparing packages
+
+- ``PackageCheck``
+- ``FlashComparison``
+
 ### Switching away from a firmware
 
 - ``LeavingGuide``
@@ -79,6 +84,7 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - ``MIDIPortDescriptor``
 - ``CoreMIDITransport``
 - ``SimulatedFM1``
+- ``CoreMIDIVirtualDevice``
 - ``SysexInbox``
 - ``MIDITransportError``
 
@@ -88,3 +94,4 @@ FM1Kit isn't affiliated with M-VAVE, and installing custom firmware is at your o
 - ``FM1ReadRequest``
 - ``SevenBit``
 - ``UMPSysex7``
+- ``FM1MessageDescription``
