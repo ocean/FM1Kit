@@ -215,6 +215,9 @@ case "watch":
 case "inspect" where arguments.count == 2:
     try inspect(path: arguments[1])
 
+case "check" where arguments.count >= 2:
+    try checkPackage(arguments)
+
 case "restore-voices" where arguments.count >= 2:
     try await restoreVoices(
         path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))

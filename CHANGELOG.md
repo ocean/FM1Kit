@@ -14,6 +14,13 @@ All notable changes to FM1Kit are recorded here. The project follows
   0x92FFF, which it won't write, is refused with `FlashPlanError.outsideTransporterRange(_:)`.
 - fm1probe's `flash-image FILE.fwsc BACKUP.bin IMAGE.bin [--flash-id HEX]` saves that image,
   talking to no device.
+- `PackageCheck`: a pre-release report on a firmware package, read from the package alone.
+  It checks that the image is enciphered for the FM-1's chip key with whole files, which flash
+  chips its code checks for, and that its saved data is whole sectors clear of the image and of
+  `0xFC000` onwards. It also says which firmwares will install it, by the update loader it brings,
+  how people can switch from it to V15 and V16 with V15's bootloader or m-bootloader, and whether
+  the FM-1 Transporter can put it back. fm1probe's `check FILE.fwsc [--strict]` prints it and
+  exits with 1 on a failure, or on a warning with `--strict`.
 
 ## [0.6.0] - 2026-11-07
 

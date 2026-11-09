@@ -11,6 +11,10 @@ let usage = """
            fm1probe inspect FILE               show a package's identity, size and hash, or which
                                                m-bootloader a .boot file or installer package holds,
                                                or the bootloader and firmware in a flash backup (.bin)
+           fm1probe check FILE.fwsc [--strict] a firmware developer's pre-release report: chip key,
+                                               flash chips, saved data, which firmwares install it and
+                                               how people switch away from it; exits with 1 on a
+                                               failure, or on a warning with --strict
            fm1probe install FILE.fwsc [options]
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
