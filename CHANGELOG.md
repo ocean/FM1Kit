@@ -51,6 +51,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `fm1probe --version`, and `fm1probe licences`, which prints the licences of the code and files
   it contains. fm1probe can be installed with Homebrew from `ocean/tap` once this release is out:
   `brew install ocean/tap/fm1probe` builds it from source.
+- A Release workflow checks each release's tag matches `fm1probeVersion`, then opens a pull
+  request in ocean/homebrew-tap that moves the formula to the release.
 
 ### Changed
 
