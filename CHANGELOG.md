@@ -33,6 +33,13 @@ All notable changes to FM1Kit are recorded here. The project follows
   all), and with `--log FILE` writes every message, bytes and all, as `install --log` does.
   `replay LOG.csv` prints such a log, summing up each run of image reads (`--all` for each one),
   then counts by kind, the identities in order and the longest silence. Older logs replay too.
+- `FlashComparison`, `FwscPackage.compared(with:)` and `FlashBackup.compared(with:)`: two
+  flash images compared part by part: the boot area, the app table, each file (deciphered), each
+  region declared for saved data (such as `VM`, `BTIF`, `USR` or `SEQ64`), the data every
+  firmware keeps from `0xFC000`, the factory data from `0xFF000`, and everything else.
+  Differences are given as runs of 4 KB sectors.
+  fm1probe's `diff FIRST SECOND [--json]` prints it for two packages or two backups, after what
+  differs about the files as a whole, and exits with 0, 1 or 2 as diff(1) does.
 
 ## [0.6.0] - 2026-11-07
 

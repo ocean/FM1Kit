@@ -22,6 +22,10 @@ let usage = """
                                                how people switch away from it; exits with 1 on a
                                                failure, or on a warning with --strict; --json prints
                                                the findings as JSON
+           fm1probe diff FIRST SECOND [--json] compare two packages or two flash backups (.bin),
+                                               part by part: boot area, app table, each file, each
+                                               saved-data region and the rest; exits with 0 when
+                                               they're the same, 1 when they differ, 2 on trouble
            fm1probe install FILE.fwsc [options]
                                                write a firmware to the FM-1, after asking to confirm
                --resume                        finish an update on an FM-1 waiting in its update loader
@@ -87,7 +91,7 @@ let usage = """
                --log FILE                      write every message to and from the device to a new
                                                CSV file
 
-    With --json, devices, identify, inspect and check print one JSON object on standard output,
+    With --json, devices, identify, inspect, check and diff print one JSON object on standard output,
     whose "format" names its layout, such as "fm1probe-check-1"; fields that aren't known are left
     out. Anything else they say goes to standard error.
 

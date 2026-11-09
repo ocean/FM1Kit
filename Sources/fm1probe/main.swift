@@ -98,6 +98,10 @@ case "monitor":
 case "replay" where arguments.count >= 2:
     try replay(path: arguments[1], showsEveryMessage: arguments.contains("--all"))
 
+case "diff" where arguments.dropFirst().filter({ !$0.hasPrefix("--") }).count == 2:
+    let files = arguments.dropFirst().filter { !$0.hasPrefix("--") }
+    diff(files[0], files[1])
+
 case "watch":
     let transport = try CoreMIDITransport(clientName: "fm1probe")
     let seconds = arguments.dropFirst().first.flatMap(Int.init) ?? 60

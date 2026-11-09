@@ -366,7 +366,7 @@ public struct PackageCheck: Sendable, Hashable {
 
 extension FwscPackage {
     /// Which update loader a package brings, as the update checks of other firmwares tell them apart.
-    enum UpdateLoader: Sendable, Hashable {
+    package enum UpdateLoader: Sendable, Hashable {
         /// M-VAVE's, as V15 and V16 bring.
         case mVaves
         /// Felucca's, recognised by the text `FELUCCA-LOADER-1`.
@@ -376,7 +376,7 @@ extension FwscPackage {
     }
 
     /// The update loader the package brings.
-    var updateLoader: UpdateLoader {
+    package var updateLoader: UpdateLoader {
         if loaderSHA256 == OfficialFirmware.stockLoaderSHA256 { return .mVaves }
         let loader = Array(logicalImage[container.loader.range])
         return loader.contains(Self.feluccaLoaderMarker) ? .feluccas : .other

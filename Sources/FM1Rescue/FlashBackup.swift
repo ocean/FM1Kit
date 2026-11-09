@@ -187,4 +187,16 @@ extension FlashSession {
         )
     }
 }
+
+extension FlashBackup {
+    /// Compares this backup with another, part by part: boot area, app table, files, the regions
+    /// either firmware declares, the data every firmware keeps from `0xFC000`, the factory data
+    /// and the rest.
+    ///
+    /// - Parameter other: The second backup, perhaps of another FM-1.
+    /// - Returns: The comparison.
+    public func compared(with other: FlashBackup) -> FlashComparison {
+        FlashComparison((bytes, chipKey), (other.bytes, other.chipKey))
+    }
+}
 #endif
