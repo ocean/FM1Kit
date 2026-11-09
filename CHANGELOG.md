@@ -48,6 +48,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   package, and prints each message and what the simulated FM-1 does. `fm1probe install` was run
   against it end to end, from V15 to AMB-1, through CoreMIDI.
 - `SimulatedFM1` says when it ignores the upgrade command because it wasn't given a package.
+- `fm1probe --version`. fm1probe can be installed with Homebrew from `ocean/tap` once this
+  release is out: `brew install ocean/tap/fm1probe` builds it from source.
 
 ### Fixed
 

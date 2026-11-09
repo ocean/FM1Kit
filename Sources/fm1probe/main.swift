@@ -76,6 +76,9 @@ func handshake(_ connection: any MIDIConnection) async -> HandshakeAnswer? {
 }
 
 switch arguments.first {
+case "--version", "version":
+    print("fm1probe \(fm1probeVersion)")
+
 case "devices":
     try await listDevices()
 

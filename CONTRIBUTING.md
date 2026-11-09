@@ -25,3 +25,15 @@ If you install firmware with FM1Kit, please open an issue saying:
 - Match the surrounding style: Australian/British spelling in names and comments, comments
   ending in a full stop, and doc comments on everything public.
 - Never add M-VAVE's firmware files, or code copied from GPL-licensed installers.
+
+## Releasing
+
+Releases are Drew's call. For each one:
+
+1. Set `fm1probeVersion` in `Sources/fm1probe/Usage.swift` to the release's number, such as
+   `0.7.0`, and move CHANGELOG.md's Unreleased section under it.
+2. Update `llms.txt` and `llms-full.txt`, then tag the release with its number alone (no `v`).
+3. In [ocean/homebrew-tap](https://github.com/ocean/homebrew-tap), point `Formula/fm1probe.rb`'s
+   `url` at the tag's source archive and set its `sha256`, then check it with
+   `brew install --build-from-source ocean/tap/fm1probe` and `brew test fm1probe`.
+4. Set `fm1probeVersion` to the next number with `-dev`, such as `0.8.0-dev`.
