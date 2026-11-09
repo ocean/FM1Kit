@@ -189,7 +189,8 @@ it reads; each asks you to type YES first:
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
 swift run fm1probe identify --repeat 20  # ask the connected FM-1 what it's running, 20 times
-swift run fm1probe monitor 30            # print any SysEx the FM-1 sends for 30 s
+swift run fm1probe monitor 30            # name each SysEx message the FM-1 sends for 30 s (--log FILE, --hex)
+swift run fm1probe replay LOG.csv        # print a --log file, naming each message (--all for every read)
 swift run fm1probe watch 60              # show ports as devices come and go
 swift run fm1probe inspect FILE.fwsc     # show a package's identity, size and checksum (or a .boot file's, or a .bin backup's firmware)
 swift run fm1probe check FILE.fwsc       # pre-release report for firmware developers (--strict for CI, --json)

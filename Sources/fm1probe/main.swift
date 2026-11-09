@@ -91,43 +91,12 @@ case "identify":
     try await identify()
 
 case "monitor":
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
-    let seconds = arguments.dropFirst().first.flatMap(Int.init) ?? 30
-    var connections: [any MIDIConnection] = []
-    for port in await transport.ports() {
-        if let connection = try? await transport.open(port) { connections.append(connection) }
-    }
-    if connections.isEmpty {
-        print("No MIDI ports to listen on. Is the FM-1 connected and switched on?")
-        exit(1)
-    }
-    print("Listening on \(connections.map(\.port.name).joined(separator: ", ")) for \(seconds) s. Nothing is sent.")
-    let deadline = ContinuousClock.now + .seconds(seconds)
-    let received = await withTaskGroup(of: Int.self) { group in
-        for connection in connections {
-            group.addTask {
-                var count = 0
-                while ContinuousClock.now < deadline {
-                    if let message = await connection.receive(timeout: deadline - ContinuousClock.now) {
-                        count += 1
-                        print("\(timestamp())  \(connection.port.name)  \(message.count) bytes  \(hex(message))")
-                    }
-                    if connection.isLost {
-                        print("\(timestamp())  \(connection.port.name)  disconnected")
-                        return count
-                    }
-                }
-                return count
-            }
-        }
-        var total = 0
-        for await count in group { total += count }
-        return total
-    }
-    for connection in connections {
-        connection.close()
-    }
-    print("Stopped listening: \(received) SysEx \(received == 1 ? "message" : "messages") received.")
+    let logPath = option("--log")
+    let seconds = arguments.dropFirst().first { Int($0) != nil && $0 != logPath }.flatMap(Int.init) ?? 30
+    try await monitor(seconds: seconds, logPath: logPath, showsHex: arguments.contains("--hex"))
+
+case "replay" where arguments.count >= 2:
+    try replay(path: arguments[1], showsEveryMessage: arguments.contains("--all"))
 
 case "watch":
     let transport = try CoreMIDITransport(clientName: "fm1probe")

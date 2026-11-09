@@ -6,8 +6,12 @@ let usage = """
                --repeat N                      ask N times and report timings and failures
                --port NAME                     ask this port even if its name doesn't look like an FM-1
                --json                          print the answers as JSON
-           fm1probe monitor [SECONDS]          print every SysEx message any port sends (default 30 s);
+           fm1probe monitor [SECONDS]          name every SysEx message any port sends (default 30 s);
                                                sends nothing
+               --log FILE                      also write each message, bytes and all, to a new CSV file
+               --hex                           print every message's bytes
+           fm1probe replay LOG.csv [--all]     print a log that --log wrote, naming each message;
+                                               runs of image reads are summed up unless --all
            fm1probe watch [SECONDS]            print the ports each time devices come or go (default 60 s)
            fm1probe inspect FILE               show a package's identity, size and hash, or which
                                                m-bootloader a .boot file or installer package holds,

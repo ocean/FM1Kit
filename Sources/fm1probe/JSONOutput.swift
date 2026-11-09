@@ -37,12 +37,7 @@ struct FlashChipJSON: Encodable {
 
     init(_ id: UInt32) {
         self.id = String(format: "0x%06X", id)
-        name =
-            switch id {
-            case FM1FlashChip.p25q80: "P25Q80"
-            case FM1FlashChip.uc25hq80: "UC25HQ80"
-            default: nil
-            }
+        name = FM1FlashChip.name(id)
     }
 }
 

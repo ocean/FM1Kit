@@ -25,6 +25,14 @@ All notable changes to FM1Kit are recorded here. The project follows
   standard output, whose `format` names its layout and version (`fm1probe-devices-1`,
   `fm1probe-identify-1`, `fm1probe-inspect-1`, `fm1probe-check-1`). Fields that aren't known are
   left out, and anything else goes to standard error.
+- `FM1MessageDescription`: names a SysEx message to or from an FM-1 and what it carries: the
+  handshake and identities, the update protocol's reads, finishes and responses, V15's voice bank
+  messages, open firmware's capability, arming and project library messages, and MIDI's device
+  inquiry. A known command with a bad checksum says so.
+- fm1probe's `monitor` names each message, shows the bytes of those it doesn't know (`--hex` for
+  all), and with `--log FILE` writes every message, bytes and all, as `install --log` does.
+  `replay LOG.csv` prints such a log, summing up each run of image reads (`--all` for each one),
+  then counts by kind, the identities in order and the longest silence. Older logs replay too.
 
 ## [0.6.0] - 2026-11-07
 
