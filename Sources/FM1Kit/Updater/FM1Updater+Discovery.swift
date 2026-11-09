@@ -16,11 +16,12 @@ public struct FoundDevice: Sendable {
 extension FM1Updater {
     /// The ports to probe, leaving out the other devices' when the updater works with one.
     ///
-    /// Those are the ports that look like an FM-1's, apart from the ports of the devices listed
-    /// alongside ``device``. Those keep their port while connected; this device comes back on a
-    /// new one after restarting, which is told from theirs by serial number when it has one.
+    /// Those are the ports that look like an FM-1's and those the person chose, apart from the
+    /// ports of the devices listed alongside ``device``. Those keep their port while connected;
+    /// this device comes back on a new one after restarting, which is told from theirs by serial
+    /// number when it has one.
     func probeablePorts() async -> [MIDIPortDescriptor] {
-        let ports = await transport.ports().filter(Self.isProbeable)
+        let ports = await transport.ports().filter(probes)
         guard let device else { return ports }
         let otherIDs = Set(device.otherPorts.map(\.id))
         // A serial number the chosen device shares can't tell the others from it.

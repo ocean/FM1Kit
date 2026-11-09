@@ -116,4 +116,8 @@ let usage = """
 
     With more than one FM-1 connected, install, install-bootloader, restore-voices, backup and
     download-mode need --device N (as `fm1probe devices` numbers them) or --device SERIAL.
+
+    devices, install, install-bootloader, restore-voices, backup and download-mode only ask ports
+    whose names look like an FM-1's. For a firmware that renames its port, add --port NAME to ask
+    the ports whose names contain NAME too; `fm1probe ports` lists them.
     """

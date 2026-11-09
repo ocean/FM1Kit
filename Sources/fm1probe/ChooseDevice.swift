@@ -1,8 +1,10 @@
 import FM1Kit
+import Foundation
 
 /// Prints every device that answers, numbered for `--device`.
 func listDevices() async throws {
-    let devices = await FM1Updater(transport: try CoreMIDITransport(clientName: "fm1probe")).devices()
+    let transport = try CoreMIDITransport(clientName: "fm1probe")
+    let devices = await FM1Updater(transport: transport, alsoProbing: await chosenPortNames(transport)).devices()
     if isJSON {
         printJSON(DevicesJSON(devices))
         if devices.isEmpty { fail() }
@@ -20,9 +22,10 @@ func listDevices() async throws {
 /// Stops with the list of devices when more than one answers and `--device` doesn't name one of
 /// them. With none answering, the updater is returned as it is, for the command to report that.
 func chosenUpdater(_ transport: any MIDITransport) async -> FM1Updater {
-    let devices = await FM1Updater(transport: transport).devices()
+    let portNames = await chosenPortNames(transport)
+    let devices = await FM1Updater(transport: transport, alsoProbing: portNames).devices()
     let wanted = option("--device")
-    guard devices.count > 1 || wanted != nil else { return FM1Updater(transport: transport) }
+    guard devices.count > 1 || wanted != nil else { return FM1Updater(transport: transport, alsoProbing: portNames) }
     guard let wanted else {
         print("\(devices.count) devices answered. Choose one with --device N or --device SERIAL:")
         printDevices(devices)
@@ -39,7 +42,22 @@ func chosenUpdater(_ transport: any MIDITransport) async -> FM1Updater {
         printDevices(devices)
         fail()
     }
-    return FM1Updater(transport: transport, device: device)
+    return FM1Updater(transport: transport, device: device, alsoProbing: portNames)
+}
+
+/// The names of the ports `--port NAME` matches, for the updater to probe as well as those that
+/// look like an FM-1's; stops fm1probe if it matches none.
+func chosenPortNames(_ transport: any MIDITransport) async -> Set<String> {
+    guard let wanted = option("--port") else { return [] }
+    let ports = await transport.ports()
+    let names = ports.flatMap { [$0.name, $0.usbProductName].compactMap(\.self) }.filter { name in
+        name.localizedCaseInsensitiveContains(wanted)
+    }
+    guard !names.isEmpty else {
+        print("No port matches \"\(wanted)\". Run `fm1probe ports` to see their names.")
+        fail()
+    }
+    return Set(names)
 }
 
 /// Prints devices numbered from 1, in the order `--device N` counts them.

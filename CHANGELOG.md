@@ -51,6 +51,11 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `fm1probe --version`, and `fm1probe licences`, which prints the licences of the code and files
   it contains. fm1probe can be installed with Homebrew from `ocean/tap` once this release is out:
   `brew install ocean/tap/fm1probe` builds it from source.
+- `FM1Updater(transport:timing:device:alsoProbing:)` and `FM1Updater.probes(_:)`: an updater also
+  probes the ports a person chose, for a firmware that renames its USB port so `isProbeable(_:)`
+  leaves it out. Each name matches a port's name or USB product name exactly, ignoring case, so
+  the choice holds when the FM-1 comes back on a new port. fm1probe's `devices`, `install`,
+  `install-bootloader`, `restore-voices`, `backup` and `download-mode` take `--port NAME`.
 - A Release workflow checks each release's tag matches `fm1probeVersion`, then opens a pull
   request in ocean/homebrew-tap that moves the formula to the release.
 

@@ -95,6 +95,16 @@ do {
 The updater only sends SysEx to ports whose names look like an FM-1
 (``FM1Updater/isProbeable(_:)``), so other MIDI gear connected at the same time is left alone.
 
+Some firmwares rename their USB port, so the updater leaves the FM-1 alone too. Show the ports
+it leaves out (``MIDITransport/ports()`` that ``FM1Updater/isProbeable(_:)`` turns down), and let
+the person choose one to try. Then make the updater with that port's name: probing it sends only
+the handshake query, which changes nothing.
+
+```swift
+let updater = FM1Updater(transport: transport, alsoProbing: [port.name])
+let devices = await updater.devices()
+```
+
 macOS keeps the name it first saw for a USB device's IDs and socket, so a firmware that shares
 another's USB IDs can show under the other's name. On macOS,
 ``MIDIPortDescriptor/usbProductName`` is the name the device reports now; show it when it differs

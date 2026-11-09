@@ -6,14 +6,15 @@
 /// open firmware is asked about its update support and armed first; see ``FM1Capability``.
 ///
 /// When more than one FM-1 is connected, list them with ``devices()`` and make an updater for the
-/// one chosen, with ``init(transport:timing:device:)``. An updater made without a device refuses to
+/// one chosen, with ``init(transport:timing:device:alsoProbing:)``. An updater made without a device refuses to
 /// start while more than one answers. An install that switches the FM-1 to a different firmware
 /// needs confirming; see ``check(_:buildID:)``.
 ///
 /// Installs and resumes support cooperative cancellation. Cancelling while the loader is writing
 /// leaves the device in its loader, where ``resume(_:events:)`` can finish the update later.
 public actor FM1Updater {
-    /// Only ports whose names contain one of these are probed, so SysEx is never sent to other gear.
+    /// Only ports whose names contain one of these are probed, so SysEx is never sent to other gear,
+    /// apart from the ports the person chooses (``chosenPortNames``).
     public static let probeablePortNameFragments = [
         "fm-1", "fm1", "felucca", "ota", "composite", "usb-midi", "simulated",
         // Other firmwares' update loaders, as M-VAVE's updater looks for them.
@@ -26,6 +27,9 @@ public actor FM1Updater {
     public let timing: UpdaterTiming
     /// The device this updater works with, or `nil` for whichever one FM-1 is connected.
     public let device: FM1DeviceSummary?
+    /// The names of ports the person chose to probe too, though they don't look like an FM-1's,
+    /// in lower case.
+    public let chosenPortNames: Set<String>
 
     /// Creates an updater.
     ///
@@ -36,10 +40,21 @@ public actor FM1Updater {
     ///     connected. The updater leaves the other devices listed with it alone, and follows this
     ///     one as it restarts into its update loader and back, which brings it back on a new
     ///     port. `nil` works with whichever one is connected.
-    public init(transport: any MIDITransport, timing: UpdaterTiming = .standard, device: FM1DeviceSummary? = nil) {
+    ///   - portNames: The names of ports to probe as well as those that look like an FM-1's, for a
+    ///     firmware that renames its USB port. Let the person choose them from the ports
+    ///     ``isProbeable(_:)`` leaves out. Each matches a port's ``MIDIPortDescriptor/name`` or
+    ///     ``MIDIPortDescriptor/usbProductName`` exactly, ignoring case, so the choice still holds
+    ///     when the device comes back on a new port.
+    public init(
+        transport: any MIDITransport,
+        timing: UpdaterTiming = .standard,
+        device: FM1DeviceSummary? = nil,
+        alsoProbing portNames: Set<String> = []
+    ) {
         self.transport = transport
         self.timing = timing
         self.device = device
+        chosenPortNames = Set(portNames.map { $0.lowercased() })
     }
 
     /// Whether the updater would send SysEx to a port.
@@ -51,6 +66,17 @@ public actor FM1Updater {
         [port.name, port.usbProductName].compactMap { $0?.lowercased() }.contains { name in
             probeablePortNameFragments.contains { name.contains($0) }
         }
+    }
+
+    /// Whether this updater sends SysEx to a port: one that looks like an FM-1's, or one the
+    /// person chose (``chosenPortNames``).
+    ///
+    /// - Parameter port: A port pair from ``MIDITransport/ports()``.
+    /// - Returns: `true` when ``isProbeable(_:)`` does, or when the port's name, or the name its USB
+    ///   device reports, is one of ``chosenPortNames``.
+    nonisolated public func probes(_ port: MIDIPortDescriptor) -> Bool {
+        let names = [port.name, port.usbProductName].compactMap { $0?.lowercased() }
+        return Self.isProbeable(port) || names.contains(where: chosenPortNames.contains)
     }
 
     /// Asks what the connected FM-1 is running.

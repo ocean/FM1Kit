@@ -2,7 +2,7 @@
 /// waiting part-way through an update, and which FM-1 it is.
 ///
 /// ``FM1Updater/devices()`` lists every device connected, so a person can choose one when
-/// there's more than one; ``FM1Updater/init(transport:timing:device:)`` then works with it alone.
+/// there's more than one; ``FM1Updater/init(transport:timing:device:alsoProbing:)`` then works with it alone.
 public struct FM1DeviceSummary: Sendable, Hashable, Identifiable {
     /// What the FM-1 reports.
     public let identity: FM1Identity
@@ -102,12 +102,13 @@ extension FM1Updater {
 
     /// Lists every device connected, without changing any of them.
     ///
-    /// Only the handshake query is sent, to each port whose name looks like an FM-1's, and the query
-    /// for the full identity when an answer may have left something out. More than
-    /// one FM-1 can be connected, and other M-VAVE devices may answer too: ``FM1DeviceSummary/identity``
-    /// says which model each is. Let the person choose one, then make an updater that works with
-    /// it alone (``init(transport:timing:device:)``). An updater that already works with one
-    /// device lists only that one.
+    /// Only the handshake query is sent, to each port whose name looks like an FM-1's or that the
+    /// person chose, and the query for the full identity when an answer may have left something
+    /// out. More than one FM-1 can be connected, and other M-VAVE devices may answer too:
+    /// ``FM1DeviceSummary/identity`` says which model each is. Let the person choose one, then make
+    /// an updater that works with it alone (``init(transport:timing:device:alsoProbing:)``), with
+    /// the same chosen port names. An updater that already works with one device lists only that
+    /// one.
     ///
     /// - Returns: The devices that answered, in the order the system lists their ports.
     public func devices() async -> [FM1DeviceSummary] {
