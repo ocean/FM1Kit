@@ -9,10 +9,9 @@ FM-1's own key combinations and download mode depend on that firmware.
 Before following it, try the routes in the README's [Recovery](README.md#recovery) section. They
 need no extra hardware.
 
-> **Not yet tried end to end on a real FM-1.** Each piece has been checked on its own, as
-> described below: the downloaded files, the source they're built from, the web app and the
-> image `fm1probe flash-image` makes. The whole recovery hasn't been run on hardware yet. Go
-> slowly, and stop at any step that doesn't show what's described.
+> **Tried end to end once, on 11 November 2026.** An FM-1 that showed nothing on USB was backed
+> up, V15 was written and checked, and it started again. That's one FM-1, with the first flash
+> chip and a Debug Probe. Go slowly, and stop at any step that doesn't show what's described.
 
 ## How it works
 
@@ -90,6 +89,18 @@ Where these hashes come from:
 - **The web app** is that same commit's `web/index.html`. It loads nothing from the network.
   - Use this local copy rather than the hosted page, which can change at any time.
 
+On a Mac, this version of the web app loses data during a backup: it stalls just under half
+way and says "timeout". Give it a larger receive buffer, then check the new hash:
+
+```sh
+sed -i '' 's/baudRate:115200}/baudRate:115200,bufferSize:1<<20}/' index.html
+shasum -a 256 index.html
+```
+
+It should now be 9,615 bytes, with SHA-256
+`6115e90063fda39f4f52ad76b57a2aa2ba0f20331771d873feee0a03afc3b18f`. The one change is the
+`port.open` line.
+
 Check the V15 package too:
 
 ```sh
@@ -103,7 +114,11 @@ Its product should be `FM-1_015`, with SHA-256
 
 1. Open the Debug Probe's lid.
 2. Hold its BOOTSEL button while plugging it into the Mac. A drive named `RPI-RP2` appears.
-3. Drag `fm1_transporter_debugprobe.uf2` onto that drive. The probe restarts as the Transporter.
+3. Drag `fm1_transporter_debugprobe.uf2` onto that drive. The probe restarts as the Transporter,
+   and its red LED blinks.
+
+If the Mac's device management stops `RPI-RP2` mounting, do this step on another computer. The
+probe keeps the firmware, and the Mac only needs to see its serial ports.
 
 The RP2040's own boot loader is in ROM, so this can't stop the probe being reflashed later.
 [Step 7](#7-put-the-debug-probe-back) puts its usual firmware back.
@@ -135,21 +150,26 @@ Serve the folder from your own Mac. Chrome only allows Web Serial on secure page
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-Then open <http://localhost:8000/index.html> in Chrome or Edge.
+Then open <http://localhost:8000/index.html> in Chrome or Edge, with the FM-1 still switched
+off and the probe's red LED blinking.
 
 1. **Connect:** pick the Transporter's second serial port. If it says to pick the other one,
    do that.
-2. **Loader:** choose `wl82loader.bin`. It should show Loaded.
-3. **FM-1:** for an FM-1 that shows nothing, keep it switched off.
-   1. Press **Reconnect**.
-   2. Pick the port again, and choose the loader again.
-   3. Switch the FM-1 on, then press **Check**.
-
-   It should show `key=980F` and `id=856014`. The app stops for any other chip.
+2. **Switch the FM-1 on.** Wait until the probe's red LED stops blinking, briefly shows other
+   colours, then shows green alone: the green LED by the UART connector. The FM-1 is now in
+   the boot ROM's download mode.
+3. **Loader:** only now, choose `wl82loader.bin`. It should show Loaded.
+   - Until the LED is green, the Transporter answers nothing but a ping, so choosing the loader
+     early only says "timeout".
+   - To start again: switch the FM-1 off, reload the page, unplug the probe and plug it back
+     in. This version's Reconnect button doesn't free the serial port, so the next Connect
+     says "No port selected".
+4. **FM-1:** press **Check**. It should show `key=980F` and `id=856014`. The app stops for
+   any other chip.
 
    > **Note:** this version of the app only accepts the first FM-1s' flash chip, `856014`. It
    > refuses the newer chip (`B36014`), so FM-1s that have it can't be recovered with it yet.
-4. **Backup:** the app reads the whole flash twice. If both reads match, it saves the flash as
+5. **Backup:** the app reads the whole flash twice, which takes under a minute. If both reads match, it saves the flash as
    `fm1-backup-….bin` in your downloads.
    - Keep that file somewhere safe.
    - **Leave this tab open:** the app writes only if the FM-1 still matches the backup taken in
@@ -175,10 +195,13 @@ a firmware for this chip key, or if it reaches past what the Transporter writes.
 
 ## 6. Write V15
 
-1. In the web app's **Write** step, choose `v15-image.bin`, press **Write**, and confirm.
+1. In the web app's **Write** step, choose `v15-image.bin`, press **Write**, and confirm. It
+   asks to write the number of sectors `flash-image` listed.
    - The app reads the flash first and stops if it no longer matches the backup.
    - It then writes only the sectors that differ, and reads everything back to check them.
-2. **Don't switch the FM-1 off until it says Done.** If the check fails, write again.
+2. **Don't switch the FM-1 off until it's finished.** This version folds each step away when
+   it finishes, hiding its message. Done shows as the Write step's number turning green. If
+   the check fails, write again.
 3. When it says Done, switch the FM-1 off, wait 5 seconds, unplug the pigtail and switch it on.
    V15 should start. Its voices can be restored with `fm1probe restore-voices FM-1.fwsc` if
    they need it.
