@@ -185,10 +185,11 @@ can tell people before they install it.
 Firmwares built on the platform's fixed update code, such as MIDIMON 0.4 and LOOM-8 0.8, take
 V15 and open firmware over any bootloader, and the original check lets them in, because they
 bring Felucca's own loader. So the way back to V15 from an iPhone or iPad is two installs:
-MIDIMON 0.4 or LOOM-8 first, then V15 (tested on hardware in October 2026, from Felucca 1.6.1
-over both m-bootloader and the open firmware's bootloader). The advice for both errors is
-``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also installs V15, and
-keeps the FM-1's bootloader unless told to install V15's.
+MIDIMON 0.4 first, then V15 (tested on hardware in October 2026, from Felucca 1.6.1 over both
+m-bootloader and the open firmware's bootloader, with MIDIMON and LOOM-8). FM1Kit suggests only
+MIDIMON: from 0.8, LOOM-8's sounds need files that only its own installer sends. The advice for
+both errors is ``FM1Advice/Action/chooseAnotherFirmware``. Download mode, from a Mac, also
+installs V15, and keeps the FM-1's bootloader unless told to install V15's.
 
 V16 leaves its data in V15's voice area, including V15's settings record (`0xFBD80`), which no
 install over USB-MIDI clears. V15 installed after V16, however it gets there, plays one note at a
@@ -203,7 +204,7 @@ picks a firmware, passing the bootloader the FM-1 has if the app knows it, and s
 ``LeavingGuide/warnings`` before installing. Save it with the FM-1 once the install succeeds, and
 pass its ``LeavingGuide/updateCode`` as `installedBy` when making the next one. When the person
 wants to switch away, ``LeavingGuide/route(to:)`` says whether the firmware takes the destination
-directly, only through MIDIMON 0.4 or LOOM-8, or isn't known to, and
+directly, only through MIDIMON 0.4, or isn't known to, and
 ``LeavingGuide/instructions(to:)`` gives the steps in words.
 
 ```swift

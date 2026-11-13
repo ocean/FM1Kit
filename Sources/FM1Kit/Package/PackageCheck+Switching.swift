@@ -80,7 +80,7 @@ extension PackageCheck {
                         outcome: .warning,
                         summary: """
                             With \(bootloader), it can't install \(blocked.joined(separator: " or ")) directly: going \
-                            back takes MIDIMON 0.4 or LOOM-8 first, or download mode from a Mac. \(remedy)
+                            back takes MIDIMON 0.4 first, or download mode from a Mac. \(remedy)
                             """))
             } else if !unsure.isEmpty {
                 findings.append(

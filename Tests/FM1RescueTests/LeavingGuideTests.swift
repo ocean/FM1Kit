@@ -35,7 +35,7 @@ struct LeavingGuideTests {
             guide.instructions(to: .v15) == [
                 "Felucca 1.6.1 can't install V15 directly: its update check refuses it while the FM-1 has "
                     + "m-bootloader.",
-                "Install MIDIMON 0.4 or LOOM-8 first: Felucca 1.6.1 can install either.",
+                "Install MIDIMON 0.4 first: Felucca 1.6.1 can install it.",
                 "Then install V15 from that.",
                 "On a Mac, installing V15 in download mode works whatever firmware is running.",
             ])

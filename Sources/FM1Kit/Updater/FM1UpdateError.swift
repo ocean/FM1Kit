@@ -200,8 +200,8 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             different bootloader from V15, so they refuse V16 on an FM-1 with V15's bootloader, and \
             refuse V15 once the FM-1's bootloader has been changed, by m-bootloader, M-VAVE's open \
             firmware or V16. First install a firmware with Felucca's updated check, such as MIDIMON \
-            0.4 or LOOM-8, which takes V15, or install V15 from a Mac in the chip's USB download \
-            mode. After V16, install V15 with its own bootloader there, and start it fresh.
+            0.4, which takes V15, or install V15 from a Mac in the chip's USB download mode. After \
+            V16, install V15 with its own bootloader there, and start it fresh.
             """
         case .packageRefused(let requests):
             """
@@ -211,8 +211,8 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             update loaders they don't recognise this way, and those based on Felucca 1.6.1 refuse \
             M-VAVE's open firmware and V16 too. TransitFM1 refuses them as well, since it takes only \
             firmware images the size of V15's. First install a firmware with Felucca's updated check, \
-            such as MIDIMON 0.4 or LOOM-8, which takes V15, V16 and open firmware, or install it from \
-            a Mac in the chip's USB download mode.
+            such as MIDIMON 0.4, which takes V15, V16 and open firmware, or install it from a Mac in \
+            the chip's USB download mode.
             """
         case .stalled(.staging, let requests), .disconnected(.staging, let requests):
             """
