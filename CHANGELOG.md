@@ -5,6 +5,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-13
+
 ### Added
 
 - `FlashPlan.installingWithTransporter(_:onto:flashID:)` and `FlashPlan.transporterWritable`:
@@ -68,8 +70,7 @@ All notable changes to FM1Kit are recorded here. The project follows
   against it end to end, from V15 to AMB-1, through CoreMIDI.
 - `SimulatedFM1` says when it ignores the upgrade command because it wasn't given a package.
 - `fm1probe --version`, and `fm1probe licences`, which prints the licences of the code and files
-  it contains. fm1probe can be installed with Homebrew from `ocean/tap` once this release is out:
-  `brew install ocean/tap/fm1probe` builds it from source.
+  it contains. A Homebrew formula in `ocean/tap` is on its way.
 - `FM1Updater(transport:timing:device:alsoProbing:)` and `FM1Updater.probes(_:)`: an updater also
   probes the ports a person chose, for a firmware that renames its USB port so `isProbeable(_:)`
   leaves it out. Each name matches a port's name or USB product name exactly, ignoring case, so
@@ -87,7 +88,7 @@ All notable changes to FM1Kit are recorded here. The project follows
   resource bundle, so fm1probe is one file and an app using FM1Rescue has no bundle to copy.
   Without the bundle beside it, fm1probe's download-mode commands used to crash.
   `scripts/embed-flash-loaders.py` regenerates the code from `Sources/FM1Rescue/Resources/`, and
-  a test checks it matches them and m-bootloader v1.2's published SHA-256s.
+  a test checks it matches them and m-bootloader v2.3's published SHA-256s.
 
 ### Fixed
 
@@ -518,7 +519,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/ocean/FM1Kit/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/ocean/FM1Kit/compare/0.5.1...0.6.0
 [0.5.1]: https://github.com/ocean/FM1Kit/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ocean/FM1Kit/compare/0.5.0-beta.1...0.5.0
