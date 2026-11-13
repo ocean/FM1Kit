@@ -54,8 +54,7 @@ func makeTransporterImage(_ arguments: [String]) throws {
         print("Nothing to write: the backup already holds this firmware, so no image was made.")
         return
     }
-    let runs = plan.runs.map { String(format: "0x%05X–0x%05X", $0.lowerBound, $0.upperBound - 1) }
-    print("The Transporter will write \(plan.sectors.count) sectors of 4 KB: \(runs.joined(separator: ", ")).")
+    print("The Transporter will write \(describeSectors(plan)).")
 
     do {
         try Data(plan.target).write(to: imageURL, options: .withoutOverwriting)

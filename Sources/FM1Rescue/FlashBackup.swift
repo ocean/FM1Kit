@@ -17,7 +17,8 @@ public struct FlashBackup: Sendable, Hashable {
     public let chipKey: UInt16
     /// The flash chip's JEDEC ID.
     public let flashID: UInt32
-    /// The flash loader that read it.
+    /// The flash loader that read it: m-bootloader's loader's version, such as `1.3`, or a
+    /// description of another loader, such as the FM-1 Transporter's.
     public let loaderVersion: String
     /// When it was read.
     public let date: Date
@@ -134,6 +135,11 @@ public struct FlashBackup: Sendable, Hashable {
         return (flashURL, descriptionURL)
     }
 
+    /// The loader in words, as the `.json` names it.
+    var loaderDescription: String {
+        loaderVersion.contains(" ") ? loaderVersion : "m-bootloader's flash loader \(loaderVersion)"
+    }
+
     /// The `.json`, laid out as M-Flasher writes it, which reads the unit ID back from it.
     func description(saved stamp: String) -> String {
         let firmware = firmware
@@ -145,7 +151,7 @@ public struct FlashBackup: Sendable, Hashable {
             ("chip key", String(format: "0x%04X", chipKey)),
             ("flash", String(format: "0x%06X", flashID)),
             ("unit id", uniqueID ?? "–"),
-            ("loader", "m-bootloader's flash loader \(loaderVersion)"),
+            ("loader", loaderDescription),
             ("sha256", sha256),
             ("saved", stamp),
             ("tool", "FM1Kit"),

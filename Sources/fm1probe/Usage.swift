@@ -103,6 +103,27 @@ let usage = """
                                                the Transporter just took; talks to no device
                --flash-id HEX                  the flash ID the Transporter showed, such as 856014,
                                                for a backup without a .json
+           fm1probe transporter ACTION [options]
+                                               work with an FM-1 that shows nothing on USB, through
+                                               the FM-1 Transporter (see RECOVERY.md); no sudo
+               status                          what the Transporter reports; sends nothing to the FM-1
+               check                           wait for the FM-1 in boot mode, start the flash loader
+                                               and check its chip
+               backup FOLDER                   read the whole flash twice and save it
+               install FILE.fwsc FOLDER        install a firmware, writing only 0x04000–0x92FFF
+               restore BACKUP.bin FOLDER       put a backup back, if it differs only there
+                                               install and restore read the flash and save it to
+                                               FOLDER first, show what changes, write only after you
+                                               type YES, then read it all back to check
+               start                           leave boot mode and start the firmware
+               --loader wl82loader.bin         start jl-uboot-tool's flash loader instead of
+                                               m-bootloader's built-in one, which needs Transporter
+                                               firmware that takes a loader's address and size
+               --port PATH                     the Transporter's data port, such as
+                                               /dev/cu.usbmodem21103, instead of looking for it
+               --wait SECONDS                  how long to wait for the FM-1 (default 120)
+               --simulated BACKUP.bin          run against a simulated Transporter and FM-1 holding
+                                               this backup
            fm1probe backup FOLDER [options]    save the projects and sample bank of an FM-1 running
                                                M-VAVE's open firmware to a new folder, after asking
                                                to confirm

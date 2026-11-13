@@ -14,6 +14,25 @@ All notable changes to FM1Kit are recorded here. The project follows
   0x92FFF, which it won't write, is refused with `FlashPlanError.outsideTransporterRange(_:)`.
 - fm1probe's `flash-image FILE.fwsc BACKUP.bin IMAGE.bin [--flash-id HEX]` saves that image,
   talking to no device.
+- `Transporter`, `SerialTransporterLink` and `SimulatedTransporter`: work with an FM-1 through the
+  FM-1 Transporter's data port, without its web app. `waitForBootMode(timeout:waiting:)` waits
+  for the FM-1 to be switched on (or asks a running V15 to switch), `sendLoader(_:status:)` sends
+  m-bootloader's flash loader, built in, or jl-uboot-tool's `wl82loader.bin` after checking its
+  SHA-256 (`Transporter.Loader`). m-bootloader's needs Transporter firmware whose `ldr` request
+  takes a loader's address and size; with v0.1.0's, `TransporterError.loaderNotTaken` says to
+  use `wl82loader.bin`. `chip()` refuses a chip that isn't an FM-1's, `backUp(_:progress:)` reads
+  the flash twice against the Transporter's CRC-32, and `write(_:progress:)` checks the flash
+  still matches the plan's backup, writes only the changed sectors from the top down and reads it
+  all back. Errors are `TransporterError`.
+- fm1probe's `transporter status|check|backup|install|restore|start`, with `--loader
+  wl82loader.bin` (instead of m-bootloader's), `--port PATH`, `--wait SECONDS` and `--simulated
+  BACKUP.bin`. It finds the Transporter by the name it gives itself on USB, needs no sudo, saves
+  the flash before writing, and writes only after the person types YES (tested on hardware in
+  November 2026, with both loaders).
+- `FlashPlan.afterwards`: what to do once a plan is written. Installing with the Transporter over
+  another firmware warns that its saved data stays (the Transporter can't write it), and says to
+  install again in download mode with `--erase-saved-data` once the firmware runs. V15 over Jiant
+  FM played every note with portamento (seen on hardware in November 2026).
 - `PackageCheck`: a pre-release report on a firmware package, read from the package alone.
   It checks that the image is enciphered for the FM-1's chip key with whole files, which flash
   chips its code checks for, and that its saved data is whole sectors clear of the image and of

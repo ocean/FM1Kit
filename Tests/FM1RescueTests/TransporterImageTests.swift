@@ -36,6 +36,7 @@ struct TransporterImageTests {
         }
         let plan = try FlashPlan.installingWithTransporter(package, onto: dump, flashID: 0x85_6014)
         #expect(!plan.isEmpty)
-        #expect(plan.warnings.count == 1)
+        // The model the flash ID shows, and the saved data the unnamed firmware may have left.
+        #expect(plan.warnings.count == 2)
     }
 }

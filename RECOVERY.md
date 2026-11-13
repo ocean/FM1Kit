@@ -143,6 +143,19 @@ On a pigtail whose terminals are labelled by symbol, the shield is often the squ
 
 ## 4. Open the web app
 
+Or skip the web app: `fm1probe transporter` does steps 4 to 6 from Terminal, and needs no
+`index.html`. It hasn't been tried on hardware yet. With the FM-1 switched off and the probe's
+red LED blinking:
+
+```sh
+swift run fm1probe transporter check --loader wl82loader.bin
+swift run fm1probe transporter install FM-1.fwsc backups --loader wl82loader.bin
+```
+
+`check` waits for you to switch the FM-1 on, then checks the chip. `install` reads the flash
+twice and saves it in `backups`, shows the sectors V15 changes, writes them after you type YES,
+and reads everything back. Then go on to the end of step 6.
+
 Serve the folder from your own Mac. Chrome only allows Web Serial on secure pages, and
 `localhost` counts as one:
 

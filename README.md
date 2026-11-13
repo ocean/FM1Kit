@@ -207,6 +207,8 @@ sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup ba
 sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware (--with-bootloader, --erase-saved-data)
 swift run fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin  # make a flash image for the FM-1 Transporter
+swift run fm1probe transporter backup FOLDER  # back up through the FM-1 Transporter
+swift run fm1probe transporter install FILE.fwsc FOLDER  # install through it
 ```
 
 To test an updater of your own, or M-UPGRADE, without risking an FM-1, run `fm1probe simulate
@@ -234,6 +236,16 @@ writes a full flash image, only the sectors from 0x4000 to 0x92FFF that differ. 
 makes that image from a firmware package and the backup it just took
 (`FlashPlan.installingWithTransporter(_:onto:flashID:)`); add `--flash-id` with the ID the
 Transporter showed, such as `856014`, since its backups have no `.json`. It talks to no device.
+
+`fm1probe transporter` does the same without the web app, talking to the Transporter's data port
+(`Transporter`). `check` waits for the FM-1 to be switched on, starts the flash loader and checks
+the chip; `backup FOLDER` reads the flash twice and saves it as `flash-backup` does; `install
+FILE.fwsc FOLDER` and `restore BACKUP.bin FOLDER` save the flash first, show what changes, write
+only after you type YES and read it all back. They start m-bootloader's flash loader, built in,
+which needs Transporter firmware whose loader request takes the loader's address and size;
+v0.1.0's takes only jl-uboot-tool's `wl82loader.bin`, which FM1Kit doesn't include, so add
+`--loader wl82loader.bin` (RECOVERY.md says where to get it). `--simulated BACKUP.bin` rehearses
+against a simulated Transporter.
 
 [HARDWARE_TESTING.md](HARDWARE_TESTING.md) is the plan for checking FM1Kit on a real FM-1,
 and records the results so far.

@@ -25,6 +25,10 @@ extension FlashPlan {
     /// - Throws: As ``installing(_:onto:includingBootloader:erasingSavedData:)``, or
     ///   ``FlashPlanError/outsideTransporterRange(_:)`` when the firmware reaches past what the
     ///   Transporter writes.
+    ///
+    /// The saved data stays as it is, because the Transporter doesn't write it. Over another
+    /// firmware, the plan warns that the new one may misread what the old one left there, and its
+    /// ``afterwards`` says to install it again in download mode, erasing saved data.
     public static func installingWithTransporter(
         _ package: FwscPackage,
         onto dump: FlashBackup,
@@ -40,9 +44,23 @@ extension FlashPlan {
                 date: dump.date
             )
         }
-        let plan = try installing(package, onto: current ?? dump)
+        var plan = try installing(package, onto: current ?? dump)
         if let sector = plan.sectors.first(where: { !transporterWritable.contains($0) }) {
             throw .outsideTransporterRange(sector)
+        }
+        if (current ?? dump).firmware.identities != [package.identity.text] {
+            plan.warnings.append(
+                """
+                The firmware this replaces keeps its saved data above 0x92FFF, which the \
+                Transporter can't write, and the new firmware may misread it: V15 over another \
+                firmware can play its voices with the wrong settings.
+                """)
+            plan.afterwards.append(
+                """
+                Once it's running, install it again from a Mac in download mode, erasing saved data: \
+                `sudo fm1probe flash-install FILE.fwsc FOLDER --erase-saved-data`.\
+                \(package.hasFactoryVoices ? " That also puts V15's factory voices back." : "")
+                """)
         }
         return plan
     }

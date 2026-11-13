@@ -35,7 +35,9 @@ public struct FlashPlan: Sendable, Hashable {
     /// What it does, in sentences.
     public let notes: [String]
     /// What to know before confirming, in sentences.
-    public let warnings: [String]
+    public internal(set) var warnings: [String]
+    /// What to do once it's written, in sentences.
+    public internal(set) var afterwards: [String] = []
 
     /// The FM-1's flash sector size.
     public static let sectorLength = 0x1000

@@ -140,6 +140,11 @@ sudo .build/debug/fm1probe flash-restore BACKUP.bin FOLDER     # put a backup ba
 sudo .build/debug/fm1probe flash-bootloader fm1-uboot.boot FOLDER  # install m-bootloader (or M-VAVE's, from FM-1.fwsc)
 sudo .build/debug/fm1probe flash-install FILE.fwsc FOLDER      # install a firmware in download mode
 swift run fm1probe flash-image FILE.fwsc BACKUP.bin IMAGE.bin --flash-id 856014  # flash image for the FM-1 Transporter's web app
+swift run fm1probe transporter check  # through the FM-1 Transporter: wait for boot mode, start m-bootloader's loader, check the chip
+swift run fm1probe transporter backup FOLDER  # read the flash twice and save it
+swift run fm1probe transporter install FILE.fwsc FOLDER  # save, confirm with YES, write 0x4000–0x92FFF, read back
+# transporter also takes restore BACKUP.bin FOLDER, status, start, --port PATH, --wait SECONDS, --simulated BACKUP.bin,
+# and --loader wl82loader.bin for Transporter firmware v0.1.0, which takes only that loader
 # the flash- commands take --wait SECONDS to catch an FM-1 that only passes through download mode
 ```
 

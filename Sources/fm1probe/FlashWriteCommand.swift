@@ -79,8 +79,7 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
         print("Nothing to write: the FM-1 already holds this. Switch it off and on to leave download mode.")
         return
     }
-    let runs = plan.runs.map { String(format: "0x%05X–0x%05X", $0.lowerBound, $0.upperBound - 1) }
-    print("Writes \(plan.sectors.count) sectors of 4 KB: \(runs.joined(separator: ", ")).")
+    print("Writes \(describeSectors(plan)).")
     for warning in plan.warnings { print("Warning: \(warning)") }
 
     let files = try save(current, to: backupsPath)
@@ -177,4 +176,11 @@ private func confirmFlashWrite(_ plan: FlashPlan) -> Bool {
         """)
     print("Type YES to write to the FM-1, or anything else to stop: ", terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
+}
+
+/// The sectors a plan changes, such as "143 sectors of 4 KB: 0x04000–0x92FFF".
+func describeSectors(_ plan: FlashPlan) -> String {
+    let runs = plan.runs.map { String(format: "0x%05X–0x%05X", $0.lowerBound, $0.upperBound - 1) }
+    let count = plan.sectors.count
+    return "\(count) sector\(count == 1 ? "" : "s") of 4 KB: \(runs.joined(separator: ", "))"
 }

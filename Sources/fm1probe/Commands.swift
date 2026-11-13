@@ -101,6 +101,9 @@ func runCommand() async throws {
     case "flash-image":
         try makeTransporterImage(arguments)
 
+    case "transporter":
+        try runTransporter(arguments)
+
     case "install-bootloader" where arguments.count >= 2:
         try await installBootloader(
             path: arguments[1],
