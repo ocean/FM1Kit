@@ -8,9 +8,11 @@ All notable changes to FM1Kit are recorded here. The project follows
 ### Changed
 
 - `LeavingGuide`, `PackageCheck`, `FM1UpdateError`'s `bootloaderMismatch` and `packageRefused`,
-  and `fm1probe inspect` suggest only MIDIMON 0.4 as the firmware to install first when one
-  refuses V15, V16 or open firmware. LOOM-8 still takes them, but from 0.8 its sounds need files
-  that only its own installer sends, so installed on its own it would sound broken.
+  and `fm1probe inspect` suggest only MIDIMON 0.5 as the firmware to install first when one
+  refuses V15, V16 or open firmware. MIDIMON 0.5 is the first to know the newer flash chip:
+  on an FM-1 with that chip, 0.4 may not install the next firmware. LOOM-8 still takes them, but
+  from 0.8 its sounds need files that only its own installer sends, so installed on its own it
+  would sound broken. MIDIMON 0.5 hasn't been tested on hardware yet.
 
 ## [0.7.0] - 2026-11-13
 

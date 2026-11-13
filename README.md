@@ -94,7 +94,7 @@ step.
 
 Many firmwares built on Felucca's platform, from before its October 2026 fix, refuse V15, V16 or
 M-VAVE's open firmware, depending on the FM-1's bootloader. From an iPhone, the way past them is
-two installs: MIDIMON 0.4 first, then the firmware wanted. `PackageCheck` reports this and other
+two installs: MIDIMON 0.5 first, then the firmware wanted. `PackageCheck` reports this and other
 problems in a package before it's installed, and `LeavingGuide` works out how to switch away
 from a firmware before it goes on, with steps in plain words.
 
