@@ -5,6 +5,8 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
 ### Changed
 
 - `LeavingGuide`, `PackageCheck`, `FM1UpdateError`'s `bootloaderMismatch` and `packageRefused`,
@@ -13,6 +15,8 @@ All notable changes to FM1Kit are recorded here. The project follows
   on an FM-1 with that chip, 0.4 may not install the next firmware. LOOM-8 still takes them, but
   from 0.8 its sounds need files that only its own installer sends, so installed on its own it
   would sound broken. MIDIMON 0.5 hasn't been tested on hardware yet.
+- The README is rewritten, and covers the FM-1 Transporter, `LeavingGuide` and `PackageCheck`.
+  HARDWARE_TESTING.md records the Transporter tests as stage Y.
 
 ## [0.7.0] - 2026-11-13
 
@@ -528,7 +532,8 @@ The first release.
 - `fm1probe install` shows what the install would do and warns before switching firmware, and
   takes `--build-id`; `fm1probe identify` warns when more than one FM-1 answers.
 
-[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/ocean/FM1Kit/compare/0.7.1...HEAD
+[0.7.1]: https://github.com/ocean/FM1Kit/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/ocean/FM1Kit/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/ocean/FM1Kit/compare/0.5.1...0.6.0
 [0.5.1]: https://github.com/ocean/FM1Kit/compare/0.5.0...0.5.1

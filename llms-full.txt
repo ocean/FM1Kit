@@ -1,6 +1,6 @@
 # FM1Kit
 
-> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.7.0, not affiliated with M-VAVE.
+> A Swift package for installing firmware on the M-VAVE FM-1 over USB-MIDI, from iOS and macOS. MIT licence, latest release 0.7.1, not affiliated with M-VAVE.
 
 Part of Drew Robinson's FM-1 projects: https://fm-1.drewr.dev/ (see /llms-full.txt there for the others). Source, DocC documentation and changelog: https://github.com/ocean/FM1Kit
 
@@ -22,7 +22,7 @@ Tested on one FM-1 so far, from a Mac: installing M-VAVE's official V15, Felucca
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.7.0")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.7.1")),
 ]
 ```
 
