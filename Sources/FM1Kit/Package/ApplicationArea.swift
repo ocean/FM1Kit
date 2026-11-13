@@ -123,7 +123,7 @@ extension FwscPackage {
     /// (``FM1UpdateError/bootloaderMismatch(requests:)``), as well as m-bootloader's installer
     /// (``FM1UpdateError/packageRefused(requests:)``): it only installs other firmwares on
     /// Felucca's platform. Going back to V15 then means installing one of those with the fixed
-    /// check first, such as MIDIMON 0.4, or the chip's USB download mode, from a Mac.
+    /// check first, such as MIDIMON 0.5, or the chip's USB download mode, from a Mac.
     /// Apps can warn before installing such a firmware on an FM-1 whose bootloader may have
     /// been changed.
     ///

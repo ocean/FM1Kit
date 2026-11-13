@@ -73,7 +73,7 @@ public enum LeavingRoute: String, Sendable, Hashable, Codable {
     /// Install it as usual.
     case direct
     /// The firmware refuses it: install a firmware with the fixed check first, such as
-    /// MIDIMON 0.4, then the destination from that.
+    /// MIDIMON 0.5, then the destination from that.
     case throughFixedFirmware
     /// Not known: try installing it, and if it's refused, go through a firmware with the fixed
     /// check.
@@ -219,9 +219,10 @@ public struct LeavingGuide: Sendable, Hashable, Codable {
 
     /// The firmware with the fixed check to suggest.
     ///
-    /// LOOM-8 has it too, but from 0.8 its sounds need files that only its own installer sends,
-    /// so it would sound broken installed alone.
-    static let fixedFirmwares = "MIDIMON 0.4"
+    /// MIDIMON 0.5 is the first to know the newer flash chip as well as the first. LOOM-8 has the
+    /// fixed check too, but from 0.8 its sounds need files that only its own installer sends, so
+    /// it would sound broken installed alone.
+    static let fixedFirmwares = "MIDIMON 0.5"
 
     /// True when the firmware reports the official firmware's identity without being it.
     private var reportsOfficialIdentity: Bool {
