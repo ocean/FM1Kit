@@ -43,15 +43,15 @@ struct DownloadModeTests {
 
     @Test func bundlesBothLoaders() {
         #expect(FlashLoaderImage.bundled.map(\.address) == [0x01C2_0000, 0x01C2_8000])
-        #expect(FlashLoaderImage.bundled.map(\.version) == ["1.2", "1.2"])
+        #expect(FlashLoaderImage.bundled.map(\.version) == ["1.3", "1.3"])
     }
 
-    /// The loaders built into the code are m-bootloader v1.2's, byte for byte, and match the
+    /// The loaders built into the code are m-bootloader v2.3's (flash loader 1.3), byte for byte, and match the
     /// files in Resources: `scripts/embed-flash-loaders.py` has been run since they last changed.
     @Test func embedsTheReleasedLoaders() throws {
         let released = [
-            "7286e044586ba693d0c3bacd4a05aa44cee090dd30c085caebe0db8421000794",
-            "ab35a1ff14d9eceb57055311bfff1d10a87cd21fee8f6628ce0261d580f383f9",
+            "ae0cdf4965cc2438a362e933ccf11d41159322d67f2dc630a61ab84cc58e04d7",
+            "6f9d97fcd3b16a74dd2b056ebca5e516c56a1c789a4b46b5afdd824d42fd684f",
         ]
         #expect(FlashLoaderImage.bundled.map { FwscPackage.sha256Hex($0.bytes) } == released)
         let resources = URL(fileURLWithPath: #filePath)
@@ -66,8 +66,8 @@ struct DownloadModeTests {
     @Test func startsTheLoaderAndReadsTheChip() throws {
         let chip = SimulatedDownloadMode()
         let session = try FlashSession(connection: chip)
-        #expect(chip.runningLoaderVersion == "1.2")
-        #expect(session.loaderVersion == "1.2")
+        #expect(chip.runningLoaderVersion == "1.3")
+        #expect(session.loaderVersion == "1.3")
         #expect(session.clockMHz == 96)
         #expect(session.chipKey == 0x980F)
         #expect(session.flashID == 0x85_6014)
@@ -79,7 +79,7 @@ struct DownloadModeTests {
         let chip = SimulatedDownloadMode()
         _ = try FlashSession(connection: chip)
         let again = try FlashSession(connection: chip)
-        #expect(again.loaderVersion == "1.2")
+        #expect(again.loaderVersion == "1.3")
     }
 
     @Test func refusesWhenAnotherLoaderIsRunning() {

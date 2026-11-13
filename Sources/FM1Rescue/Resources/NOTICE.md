@@ -4,12 +4,12 @@
 its USB download mode, built for RAM `0x01C20000` and `0x01C28000`. FM1Rescue builds them into
 its code (`FlashLoaderImage+Embedded.swift`, made by `scripts/embed-flash-loaders.py`), so
 fm1probe is one file. They're byte-identical to the files in m-bootloader's release
-[v1.2](https://github.com/jvitkauskas/m-bootloader/releases/tag/v1.2), as its `SHA256SUMS` lists
-them:
+[v2.3](https://github.com/jvitkauskas/m-bootloader/releases/tag/v2.3), as its `SHA256SUMS` lists
+them. They're flash loader 1.3, which m-bootloader builds with no JieLi toolchain:
 
 ```
-7286e044586ba693d0c3bacd4a05aa44cee090dd30c085caebe0db8421000794  mflr-loader-a.bin
-ab35a1ff14d9eceb57055311bfff1d10a87cd21fee8f6628ce0261d580f383f9  mflr-loader-b.bin
+ae0cdf4965cc2438a362e933ccf11d41159322d67f2dc630a61ab84cc58e04d7  mflr-loader-a.bin
+6f9d97fcd3b16a74dd2b056ebca5e516c56a1c789a4b46b5afdd824d42fd684f  mflr-loader-b.bin
 ```
 
 FM1Kit's `ApplicationArea.swift`, which `FlashBackup+Firmware.swift` uses, reads the app area's

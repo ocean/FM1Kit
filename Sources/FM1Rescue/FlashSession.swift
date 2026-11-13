@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Every call blocks until the device answers, so call it off the main thread.
 public final class FlashSession {
-    /// The flash loader's version, such as `1.2`.
+    /// The flash loader's version, such as `1.3`.
     public let loaderVersion: String
     /// The CPU clock the loader runs the chip at, in MHz, or 0 if it doesn't say.
     public let clockMHz: Int

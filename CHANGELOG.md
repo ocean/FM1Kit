@@ -61,6 +61,9 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Changed
 
+- FM1Rescue's built-in flash loader is m-bootloader's 1.3, from its release v2.3, in place of
+  1.2. It's the same loader code, built with no JieLi toolchain. Every download-mode command uses
+  it (tested on hardware in November 2026).
 - FM1Rescue builds m-bootloader's flash loader into its code, rather than shipping it in a
   resource bundle, so fm1probe is one file and an app using FM1Rescue has no bundle to copy.
   Without the bundle beside it, fm1probe's download-mode commands used to crash.
