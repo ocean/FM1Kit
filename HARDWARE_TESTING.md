@@ -498,6 +498,31 @@ resume. Start on V15, where stage V ends.
 | W2 | `swift run fm1probe install ../FM-SWITCH/App/Resources/Firmware/FM-1_015.fwsc --log .artifacts/tmp/w2-v15.csv` | Back to V15, finished as promptly. |
 | W3 | **Don't repeat this step as first written.** Pulling the cable at 97% of the first pass left the FM-1 dark (see the 2026-11-07 results): Felucca's loader writes in its *second* pass. Only pull the cable with a recovery route ready (m-bootloader installed, or a Transporter), and plug straight back in without switching off. | fm1probe stops with "disconnected… without switching it off"; `--resume` finishes the update. |
 
+## Stage Y: the FM-1 Transporter from fm1probe
+
+`fm1probe transporter` backs up, installs and restores through the FM-1 Transporter's data port,
+without its web app. It starts m-bootloader's flash loader by default, which needs Transporter
+firmware whose loader request takes an address and size, or jl-uboot-tool's `wl82loader.bin`
+with `--loader`, which any Transporter firmware takes. The Transporter writes only
+`0x4000`–`0x92FFF`, so an install that changes firmware leaves the old firmware's saved data,
+and download mode clears it afterwards. Start on any firmware, with m-bootloader installed and a
+Transporter wired to the FM-1 as in [RECOVERY.md](RECOVERY.md).
+
+| Step | Command | What to look for |
+|---|---|---|
+| Y1 | `swift run fm1probe transporter check`, switching the FM-1 on when asked | The chip key (`0x980F`) and the flash chip. |
+| Y2 | `swift run fm1probe transporter backup .artifacts/tmp/y-mflr` | A backup naming the bootloader and firmware. |
+| Y3 | As Y2, saving to `.artifacts/tmp/y-wl82`, with `--loader wl82loader.bin` | The same SHA-256 as Y2's. |
+| Y4 | `swift run fm1probe transporter install FM-1.fwsc .artifacts/tmp/y-install` | The flash saved first, the sectors it writes, then "Written and read back". Over another firmware, a warning about its saved data and an afterwards step. |
+| Y5 | `swift run fm1probe transporter start` | The FM-1 leaves boot mode and starts V15. |
+| Y6 | `swift run fm1probe restore-voices FM-1.fwsc`, then R11's V15 check | V15's voices. Note anything wrong left by the old firmware's saved data. |
+| Y7 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install FM-1.fwsc .artifacts/tmp/y-erase --erase-saved-data`, then the V15 check | V15 polyphonic, with every bank, over erased saved data. |
+| Y8 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/y-clean` | A backup of the clean V15, to go back to. |
+| Y9 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` Y2's backup `.artifacts/tmp/y-restore` | The starting firmware again, with its saved data. |
+| Y10 | As Y9 with Y8's backup | Back to the clean V15. |
+
+If anything goes wrong, `transporter restore` Y2's backup.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
@@ -1050,3 +1075,31 @@ is no longer called checking (`InstallProgress` reports it as installing); and o
 under way counts as nearly written. Carrying on by itself when the loader answers again after a
 lost connection is held back until it can be tried on an FM-1 with a recovery route.
 
+### 2026-11-11: the FM-1 left dark by W3, through the Transporter's web app
+
+The FM-1 from W3, which showed nothing on USB, was backed up through a Raspberry Pi Debug Probe
+running the Transporter's v0.1.0 firmware and its web app with `wl82loader.bin`. V15 was written
+and checked, and it started again. [RECOVERY.md](RECOVERY.md) follows what worked.
+
+### 2026-11-13: stage Y, the FM-1 Transporter from fm1probe
+
+The same FM-1 (flash `0x856014`), starting on Jiant FM (reporting `FM-1_909`) with m-bootloader
+2.1, and the Debug Probe running Transporter firmware whose loader request takes an address and
+size. fm1probe started m-bootloader's flash loader 1.3.
+
+- **Y1–Y3 passed:** chip key `0x980F`, flash `0x856014`. Backups with m-bootloader's loader and
+  with `wl82loader.bin` were identical (SHA-256 `ffcb52af…`).
+- **Y4–Y5 passed:** 143 sectors (`0x04000`–`0x92FFF`) written and read back in 22.6 s; the FM-1
+  started V15.
+- **Y6:** V15's sounds were scrambled before the voices were restored, and after restoring them
+  notes slid into each other (portamento). The backups showed Jiant FM's bytes in V15's settings
+  record at `0xFBD80`, above what the Transporter writes. FM1Kit's Transporter plans now warn
+  about this when the firmware changes, and say to install again in download mode, erasing saved
+  data.
+- **Y7–Y8 passed:** the erasing `flash-install` wrote 21 sectors in 1.8 s; V15 played normally.
+  The clean V15 backup's SHA-256 is `7a618b3c…`.
+- **Y9–Y10 passed:** `flash-restore` put Jiant FM back (172 sectors, 10.1 s), which ran and
+  answered as `FM-1_909` on its port, still called "FM-1" by macOS. Restoring Y8's backup (173
+  sectors, 9.6 s) brought back the clean V15.
+- Not tried: `--port` with a port that's really been renamed, and fm1probe with the Transporter's
+  v0.1.0 firmware.
