@@ -32,7 +32,7 @@ Add FM1Kit with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.7.0")),
+    .package(url: "https://github.com/ocean/FM1Kit.git", .upToNextMinor(from: "0.7.1")),
 ]
 ```
 
