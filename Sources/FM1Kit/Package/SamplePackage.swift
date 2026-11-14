@@ -18,6 +18,8 @@ extension FwscPackage {
         /// Mark the part as enciphered, as the `USR` part holding V15's voices is: its checksum
         /// covers its deciphered bytes, and only the voice restore checks it.
         public var isEnciphered = false
+        /// For a resource region (type 101), where it goes in flash; 0 names none, as Melodee's.
+        public var flashAddress = 0
         /// Where the part starts; straight after the previous part when `nil`.
         public var offset: Int?
 
@@ -38,6 +40,13 @@ extension FwscPackage {
         /// An update loader of this size.
         public static func loader(size: Int = 1_000) -> Self {
             Self(type: FirmwareContainer.loaderType, name: "ota.bin", size: size)
+        }
+
+        /// A resource region of this size, going to `address` in flash.
+        public static func resources(size: Int, at address: Int) -> Self {
+            var part = Self(type: FirmwareContainer.resourcesType, name: "res.bin", size: size)
+            part.flashAddress = address
+            return part
         }
     }
 
@@ -109,6 +118,7 @@ extension FwscPackage {
             put(offset, into: &fields, at: 8, byteCount: 4)
             put(part.size, into: &fields, at: 12, byteCount: 4)
             put(stored, into: &fields, at: 16, byteCount: 4)
+            put(part.flashAddress, into: &fields, at: 20, byteCount: 4)
             put(part.isEnciphered ? stored : 0, into: &fields, at: 24, byteCount: 4)
             fields.replaceSubrange(64..<(64 + part.name.utf8.count), with: part.name.utf8)
             table += FirmwareContainer.decipher(fields)

@@ -77,6 +77,7 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
     for note in plan.notes { print(note) }
     guard !plan.isEmpty else {
         print("Nothing to write: the FM-1 already holds this. Switch it off and on to leave download mode.")
+        for step in plan.afterwards { print(step) }
         return
     }
     print("Writes \(describeSectors(plan)).")
@@ -109,6 +110,7 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
         Written and checked in \(String(format: "%.1f", seconds)) s: every changed run matches the chip's CRC-32.
         Switch the FM-1 off and on to start it.
         """)
+    for step in plan.afterwards { print(step) }
 }
 
 /// Plans a write against the flash just read.

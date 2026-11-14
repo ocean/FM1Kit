@@ -61,6 +61,13 @@ let usage = """
                --simulated                     run against a simulated FM-1 running V15 (writes nothing)
                --log FILE                      write every message to and from the device to a new
                                                CSV file
+           fm1probe write-resources NAME-res.bin [options]
+                                               write a firmware's resources (published beside its
+                                               package, such as LOOM-8's from 0.12) to the FM-1
+                                               running it, over USB-MIDI, after asking to confirm
+               --simulated                     run against a simulated FM-1 that takes them (writes nothing)
+               --log FILE                      write every message to and from the device to a new
+                                               CSV file
            fm1probe install-bootloader fm1-uboot.fwsc [options]
                                                install m-bootloader from its installer package on an
                                                FM-1 running V15, after asking to confirm
@@ -135,8 +142,8 @@ let usage = """
     whose "format" names its layout, such as "fm1probe-check-1"; fields that aren't known are left
     out. Anything else they say goes to standard error.
 
-    With more than one FM-1 connected, install, install-bootloader, restore-voices, backup and
-    download-mode need --device N (as `fm1probe devices` numbers them) or --device SERIAL.
+    With more than one FM-1 connected, install, install-bootloader, restore-voices, write-resources,
+    backup and download-mode need --device N (as `fm1probe devices` numbers them) or --device SERIAL.
 
     devices, install, install-bootloader, restore-voices, backup and download-mode only ask ports
     whose names look like an FM-1's. For a firmware that renames its port, add --port NAME to ask

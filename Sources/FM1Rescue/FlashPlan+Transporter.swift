@@ -28,7 +28,9 @@ extension FlashPlan {
     ///
     /// The saved data stays as it is, because the Transporter doesn't write it. Over another
     /// firmware, the plan warns that the new one may misread what the old one left there, and its
-    /// ``afterwards`` says to install it again in download mode, erasing saved data.
+    /// ``afterwards`` says to install it again in download mode, erasing saved data. For a package
+    /// with resources, it says to install it again over USB-MIDI once it's running, so its update
+    /// loader writes them.
     public static func installingWithTransporter(
         _ package: FwscPackage,
         onto dump: FlashBackup,
@@ -44,7 +46,14 @@ extension FlashPlan {
                 date: dump.date
             )
         }
-        var plan = try installing(package, onto: current ?? dump)
+        // The Transporter can't reach a resource region; the plan says how to write it afterwards.
+        var plan = try installing(
+            package,
+            onto: current ?? dump,
+            includingBootloader: false,
+            erasingSavedData: false,
+            extras: Extras(writesResources: false)
+        )
         if let sector = plan.sectors.first(where: { !transporterWritable.contains($0) }) {
             throw .outsideTransporterRange(sector)
         }
