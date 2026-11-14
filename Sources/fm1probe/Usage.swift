@@ -2,7 +2,7 @@
 ///
 /// It's the release it's built from, or the next one with `-dev` between releases. Set it to the
 /// release's number before tagging.
-let fm1probeVersion = "0.7.1"
+let fm1probeVersion = "0.8.0-dev"
 
 /// What fm1probe can do, shown for `help` or arguments it doesn't understand.
 let usage = """
