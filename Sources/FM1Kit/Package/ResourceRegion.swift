@@ -90,6 +90,13 @@ public struct ResourceRegion: Sendable, Hashable {
             && integer(header, at: 28) == crc32(header[0..<28])
     }
 
+    /// How many bytes the region at the start of `bytes` takes, header and payload, by its header;
+    /// `nil` without a resource header.
+    package static func claimedLength(_ bytes: some Collection<UInt8>) -> Int? {
+        guard hasHeader(bytes) else { return nil }
+        return headerLength + Int(integer(Array(bytes.prefix(headerLength)), at: 4))
+    }
+
     /// The standard CRC-32 (as in zlib).
     package static func crc32(_ bytes: some Sequence<UInt8>) -> UInt32 {
         var value: UInt32 = 0xFFFF_FFFF

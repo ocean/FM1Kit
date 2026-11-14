@@ -16,6 +16,7 @@ struct ResourceTests {
     static var fastTiming: UpdaterTiming {
         var timing = UpdaterTests.fastTiming
         timing.resourceStartWait = .milliseconds(500)
+        timing.resourceSectorEraseWait = .milliseconds(10)
         timing.resourceIdleLimit = .seconds(1)
         return timing
     }

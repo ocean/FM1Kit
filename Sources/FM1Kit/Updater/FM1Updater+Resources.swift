@@ -45,7 +45,8 @@ extension FM1Updater {
         progress(0)
         var sent = 0
         var asked = false
-        var waitLimit = timing.resourceStartWait
+        let sectors = (ResourceRegion.headerLength + payload.count + 0xFFF) / 0x1000
+        var waitLimit = timing.resourceStartWait + timing.resourceSectorEraseWait * sectors
         var lastActivity = ContinuousClock.now
         while true {
             try Task.checkCancellation()
@@ -64,8 +65,12 @@ extension FM1Updater {
             asked = true
 
             if Self.isResourceReport(read.address) {
+                // The firmware has reported already; if this answer is lost, its read times out.
                 try? connection.send(read.finishResponse())
-                if read.address == Self.resourcesAskAddress { continue }
+                if read.address == Self.resourcesAskAddress {
+                    waitLimit = timing.resourceAskWait
+                    continue
+                }
                 guard read.address == Self.resourcesWrittenAddress else {
                     throw FM1UpdateError.resourcesRefused(code: Int(read.address & 0xFFFF))
                 }

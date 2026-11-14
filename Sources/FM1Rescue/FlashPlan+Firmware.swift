@@ -24,7 +24,7 @@ extension FlashPlan {
     ///
     /// A package that carries its resources in fm1-base's form (``FwscPackage/resources``) has
     /// them written where its part says, after erasing saved data, or without erasing when that
-    /// flash is blank or already holds resources. Anything else there may be an older build's
+    /// flash is blank past any resources already there. Anything else there may be an older build's
     /// projects not yet moved, so the resources are left out, and the plan says to install the
     /// firmware again over USB-MIDI once it's running: its update loader writes them. The same goes
     /// for resources in another form, such as Melodee's.
@@ -170,8 +170,8 @@ extension FlashPlan {
     /// Puts the package's resources (in fm1-base's form) into `target` and returns the flash they
     /// take, or returns `nil` when it has none or they can't go there.
     ///
-    /// Without erasing, they go only into flash that's blank or already holds resources: anything
-    /// else may be an older build's projects not yet moved.
+    /// Without erasing, they go only into flash that's blank past any resources already there:
+    /// anything else may be an older build's projects not yet moved.
     static func addResources(
         of package: FwscPackage,
         over current: FlashBackup,
@@ -179,11 +179,16 @@ extension FlashPlan {
         to target: inout [UInt8]
     ) -> Range<Int>? {
         guard let resources = package.resources, let range = resources.flashRange else { return nil }
-        let flash = current.bytes[range]
-        guard erasing || ResourceRegion.hasHeader(flash) || flash.allSatisfy({ $0 == 0xFF }) else { return nil }
+        guard erasing || isBlankPastResources(current.bytes[range]) else { return nil }
         target.replaceSubrange(
             range, with: resources.bytes + repeatElement(0xFF, count: range.count - resources.bytes.count))
         return range
+    }
+
+    /// True when `flash` is blank past the sectors of any resources whose header starts it.
+    static func isBlankPastResources(_ flash: ArraySlice<UInt8>) -> Bool {
+        let claimed = ResourceRegion.claimedLength(flash) ?? 0
+        return flash.dropFirst((claimed + sectorLength - 1) / sectorLength * sectorLength).allSatisfy { $0 == 0xFF }
     }
 
     /// What to do once a firmware is running whose resources a plan leaves out.

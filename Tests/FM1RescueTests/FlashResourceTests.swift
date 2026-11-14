@@ -60,6 +60,15 @@ struct FlashResourceTests {
         #expect(plan.afterwards.first?.contains("install it again over USB-MIDI") == true)
     }
 
+    @Test func leavesResourcesOutOverDataPastSmallerOnes() throws {
+        // An older build's smaller resources take one sector; its projects may follow them.
+        var flash = Self.flash(holding: ResourceRegion.sampleBytes(payloadLength: 100, seed: 3))
+        flash.replaceSubrange(0x9_8000..<0x9_8100, with: repeatElement(0x55, count: 0x100))
+        let plan = try FlashPlan.installing(try Self.package(), onto: SampleFlash.backup(flash))
+        #expect(!plan.sectors.contains { Self.range.contains($0) })
+        #expect(plan.afterwards.count == 1)
+    }
+
     @Test func writesResourcesAfterErasingSavedData() throws {
         let chip = SimulatedDownloadMode(flash: Self.flash(holding: [UInt8](repeating: 0x55, count: 0x100)))
         let (session, current) = try FlashWriteTests.read(chip)

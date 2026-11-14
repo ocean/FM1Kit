@@ -15,10 +15,10 @@ All notable changes to FM1Kit are recorded here. The project follows
   it belongs to, once that's running, as fm1-base's installer does. `fm1probe write-resources`
   runs it, and `SimulatedFM1` takes resources for tests.
 - `FlashPlan.installing` writes a package's resources in download mode, after the firmware: when
-  erasing saved data, or when that flash is blank or already holds resources. Otherwise, and for
-  the Transporter and Melodee's packages, the plan's `afterwards` says to install the firmware
-  again over USB-MIDI once it's running. `fm1probe flash-install` prints `afterwards`, and
-  `fm1probe inspect` shows a package's resources.
+  erasing saved data, or when that flash is blank past any resources already there. Otherwise,
+  and for the Transporter and Melodee's packages, the plan's `afterwards` says to install the
+  firmware again over USB-MIDI once it's running. `fm1probe flash-install` prints `afterwards`,
+  and `fm1probe inspect` shows a package's resources.
 
 ## [0.7.1] - 2026-11-14
 

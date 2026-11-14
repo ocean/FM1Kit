@@ -72,7 +72,7 @@ Installing V15 over custom firmware can leave a voice bank holding the old firmw
 
 ## Writing a firmware's resources
 
-Some fm1-base firmwares keep samples or other data in a resource region of the flash: a 32-byte `RES1` header (payload length, CRC-32, header CRC-32, written last) then the payload. A package can carry it as a part of type 101 that names its flash address (`FwscPackage.resources`); the update loader writes it after the firmware, and `FlashPlan.installing` writes it in download mode when that flash is blank or already holds resources, or after erasing saved data. Melodee's packages carry one in another form, which only its loader writes (`FwscPackage.carriesOtherResources`). For resources published beside the package as `NAME-res.bin` (LOOM-8 from 0.12), `FM1Updater.writeResources(_:progress:)` sends them over USB-MIDI to the firmware once it's running; it takes only its own build's.
+Some fm1-base firmwares keep samples or other data in a resource region of the flash: a 32-byte `RES1` header (payload length, CRC-32, header CRC-32, written last) then the payload. A package can carry it as a part of type 101 that names its flash address (`FwscPackage.resources`); the update loader writes it after the firmware, and `FlashPlan.installing` writes it in download mode when that flash is blank past any resources already there, or after erasing saved data. Melodee's packages carry one in another form, which only its loader writes (`FwscPackage.carriesOtherResources`). For resources published beside the package as `NAME-res.bin` (LOOM-8 from 0.12), `FM1Updater.writeResources(_:progress:)` sends them over USB-MIDI to the firmware once it's running; it takes only its own build's.
 
 ## Backing up open firmware
 
