@@ -95,6 +95,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         /// Read a package's header, then refuse it, as firmwares with Felucca's original update
         /// check do with m-bootloader's installer.
         public var refusesAfterHeader = false
+        /// The resources the running firmware's build takes over USB-MIDI, as fm1-base firmwares
+        /// built with resources do, or `nil` for a firmware that ignores the request.
+        public var buildResources: ResourceRegion?
+        /// Refuse resources with this code from fm1-base's `device/res.c`, such as 10 while playing.
+        public var resourceRefusal: Int?
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -126,6 +131,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var library: LibraryState
         /// The m-bootloader version installed, or `nil` for M-VAVE's bootloader.
         var bootloaderVersion: String?
+        /// The resource payload written over USB-MIDI, once one has been.
+        var resources: [UInt8]?
     }
 
     /// The name of the simulated device's only port.
@@ -169,6 +176,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     /// The simulated V15's four voice banks.
     public var currentVoices: [UInt8] {
         state.withLock { $0.voices }
+    }
+
+    /// The resource payload written to the simulated FM-1 over USB-MIDI, or `nil` before one is.
+    public var currentResources: [UInt8]? {
+        state.withLock { $0.resources }
     }
 
     /// The m-bootloader version the simulated FM-1 has, or `nil` for M-VAVE's bootloader.
@@ -220,6 +232,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             command == FM1Message.voiceEraseCommand || command == FM1Message.voiceWriteCommand
         {
             handleVoiceCommand(command, payload: payload, from: connection)
+        } else if let (command, payload) = FM1Message.parseCommand(sysex), command == FM1Updater.resourceCommand {
+            handleResourceRequest(payload, from: connection)
         } else {
             connection.fromHost.deliver(sysex)
         }
@@ -328,7 +342,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     }
 
     /// Sends one request and checks the host's answer.
-    private func exchange(_ request: FM1ReadRequest, expecting expected: [UInt8], on connection: SimulatedConnection)
+    func exchange(_ request: FM1ReadRequest, expecting expected: [UInt8], on connection: SimulatedConnection)
         async -> Bool
     {
         try? await Task.sleep(for: options.requestInterval)

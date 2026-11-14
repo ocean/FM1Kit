@@ -141,7 +141,7 @@ struct FlashWriteTests {
             onto: current,
             includingBootloader: false,
             erasingSavedData: true,
-            factoryUserData: factory
+            extras: FlashPlan.Extras(factoryUserData: factory)
         )
         #expect(plan.notes.contains("Writes V15's factory voices and data back (0xEA000–0xFBE09)."))
         try session.write(plan)

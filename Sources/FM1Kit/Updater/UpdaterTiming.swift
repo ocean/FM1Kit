@@ -37,6 +37,16 @@ public struct UpdaterTiming: Sendable, Hashable {
     public var commandReplyWait: Duration = .milliseconds(1500)
     /// How long to wait for V15 to acknowledge each step of a voice restore.
     public var voiceReplyWait: Duration = .seconds(10)
+    /// How long to wait for a firmware's first read after asking it to take resources, besides
+    /// ``resourceSectorEraseWait`` for each 4 KB sector it erases first.
+    public var resourceStartWait: Duration = .seconds(5)
+    /// How long a firmware taking resources may spend erasing each 4 KB sector of the region.
+    public var resourceSectorEraseWait: Duration = .milliseconds(300)
+    /// How long to wait for a firmware's next read once it says it's asking a question on its
+    /// screen; it waits up to a minute for an answer.
+    public var resourceAskWait: Duration = .seconds(75)
+    /// How long a firmware taking resources may go without reading before it counts as stopped.
+    public var resourceIdleLimit: Duration = .seconds(10)
     /// How long to wait for each reply from open firmware's project library before asking again.
     public var libraryReplyWait: Duration = .seconds(1)
     /// Handshake attempts per port.

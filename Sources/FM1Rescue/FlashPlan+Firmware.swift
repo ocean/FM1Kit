@@ -22,6 +22,13 @@ extension FlashPlan {
     /// incoming firmware is V15, its factory voices and the rest of its `USR` data are written
     /// back into the erased `USR` region, as the factory left them, so it isn't silent.
     ///
+    /// A package that carries its resources in fm1-base's form (``FwscPackage/resources``) has
+    /// them written where its part says, after erasing saved data, or without erasing when that
+    /// flash is blank past any resources already there. Anything else there may be an older build's
+    /// projects not yet moved, so the resources are left out, and the plan says to install the
+    /// firmware again over USB-MIDI once it's running: its update loader writes them. The same goes
+    /// for resources in another form, such as Melodee's.
+    ///
     /// - Parameters:
     ///   - package: A firmware package for the FM-1.
     ///   - current: The FM-1's flash as just read.
@@ -42,18 +49,26 @@ extension FlashPlan {
             onto: current,
             includingBootloader: includingBootloader,
             erasingSavedData: erasingSavedData,
-            factoryUserData: package.factoryUserData()
+            extras: Extras(factoryUserData: package.factoryUserData())
         )
     }
 
-    /// Plans installing a firmware, writing `factoryUserData` into the `USR` region it declares
-    /// when erasing saved data.
+    /// What an install writes besides the firmware.
+    struct Extras {
+        /// V15's `USR` data, written into the `USR` region the firmware declares when erasing
+        /// saved data.
+        var factoryUserData: [UInt8]?
+        /// Write the package's resources; the Transporter can't reach them.
+        var writesResources = true
+    }
+
+    /// Plans installing a firmware, with these extras.
     static func installing(
         _ package: FwscPackage,
         onto current: FlashBackup,
         includingBootloader: Bool,
         erasingSavedData: Bool,
-        factoryUserData: [UInt8]?
+        extras: Extras
     ) throws(FlashPlanError) -> Self {
         guard let image = package.flashImage else { throw .notFirmware }
         var warnings = try checkedFM1(current)
@@ -76,37 +91,30 @@ extension FlashPlan {
         if includingBootloader {
             notes.append("Also writes the package's boot area, with its bootloader.")
         }
-        let installed = current.regions()
-        if !erasingSavedData, !installed.isEmpty, installed != incoming.regions() {
-            warnings.append(
-                """
-                The installed firmware keeps its settings in other places than \(package.product); what it \
-                leaves behind can confuse the new one. Restoring a backup made while a firmware was \
-                installed goes back to it cleanly.
-                """)
+        if !erasingSavedData, let warning = Self.settingsWarning(current, incoming, product: package.product) {
+            warnings.append(warning)
         }
         if erasingSavedData {
-            let ranges = try Self.savedDataRanges(of: [current, incoming], after: image.count)
-            for range in ranges {
-                target.replaceSubrange(range, with: repeatElement(0xFF, count: range.count))
-                allowed.append(range)
-            }
-            if !ranges.isEmpty {
-                notes.append("Erases saved data (\(ranges.map(Self.describe).joined(separator: ", "))).")
-            }
-            if let factoryUserData,
-                let user = incoming.regions().first(where: { $0.name == "USR" }),
-                factoryUserData.count <= user.range.count,
-                ranges.contains(where: { $0.contains(user.range.lowerBound) && $0.upperBound >= user.range.upperBound })
-            {
-                let written = user.range.lowerBound..<(user.range.lowerBound + factoryUserData.count)
-                target.replaceSubrange(written, with: factoryUserData)
-                notes.append("Writes V15's factory voices and data back (\(Self.describe(written))).")
-            }
+            let (ranges, erasingNotes) = try Self.eraseSavedData(
+                of: [current, incoming],
+                after: image.count,
+                userRegion: incoming.regions().first(where: { $0.name == "USR" })?.range,
+                factoryUserData: extras.factoryUserData,
+                in: &target
+            )
+            allowed += ranges
+            notes += erasingNotes
         } else if package.hasFactoryVoices {
             notes.append("The voice banks stay as they are; V15's factory voices can be restored once it's running.")
         }
-        return try Self(
+        let resources =
+            extras.writesResources
+            ? Self.addResources(of: package, over: current, erasing: erasingSavedData, to: &target) : nil
+        if let resources {
+            allowed.append(resources)
+            notes.append("Writes its resources (\(Self.describe(resources))).")
+        }
+        var plan = try Self(
             purpose: .firmware(package.identity),
             original: current,
             target: target,
@@ -114,6 +122,81 @@ extension FlashPlan {
             notes: notes,
             warnings: warnings
         )
+        if resources == nil, package.resources != nil || package.carriesOtherResources {
+            plan.afterwards.append(Self.resourcesAfterwards(package))
+        }
+        return plan
+    }
+
+    /// A warning when the installed firmware keeps its settings in other places than the incoming
+    /// one, or `nil`.
+    static func settingsWarning(_ current: FlashBackup, _ incoming: FlashBackup, product: String) -> String? {
+        let installed = current.regions()
+        guard !installed.isEmpty, installed != incoming.regions() else { return nil }
+        return """
+            The installed firmware keeps its settings in other places than \(product); what it \
+            leaves behind can confuse the new one. Restoring a backup made while a firmware was \
+            installed goes back to it cleanly.
+            """
+    }
+
+    /// Erases every firmware's saved data in `target`, then writes `factoryUserData` into the
+    /// `USR` region when it fits; returns the ranges erased and notes saying so.
+    static func eraseSavedData(
+        of flashes: [FlashBackup],
+        after start: Int,
+        userRegion: Range<Int>?,
+        factoryUserData: [UInt8]?,
+        in target: inout [UInt8]
+    ) throws(FlashPlanError) -> (ranges: [Range<Int>], notes: [String]) {
+        let ranges = try savedDataRanges(of: flashes, after: start)
+        var notes: [String] = []
+        for range in ranges {
+            target.replaceSubrange(range, with: repeatElement(0xFF, count: range.count))
+        }
+        if !ranges.isEmpty {
+            notes.append("Erases saved data (\(ranges.map(describe).joined(separator: ", "))).")
+        }
+        if let factoryUserData, let user = userRegion, factoryUserData.count <= user.count,
+            ranges.contains(where: { $0.contains(user.lowerBound) && $0.upperBound >= user.upperBound })
+        {
+            let written = user.lowerBound..<(user.lowerBound + factoryUserData.count)
+            target.replaceSubrange(written, with: factoryUserData)
+            notes.append("Writes V15's factory voices and data back (\(describe(written))).")
+        }
+        return (ranges, notes)
+    }
+
+    /// Puts the package's resources (in fm1-base's form) into `target` and returns the flash they
+    /// take, or returns `nil` when it has none or they can't go there.
+    ///
+    /// Without erasing, they go only into flash that's blank past any resources already there:
+    /// anything else may be an older build's projects not yet moved.
+    static func addResources(
+        of package: FwscPackage,
+        over current: FlashBackup,
+        erasing: Bool,
+        to target: inout [UInt8]
+    ) -> Range<Int>? {
+        guard let resources = package.resources, let range = resources.flashRange else { return nil }
+        guard erasing || isBlankPastResources(current.bytes[range]) else { return nil }
+        target.replaceSubrange(
+            range, with: resources.bytes + repeatElement(0xFF, count: range.count - resources.bytes.count))
+        return range
+    }
+
+    /// True when `flash` is blank past the sectors of any resources whose header starts it.
+    static func isBlankPastResources(_ flash: ArraySlice<UInt8>) -> Bool {
+        let claimed = ResourceRegion.claimedLength(flash) ?? 0
+        return flash.dropFirst((claimed + sectorLength - 1) / sectorLength * sectorLength).allSatisfy { $0 == 0xFF }
+    }
+
+    /// What to do once a firmware is running whose resources a plan leaves out.
+    static func resourcesAfterwards(_ package: FwscPackage) -> String {
+        """
+        Its resources (such as samples) aren't written here. Once \(package.product) is running, install it again \
+        over USB-MIDI, and its update loader writes them: `fm1probe install FILE.fwsc`.
+        """
     }
 
     /// Where data is kept that no firmware declares but every one leaves in place, from `0xFC000`

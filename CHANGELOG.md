@@ -5,6 +5,21 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `ResourceRegion` reads a firmware's resource region (fm1-base's `RES1` format), from a
+  `NAME-res.bin` file or a package's part of type 101. `FwscPackage.resources` gives a package's
+  with its flash address, and `carriesOtherResources` says when it carries one only its update
+  loader can write, such as Melodee's.
+- `FM1Updater.writeResources(_:progress:)` sends a `NAME-res.bin` over USB-MIDI to the firmware
+  it belongs to, once that's running, as fm1-base's installer does. `fm1probe write-resources`
+  runs it, and `SimulatedFM1` takes resources for tests.
+- `FlashPlan.installing` writes a package's resources in download mode, after the firmware: when
+  erasing saved data, or when that flash is blank past any resources already there. Otherwise,
+  and for the Transporter and Melodee's packages, the plan's `afterwards` says to install the
+  firmware again over USB-MIDI once it's running. `fm1probe flash-install` prints `afterwards`,
+  and `fm1probe inspect` shows a package's resources.
+
 ## [0.7.1] - 2026-11-14
 
 ### Changed

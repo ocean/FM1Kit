@@ -141,8 +141,11 @@ extension FM1UpdateError {
         switch self {
         case .voiceRestoreRefused, .voiceRestoreStalled, .backupRefused, .backupStalled,
             .stalled(.writing, _), .disconnected(.writing, _), .loaderNotFound, .unexpectedFinish,
-            .deviceDidNotReturn, .badRequest:
+            .deviceDidNotReturn, .badRequest, .resourcesStalled, .resourcesBadRequest:
             true
+        case .resourcesRefused(let code):
+            // Another build's, playing, or projects still moving: refused before anything was erased.
+            ![10, 20, 21].contains(code)
         default:
             false
         }
@@ -166,6 +169,12 @@ extension FM1UpdateError {
         case .voiceRestoreNeedsV15: ("The factory voices need V15", .chooseAnotherFirmware)
         case .voiceRestoreRefused: ("The voices weren't all restored", .tryAgain)
         case .voiceRestoreStalled: ("The voices weren't all restored", .reconnect)
+        case .resourcesNotTaken: ("The firmware didn't take these resources", .chooseAnotherFirmware)
+        case .resourcesRefused(20): ("These resources are for another build", .chooseAnotherFirmware)
+        case .resourcesRefused(21): ("The resources weren't written", .switchOffAndOn)
+        case .resourcesRefused: ("The resources weren't written", .tryAgain)
+        case .resourcesStalled: ("The resources weren't written", .reconnect)
+        case .resourcesBadRequest: ("The resources file looks damaged", .chooseAnotherFirmware)
         case .backupNeedsOpenFirmware: ("This firmware can't be backed up", .dismiss)
         case .projectLibraryUnavailable: ("The backup couldn't start", .reconnect)
         case .sampleBankBusy: ("The FM-1 is still busy", .tryAgain)

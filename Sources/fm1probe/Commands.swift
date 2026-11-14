@@ -82,6 +82,10 @@ func runCommand() async throws {
         try await restoreVoices(
             path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
 
+    case "write-resources" where arguments.count >= 2:
+        try await writeResources(
+            path: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))
+
     case "backup" where arguments.count >= 2:
         try await backUp(
             folderPath: arguments[1], isSimulated: arguments.contains("--simulated"), logPath: option("--log"))

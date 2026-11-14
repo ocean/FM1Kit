@@ -234,6 +234,25 @@ It replaces every voice in the four banks, including any the person made, and V1
 them back, so warn first. If it's interrupted, some voices may be wrong or silent until it's run
 again.
 
+### Write a firmware's resources
+
+Some firmwares built with fm1-base keep data they don't need to start, such as samples, in a
+resource region of the flash. A package that carries its resources (``FwscPackage/resources``)
+needs nothing more: its update loader writes them after the firmware. Others publish them beside
+the package as `NAME-res.bin`, as LOOM-8 does from 0.12. Once the firmware is running,
+``FM1Updater/writeResources(_:progress:)`` sends that file to it:
+
+```swift
+let resources = try ResourceRegion(bytes: [UInt8](try Data(contentsOf: url)))
+try await updater.writeResources(resources) { fraction in
+    print("Writing resources \(Int(fraction * 100))%")
+}
+```
+
+The firmware takes only its own build's resources, and refuses while it's playing. It writes
+their header last, so if the write is interrupted it does without them until they're written
+again; its projects and settings stay as they are.
+
 ### Resume an interrupted update
 
 When ``FM1UpdateError/disconnected(phase:requests:)`` or

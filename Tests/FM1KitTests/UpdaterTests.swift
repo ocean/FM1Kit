@@ -54,6 +54,22 @@ struct UpdaterTests {
         #expect(device.currentIdentity?.text == "FM-1_916")
     }
 
+    @Test func installsAPackageCarryingItsResourceRegion() async throws {
+        // fm1-base packages since c8e0599 carry NAME-res.bin as a type-101 part, which the loader writes after the app.
+        let resources = FwscPackage.SamplePart(type: 101, name: "res.bin", size: 20_000)
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader(), resources])
+        let package = try FwscPackage(bytes: FwscPackage.sampleFile(logicalImage: image, product: "FM-1_916"))
+        #expect(package.logicalImage == image)
+        #expect(package.container.applicationRange == (0x400 + 0x4000)..<(0x400 + 32_768))
+
+        // The simulated loader reads the whole image, resources included, and checks every byte.
+        let device = SimulatedFM1(options: Self.fastOptions)
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: Self.fastTiming)
+        let installed = try await updater.install(package, options: .confirmed)
+        #expect(installed.text == "FM-1_916")
+    }
+
     @Test func resumesAfterTheCableIsPulledMidWrite() async throws {
         var options = Self.fastOptions
         options.unplugDuringWriteAt = 0.5

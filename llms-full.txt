@@ -70,6 +70,10 @@ Each firmware brings its own update loader, and loaders write differently. Writi
 
 Installing V15 over custom firmware can leave a voice bank holding the old firmware's voices. After installing V15, `FM1Updater.restoreFactoryVoices(from:progress:)` rewrites its four voice banks with the 128 factory voices from the V15 package, as M-VAVE's updater does.
 
+## Writing a firmware's resources
+
+Some fm1-base firmwares keep samples or other data in a resource region of the flash: a 32-byte `RES1` header (payload length, CRC-32, header CRC-32, written last) then the payload. A package can carry it as a part of type 101 that names its flash address (`FwscPackage.resources`); the update loader writes it after the firmware, and `FlashPlan.installing` writes it in download mode when that flash is blank past any resources already there, or after erasing saved data. Melodee's packages carry one in another form, which only its loader writes (`FwscPackage.carriesOtherResources`). For resources published beside the package as `NAME-res.bin` (LOOM-8 from 0.12), `FM1Updater.writeResources(_:progress:)` sends them over USB-MIDI to the firmware once it's running; it takes only its own build's.
+
 ## Backing up open firmware
 
 `FM1Updater.backUpOpenFirmware(progress:)` reads an FM-1 running M-VAVE's open firmware through its project library: the 16 project slots, the project being edited (including unsaved changes) and the sample bank. The firmware can only read the project being edited, so each slot is loaded in turn and the workspace is put back afterwards. No slot is saved and the sample bank isn't written, but the FM-1's current project changes while it runs, so the person shouldn't play or edit until it finishes.
@@ -117,7 +121,7 @@ Before installing, FM1Kit makes sure exactly one FM-1 answers, and won't reinsta
 
 ## fm1probe
 
-A Mac command-line tool for checking a setup and watching an install closely. Only `install`, `install-bootloader` and `restore-voices` write to the device, and `backup` changes which project open firmware shows while it reads; each asks you to type YES first:
+A Mac command-line tool for checking a setup and watching an install closely. Only `install`, `install-bootloader`, `restore-voices` and `write-resources` write to the device, and `backup` changes which project open firmware shows while it reads; each asks you to type YES first:
 
 ```sh
 swift run fm1probe ports                 # list MIDI ports and which would be probed
@@ -132,6 +136,7 @@ swift run fm1probe simulate FILE.fwsc     # simulated FM-1 on a virtual MIDI por
 # devices, identify, inspect, check and diff take --json: one object, "format" such as "fm1probe-check-1"
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
+swift run fm1probe write-resources NAME-res.bin  # write a firmware's published resources to it
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
 swift run fm1probe install-bootloader fm1-uboot.fwsc  # install m-bootloader from V15
 swift run fm1probe download-mode         # ask V15 or Felucca to restart into download mode

@@ -104,6 +104,11 @@ which takes a Mac in download mode. After installing V15, `restoreFactoryVoices(
 rewrites its four voice banks with the 128 factory voices from the V15 package, as M-VAVE's
 updater does.
 
+Some firmwares keep samples or other data in a resource region of the flash. A package that
+carries them gets them written by its update loader, and in download mode by FM1Kit too. For
+resources published beside the package as `NAME-res.bin`, as LOOM-8's are from 0.12,
+`writeResources(_:progress:)` sends them to the firmware once it's running.
+
 Before switching away from M-VAVE's open firmware, `backUpOpenFirmware(progress:)` reads its 16
 project slots, the project being edited and its sample bank, and `OpenFirmwareBackup.write(to:)`
 saves them as the `.fm1` and `.fm1s` files M-VAVE's workbench restores. No other firmware has a
@@ -217,6 +222,7 @@ swift run fm1probe diff FIRST SECOND     # compare two packages or two .bin back
 swift run fm1probe simulate FILE.fwsc    # a simulated V15 on a virtual MIDI port, for testing updaters
 swift run fm1probe install FILE.fwsc     # install a firmware (--resume, --simulated, --log FILE, --build-id HEX)
 swift run fm1probe restore-voices FM-1.fwsc  # rewrite V15's voice banks with its factory voices
+swift run fm1probe write-resources NAME-res.bin  # write a firmware's published resources to it
 swift run fm1probe backup FOLDER         # save open firmware's projects and sample bank to a new folder
 swift run fm1probe install-bootloader fm1-uboot.fwsc  # install m-bootloader from V15
 swift run fm1probe download-mode         # ask V15 or Felucca to restart into download mode

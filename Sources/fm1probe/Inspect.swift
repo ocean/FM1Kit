@@ -39,6 +39,7 @@ func inspect(path: String) throws {
     if package.hasFactoryVoices {
         print("Voices:        V15's 128 factory voices (fm1probe restore-voices can restore them)")
     }
+    printResources(of: package)
     if package.refusesV15OverOtherBootloaders {
         print("Update code:   Felucca's platform: once installed, it refuses V15 over USB-MIDI while")
         print("               m-bootloader is installed (install MIDIMON 0.5 first then,")
@@ -112,5 +113,15 @@ private func inspectAsJSON(path: String) throws {
     } catch {
         printJSON(ErrorJSON(format: "fm1probe-inspect-1", file: path, error: error.localizedDescription))
         exit(1)
+    }
+}
+
+/// Says where a package's resources go, if it carries any.
+private func printResources(of package: FwscPackage) {
+    if let resources = package.resources, let range = resources.flashRange {
+        let flash = String(format: "0x%05X–0x%05X", range.lowerBound, range.upperBound - 1)
+        print("Resources:     \(resources.payloadLength) bytes at \(flash), written by its update loader")
+    } else if package.carriesOtherResources {
+        print("Resources:     in another form than fm1-base's (Melodee's), written by its update loader only")
     }
 }
