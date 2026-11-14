@@ -100,6 +100,13 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         public var buildResources: ResourceRegion?
         /// Refuse resources with this code from fm1-base's `device/res.c`, such as 10 while playing.
         public var resourceRefusal: Int?
+        /// How long erasing each 4 KB sector of the resource region takes, before the first read.
+        public var resourceSectorErase: Duration = .milliseconds(50)
+        /// Say a question is on the screen before reading the resources, then wait this long for
+        /// its answer, as a firmware that asks first would; `nil` to ask nothing, as fm1-base does.
+        public var resourceAskPause: Duration?
+        /// How many bytes each read of the resources asks for; a host refuses more than 512.
+        public var resourceReadLength = FM1Message.maximumReadLength
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}

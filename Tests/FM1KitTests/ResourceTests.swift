@@ -24,6 +24,7 @@ struct ResourceTests {
     static func device(_ change: (inout SimulatedFM1.Options) -> Void = { _ in }) throws -> SimulatedFM1 {
         var options = UpdaterTests.fastOptions
         options.buildResources = try ResourceRegion(bytes: region)
+        options.resourceSectorErase = .zero
         change(&options)
         return SimulatedFM1(options: options)
     }
@@ -81,6 +82,48 @@ struct ResourceTests {
         try await updater.writeResources(resources) { value in last.withLock { $0 = value } }
         #expect(device.currentResources == Array(resources.payload))
         #expect(last.withLock { $0 } == 1)
+    }
+
+    @Test func answersAtOnceWhenTheResourcesAreThere() async throws {
+        let device = try Self.device()
+        let updater = FM1Updater(transport: device, timing: Self.fastTiming)
+        let resources = try ResourceRegion(bytes: Self.region)
+        try await updater.writeResources(resources)
+        let values = OSAllocatedUnfairLock(initialState: [Double]())
+        try await updater.writeResources(resources) { value in values.withLock { $0.append(value) } }
+        // No reads in between: the firmware has nothing to fetch.
+        #expect(values.withLock { $0 } == [0, 1])
+        #expect(device.currentResources == Array(resources.payload))
+    }
+
+    @Test func waitsWhileTheFirmwareErases() async throws {
+        // Two sectors at 1.25 s each outlast the 1 s start wait, but not the second a sector it adds.
+        let device = try Self.device { $0.resourceSectorErase = .milliseconds(1_250) }
+        var timing = Self.fastTiming
+        timing.resourceStartWait = .seconds(1)
+        timing.resourceSectorEraseWait = .seconds(1)
+        let updater = FM1Updater(transport: device, timing: timing)
+        try await updater.writeResources(try ResourceRegion(bytes: Self.region))
+        #expect(device.currentResources != nil)
+    }
+
+    @Test func waitsWhileTheFirmwareAsks() async throws {
+        // The answer takes longer than the 1 s idle limit.
+        let device = try Self.device { $0.resourceAskPause = .milliseconds(2_500) }
+        var timing = Self.fastTiming
+        timing.resourceAskWait = .seconds(5)
+        let updater = FM1Updater(transport: device, timing: timing)
+        try await updater.writeResources(try ResourceRegion(bytes: Self.region))
+        #expect(device.currentResources != nil)
+    }
+
+    @Test func refusesAReadLongerThanAllowed() async throws {
+        let device = try Self.device { $0.resourceReadLength = 600 }
+        let updater = FM1Updater(transport: device, timing: Self.fastTiming)
+        await #expect(throws: FM1UpdateError.resourcesBadRequest(address: 0, length: 600)) {
+            try await updater.writeResources(try ResourceRegion(bytes: Self.region))
+        }
+        #expect(!FM1UpdateError.resourcesBadRequest(address: 0, length: 600).advice.isDeviceFine)
     }
 
     @Test func reportsAnotherBuildsResources() async throws {
