@@ -523,6 +523,36 @@ Transporter wired to the FM-1 as in [RECOVERY.md](RECOVERY.md).
 
 If anything goes wrong, `transporter restore` Y2's backup.
 
+## Stage Z: a firmware's resources
+
+fm1-base firmwares keep samples in a resource region from `0x97000`. They take it over USB-MIDI
+once running (`write-resources`), their update loader writes it from a package's part of type
+101, and `flash-install` writes it in download mode where that flash is blank past any resources
+already there. The Transporter never writes it. The files are WOODSHED's CORES builds in
+`../woodshed/audition/cores/build/`: `cores-0.1.0.fwsc` has no resources part,
+`cores-0.1.1.fwsc` has one, and `cores-0.1.0-res.bin` holds the same resources. Start on V15,
+with m-bootloader installed and the Transporter to hand. CORES doesn't take `download-mode`, so
+reach download mode from it by holding REC while switching on.
+
+| Step | Command | What to look for |
+|---|---|---|
+| Z1 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/z-start` | A backup of V15 to come back to. Switch off and on. |
+| Z2 | `swift run fm1probe install ../woodshed/audition/cores/build/cores-0.1.0.fwsc --log .artifacts/tmp/z2.csv` | CORES 0.1.0 running (`FM-1_745000100`). Note what it plays and shows without its resources. |
+| Z3 | `swift run fm1probe write-resources ../woodshed/audition/cores/build/cores-0.1.0-res.bin --log .artifacts/tmp/z3.csv` | The YES prompt, progress, then "The resources are on the FM-1". Note the time and what the screen shows. CORES now plays its samples. |
+| Z4 | Z3 again, logging to `z4.csv` | Done at once, with no progress steps: the firmware holds them already. |
+| Z5 | `swift run fm1probe write-resources ../woodshed/app/build/woodshed-res.bin` | "These resources are for another build". The samples still play. |
+| Z6 | Start CORES playing, then Z3 again | "Press STOP" (code 10), and nothing changes. If it writes anyway, note it. |
+| Z7 | `swift run fm1probe install ../woodshed/audition/cores/build/cores-0.1.1.fwsc --log .artifacts/tmp/z7.csv` | CORES 0.1.1 running, with its samples. Progress reaches 100% before the loader writes the resources, so **don't switch off** until it says it's running. Note how long the end takes. |
+| Z8 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install ../woodshed/audition/cores/build/cores-0.1.1.fwsc .artifacts/tmp/z8` | Nothing to write: the same build and resources are there. Switch off and on. |
+| Z9 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` Z1's backup `.artifacts/tmp/z9` | V15 again, as Z1 saved it. |
+| Z10 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-install ../woodshed/audition/cores/build/cores-0.1.1.fwsc .artifacts/tmp/z10` | "Writes its resources (0x97000–0xDAFFF)" among the sectors. After switching off and on, CORES plays its samples with no USB-MIDI step. If V15 left data there, it says to install again over USB-MIDI instead: note which. |
+| Z11 | As Z9, back to V15, then `swift run fm1probe transporter install ../woodshed/audition/cores/build/cores-0.1.1.fwsc .artifacts/tmp/z11` and `swift run fm1probe transporter start` | The afterwards step saying its resources aren't written and to install again over USB-MIDI. CORES starts without its samples. |
+| Z12 | `swift run fm1probe install ../woodshed/audition/cores/build/cores-0.1.1.fwsc --log .artifacts/tmp/z12.csv`, typing YES to install the same firmware again | CORES with its samples. |
+| Z13 | As Z9 | Back to V15. |
+
+If CORES doesn't start, hold REC while switching on and `flash-restore` Z1's backup; failing
+that, `transporter restore` it.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
