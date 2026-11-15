@@ -560,8 +560,9 @@ that, `transporter restore` it.
 After a USB-MIDI install of a package that carries fm1-base resources, FM1Kit now asks the new
 firmware for them, as its update loader can leave them out. Download mode never writes Melodee's
 sounds, which only its update loader writes. Start on V15 with m-bootloader 2.1 and the
-Transporter to hand, with stage Z's CORES files and Melodee 1.5.1 and 1.6.1 packages from
-Melodee's releases. Melodee refuses V15 over USB-MIDI while m-bootloader is installed, so go back
+Transporter to hand, with stage Z's CORES files, WOODSHED's CORES test builds (`e4bef65`) in
+`../woodshed/app/build/audition/cores/`, and Melodee 1.5.1 and 1.6.1 packages from Melodee's
+releases. Melodee refuses V15 over USB-MIDI while m-bootloader is installed, so go back
 to V15 with `flash-restore`. Watch the output's styling throughout: section headings, bold labels,
 dim progress and green when something finishes.
 
@@ -569,19 +570,23 @@ dim progress and green when something finishes.
 |---|---|---|
 | AA1 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/aa-start` | A backup of V15 to come back to. Switch off and on. |
 | AA2 | `swift run fm1probe install ../woodshed/audition/cores/build/cores.fwsc --log .artifacts/tmp/aa2.csv` | As Z13: CORES plays its piano straight away. No "Firmware writing resources" step: the loader wrote them, so the firmware answers at once. |
-| AA3 | AA2 again, logging to `aa3.csv` | "Kind: the identity already running", then "Installed" with no "Firmware writing resources" step. |
-| AA4 | `swift run fm1probe write-resources ../woodshed/audition/cores/build/cores.fwsc` | Done at once: the package's resources are read from the `.fwsc`, and the firmware holds them already. |
-| AA5 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa5` | Nothing to write, with no "Writes its resources" line, and the firmware named `FM-1_74500`. Switch off and on. |
-| AA6 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa6`; then `swift run fm1probe transporter install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa6-t` and `swift run fm1probe transporter start` | One afterwards step for the resources: `fm1probe write-resources FILE.fwsc`. CORES starts with "No piano bank". |
-| AA7 | AA4 again | Progress, then "The resources are on the FM-1". After switching off and on, CORES plays its piano. |
-| AA8 | WOODSHED's CORES build whose update loader leaves its resources out (still to come; its steps go here) | After the firmware answers, "Firmware writing resources" with its own progress, then "Installed" with the piano. Or, if the firmware refuses (code 21, still moving projects), "Installed", then a yellow warning and a Next step to run `write-resources`; AA7 then writes them. |
-| AA9 | As AA6, back to V15, then `swift run fm1probe install melodee-1.5.1.fwsc --log .artifacts/tmp/aa9.csv`; save a preset bank | Melodee 1.5.1 (`FM-1_91051`), holding a saved preset. |
-| AA10 | `swift run fm1probe install melodee-1.6.1.fwsc --log .artifacts/tmp/aa10.csv` | "Installed" (`FM-1_91061`). The FM-1 shows "Setup unfinished": its loader left the sounds while the old presets sat there. |
-| AA11 | AA10 again, logging to `aa11.csv` | "Kind: the identity already running", a confirm, then "Installed". The factory sounds play, and the preset is still there. |
-| AA12 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install melodee-1.6.1.fwsc .artifacts/tmp/aa12` | The plan writes nothing for Melodee's sounds and says a normal install over USB-MIDI writes them. Switch off and on: the sounds still play. |
-| AA13 | AA12 with `--erase-saved-data`, saving to `.artifacts/tmp/aa13` | The plan says the erase clears Melodee's sounds and that installing over USB-MIDI puts them back. After switching off and on, note what Melodee shows. |
-| AA14 | AA10 again, logging to `aa14.csv` | The factory sounds back. |
-| AA15 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa15` | Back to V15. |
+| AA3 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa3` | Nothing to write, with no "Writes its resources" line, and the firmware named `FM-1_74500`. Switch off and on. |
+| AA4 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa4`; then `swift run fm1probe transporter install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa4-t` and `swift run fm1probe transporter start` | One afterwards step for the resources: `fm1probe write-resources FILE.fwsc`. CORES starts with "No piano bank". |
+| AA5 | `swift run fm1probe write-resources ../woodshed/audition/cores/build/cores.fwsc` | The resources read from the `.fwsc`, progress, then "The resources are on the FM-1". After switching off and on, CORES plays its piano. |
+| AA6 | `swift run fm1probe install ../woodshed/app/build/audition/cores/cores-aa8-old.fwsc --log .artifacts/tmp/aa6.csv`, and let it start | WOODSHED's test build: at its first start it saves its settings at `0xDA000`, inside the resources, and objects at `0xDE000` and `0xDF000`. "Installed", with no "Firmware writing resources": the firmware checked its resources before saving over them, so it answers that it holds them. The piano plays until it's switched off; from its second start, "No piano bank". |
+| AA7 | `swift run fm1probe install ../woodshed/audition/cores/build/cores.fwsc --log .artifacts/tmp/aa7.csv` | The loader's reads stop at about `0x96900`: it leaves the resources over saved data. Then "Firmware writing resources" with its own progress, "Installed", and the piano plays. |
+| AA8 | AA6 again, logging to `aa8.csv` | As AA6. The objects at `0xDE000` and `0xDF000` are still there from AA6. |
+| AA9 | `swift run fm1probe install ../woodshed/app/build/audition/cores/cores-aa8-pool.fwsc --log .artifacts/tmp/aa9.csv` | The loader leaves the resources again. Its move into the store's pool never finishes, so the firmware refuses them (code 21): "Installed", then a yellow warning that the resources aren't written, and a Next step to run `write-resources`. The screen says "No piano bank". |
+| AA10 | AA7 again, logging to `aa10.csv` | As AA7. The objects at `0xDE000` and `0xDF000` stay until AA16. |
+| AA11 | As AA4, back to V15, then `swift run fm1probe install melodee-1.5.1.fwsc --log .artifacts/tmp/aa11.csv`; save a preset bank | Melodee 1.5.1 (`FM-1_91051`), holding a saved preset. |
+| AA12 | `swift run fm1probe install melodee-1.6.1.fwsc --log .artifacts/tmp/aa12.csv` | "Installed" (`FM-1_91061`). The FM-1 shows "Setup unfinished": its loader left the sounds while the old presets sat there. |
+| AA13 | AA12 again, logging to `aa13.csv` | "Kind: the identity already running", a confirm, then "Installed". The factory sounds play, and the preset is still there. |
+| AA14 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install melodee-1.6.1.fwsc .artifacts/tmp/aa14` | The plan writes nothing for Melodee's sounds and says a normal install over USB-MIDI writes them. Switch off and on: the sounds still play. |
+| AA15 | AA14 with `--erase-saved-data`, saving to `.artifacts/tmp/aa15`; type NO at the prompt | The plan says the erase clears Melodee's sounds and that installing over USB-MIDI puts them back. Nothing is written. Switch off and on. |
+| AA16 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa16` | Back to V15. |
+
+If AA7 or AA9's update loader writes the resources itself (its reads run to `0xDA700`), it
+didn't find the saved settings: back up in download mode and look for `X0X0` at `0xDA000`.
 
 If a firmware doesn't start, hold REC while switching on and `flash-restore` AA1's backup;
 failing that, `transporter restore` it.
