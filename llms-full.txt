@@ -105,7 +105,7 @@ The package's second library uses the chip's USB download mode, which works even
 - `FM1Identity` (struct): parses what a device reports, e.g. `FM-1_916`, or `ota-FM-1_015` for the update loader.
 - `FM1Updater` (actor): finds the device, checks and installs, resumes, restores V15's voices, backs up open firmware, and reports progress as `UpdateEvent`s.
 - `InstallCheck`, `InstallKind`, `InstallOptions`: what an install would do, and confirming a switch of firmware or an install of the identity already running.
-- `UpdateEvent` (enum): connected, staging, waiting for the loader, loader found, writing, checking, rebooting and finished.
+- `UpdateEvent` (enum): connected, staging, waiting for the loader, loader found, writing, checking, writing resources, rebooting and finished.
 - `FM1UpdateError` (enum): why an install, resume or backup stopped, with a description for each.
 - `FM1Capability`, `FM1BuildID` (structs): what M-VAVE's open firmware reports, and the build ID it's armed with before an update.
 - `OpenFirmwareBackup`, `OpenFirmwareProject` (structs): a backup of open firmware's projects and samples, and its `.fm1` project files.

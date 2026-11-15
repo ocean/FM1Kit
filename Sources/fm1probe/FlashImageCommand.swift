@@ -44,12 +44,12 @@ func makeTransporterImage(_ arguments: [String]) throws {
     do {
         plan = try FlashPlan.installingWithTransporter(package, onto: backup, flashID: flashID)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
     print("")
     for note in plan.notes { print(note) }
-    for warning in plan.warnings { print("Warning: \(warning)") }
+    for warning in plan.warnings { print(Style.warning(warning)) }
     guard !plan.isEmpty else {
         print("Nothing to write: the backup already holds this firmware, so no image was made.")
         return

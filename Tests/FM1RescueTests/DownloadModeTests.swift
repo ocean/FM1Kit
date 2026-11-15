@@ -242,6 +242,12 @@ struct FirmwareCheckTests {
         #expect(FlashBackup.identities(in: text) == ["FM-1_015", "FM-1_8000012"])
     }
 
+    @Test func leavesOutUpdateLoaderIdentities() {
+        // CORES's code holds V15's loader's identity for its update record.
+        let text = Array("FM-1_74500\0ota-FM-1_015\0".utf8)
+        #expect(FlashBackup.identities(in: text) == ["FM-1_74500"])
+    }
+
     static func backup(_ flash: [UInt8]) -> FlashBackup {
         FlashBackup(
             bytes: flash,

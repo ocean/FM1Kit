@@ -23,7 +23,7 @@ func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async thro
         exit(1)
     }
     let transport: any MIDITransport =
-        try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
+        logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
@@ -55,7 +55,7 @@ func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async thro
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
         print("\nRestored V15's factory voices in \(String(format: "%.1f", seconds)) s. Switch voices to hear them.")
     } catch {
-        print("\nStopped: \(error.localizedDescription)")
+        print("\n" + Style.stopped(error.localizedDescription))
         exit(1)
     }
 }

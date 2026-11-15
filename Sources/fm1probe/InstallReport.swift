@@ -12,6 +12,7 @@ final class InstallReport: Sendable {
         case waitingForLoader = "Waiting for the loader"
         case writing = "Writing"
         case checking = "Second pass"
+        case writingResources = "Writing resources"
         case rebooting = "Restarting"
         case finished = "Finished"
     }
@@ -30,6 +31,9 @@ final class InstallReport: Sendable {
 
     /// What's printed when the loader starts a second pass.
     static let secondPassNote = "The loader is reading the image again; Felucca's loader writes in this pass"
+
+    /// What's printed when the loader starts writing the firmware's resources.
+    static let resourcesNote = "The loader is writing the firmware's resources (its samples); keep the FM-1 on"
 
     /// How often staging progress is printed, in requests.
     static let stagingPrintInterval = 25
@@ -63,6 +67,12 @@ final class InstallReport: Sendable {
                     ? []
                     : Self.begin(.checking, in: &state, note: Self.secondPassNote)
                 return start + Self.noteFraction(fraction, requests: requests, in: &state)
+            case .writingResources(let fraction, let requests):
+                let start =
+                    state.step == .writingResources
+                    ? []
+                    : Self.begin(.writingResources, in: &state, note: Self.resourcesNote)
+                return start + Self.noteFraction(fraction, requests: requests, in: &state)
             case .rebooting:
                 return Self.begin(.rebooting, in: &state, note: "Writing finished; restarting into the new firmware")
             case .finished(let identity):
@@ -70,7 +80,7 @@ final class InstallReport: Sendable {
             }
         }
         for line in lines {
-            print("\(timestamp())  \(line)")
+            print(Style.dim("\(timestamp())  \(line)"))
         }
     }
 
@@ -79,7 +89,7 @@ final class InstallReport: Sendable {
         let summary = state.withLock { state in
             state.step == .finished ? state.summary : state.summary + [Self.describe(state, stoppedEarly: true)]
         }
-        print("\nSummary:")
+        Style.heading("Summary")
         for line in summary {
             print("  \(line)")
         }
@@ -123,7 +133,7 @@ final class InstallReport: Sendable {
     /// One summary line for the current step.
     private static func describe(_ state: State, stoppedEarly: Bool) -> String {
         var line = "\(state.step.rawValue): \(formatSeconds(ContinuousClock.now - state.stepStart))"
-        if [.staging, .writing, .checking].contains(state.step) {
+        if [.staging, .writing, .checking, .writingResources].contains(state.step) {
             let longestGap = Int(milliseconds(state.longestGap).rounded())
             line += ", \(state.requests) requests, longest gap between requests \(longestGap) ms"
         }

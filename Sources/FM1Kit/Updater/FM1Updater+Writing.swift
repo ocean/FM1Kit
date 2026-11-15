@@ -13,7 +13,8 @@ extension FM1Updater {
         from loader: FoundDevice,
         events: @escaping @Sendable (UpdateEvent) -> Void
     ) async throws -> ServeOutcome {
-        var progress = WriteProgress(region: package.container.applicationRange)
+        var progress = WriteProgress(
+            region: package.container.applicationRange, resources: package.container.resources?.range)
         var outcome: ServeOutcome
         do {
             defer { loader.connection.close() }

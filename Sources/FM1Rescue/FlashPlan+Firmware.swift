@@ -112,7 +112,9 @@ extension FlashPlan {
             ? Self.addResources(of: package, over: current, erasing: erasingSavedData, to: &target) : nil
         if let resources {
             allowed.append(resources)
-            notes.append("Writes its resources (\(Self.describe(resources))).")
+            if current.bytes[resources] != target[resources] {
+                notes.append("Writes its resources (\(Self.describe(resources))).")
+            }
         }
         var plan = try Self(
             purpose: .firmware(package.identity),

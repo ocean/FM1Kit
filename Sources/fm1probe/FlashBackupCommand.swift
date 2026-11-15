@@ -16,7 +16,7 @@ func enterDownloadMode() async throws {
         try await updater.enterDownloadMode()
         print("The FM-1 is in download mode. Back it up with `sudo .build/debug/fm1probe flash-backup FOLDER`.")
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -65,7 +65,7 @@ func openFlashSession(command: String, simulating simulated: SimulatedDownloadMo
     do {
         session = try FlashSession(connection: connection)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
     let mhz = session.clockMHz > 0 ? ", CPU at \(session.clockMHz) MHz" : ""
@@ -87,7 +87,7 @@ func readFlash(_ session: FlashSession) -> FlashBackup {
     do {
         return try session.backUp { progress.show($0) }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -122,7 +122,7 @@ final class TenthsPrinter: Sendable {
                 return tenth > last
             })
         else { return }
-        print("\(timestamp())  \(label): \(tenth * 10)%")
+        print(Style.dim("\(timestamp())  \(label): \(tenth * 10)%"))
     }
 }
 
@@ -162,10 +162,10 @@ private func openDownloadMode(command: String, traces: Bool) -> any DownloadMode
         print("`sudo .build/debug/fm1probe \(command)\(waitOption)`.")
         exit(1)
     } catch DownloadModeError.notFound where wait != nil {
-        print("Stopped: the FM-1 didn't appear in download mode in time. Nothing was written.")
+        print(Style.stopped("the FM-1 didn't appear in download mode in time. Nothing was written."))
         exit(1)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }

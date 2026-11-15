@@ -25,12 +25,13 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
         exit(1)
     }
     let transport: any MIDITransport =
-        try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
+        logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
         print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
         exit(1)
     }
+    Style.heading("FM-1")
     print("Device:    \(current.text)")
     print("Resources: \(resources.payloadLength) bytes, CRC-32 \(String(format: "%08x", resources.payloadCRC))")
     if current.isLoader {
@@ -41,6 +42,7 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
         print("Stopped. Nothing was sent apart from the handshake query.")
         exit(1)
     }
+    Style.heading("Writing")
     if let logPath { print("Logging every message to \(logPath).") }
     let start = ContinuousClock.now
     let shown = OSAllocatedUnfairLock(initialState: -1)
@@ -53,27 +55,27 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
                     return tenth > last
                 })
             else { return }
-            print("\(timestamp())  resources: \(tenth * 10)%")
+            print(Style.dim("\(timestamp())  resources: \(tenth * 10)%"))
         }
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
-        print("\nThe resources are on the FM-1 (\(String(format: "%.1f", seconds)) s).")
+        print(Style.done("The resources are on the FM-1 (\(String(format: "%.1f", seconds)) s)."))
+        Style.nextSteps(["Switch the FM-1 off and on, so the firmware loads them."])
     } catch {
-        print("\nStopped: \(error.localizedDescription)")
+        print("\n" + Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
 
 /// Says what writing resources does, and asks the person to type YES.
 func confirmResourceWrite() -> Bool {
+    Style.heading("Confirm")
     print(
         """
-
         This asks the firmware the FM-1 is running to write these resources (its samples or other
         data) into its resource region. It takes only its own build's, erases the region, writes
         them and checks them; projects and settings stay as they are. Press STOP first. If it's
         interrupted, the firmware does without its resources until you write them again.
-
         """)
-    print("Type YES to write the resources, or anything else to stop: ", terminator: "")
+    print(Style.bold("Type YES to write the resources, or anything else to stop: "), terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
 }

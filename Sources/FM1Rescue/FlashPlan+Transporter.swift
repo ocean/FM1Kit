@@ -28,9 +28,9 @@ extension FlashPlan {
     ///
     /// The saved data stays as it is, because the Transporter doesn't write it. Over another
     /// firmware, the plan warns that the new one may misread what the old one left there, and its
-    /// ``afterwards`` says to install it again in download mode, erasing saved data. For a package
-    /// with resources, it says to install it again over USB-MIDI once it's running, so its update
-    /// loader writes them.
+    /// ``afterwards`` says to install it again in download mode, erasing saved data, which also
+    /// writes resources in fm1-base's form. Otherwise, for a package with resources, it says to
+    /// install it again over USB-MIDI once it's running, so its update loader writes them.
     public static func installingWithTransporter(
         _ package: FwscPackage,
         onto dump: FlashBackup,
@@ -61,14 +61,20 @@ extension FlashPlan {
             plan.warnings.append(
                 """
                 The firmware this replaces keeps its saved data above 0x92FFF, which the \
-                Transporter can't write, and the new firmware may misread it: V15 over another \
-                firmware can play its voices with the wrong settings.
+                Transporter can't write, and the new firmware may misread it (V15 over another \
+                firmware has played its voices with the wrong settings).
                 """)
+            // Erasing in download mode writes fm1-base resources too, so one step covers both.
+            let writesResources = package.resources != nil
+            if writesResources {
+                plan.afterwards.removeAll { $0 == resourcesAfterwards(package) }
+            }
             plan.afterwards.append(
                 """
                 Once it's running, install it again from a Mac in download mode, erasing saved data: \
                 `sudo fm1probe flash-install FILE.fwsc FOLDER --erase-saved-data`.\
-                \(package.hasFactoryVoices ? " That also puts V15's factory voices back." : "")
+                \(package.hasFactoryVoices ? " That also puts V15's factory voices back." : "")\
+                \(writesResources ? " That also writes its resources (such as samples)." : "")
                 """)
         }
         return plan

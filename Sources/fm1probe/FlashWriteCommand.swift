@@ -59,6 +59,7 @@ func writeFlash(_ arguments: [String]) throws {
 /// - Throws: Any error reading a file or saving the backup.
 func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?, traces: Bool) throws {
     let simulated = try simulatedPath.map(simulatedFM1)
+    Style.heading("FM-1")
     let session = openFlashSession(
         command: "\(write.command) \(backupsPath)", simulating: simulated, traces: traces)
     defer { session.close() }
@@ -70,18 +71,18 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
     do {
         plan = try makePlan(write, onto: current)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
-    print("")
+    Style.heading("Plan")
     for note in plan.notes { print(note) }
     guard !plan.isEmpty else {
-        print("Nothing to write: the FM-1 already holds this. Switch it off and on to leave download mode.")
-        for step in plan.afterwards { print(step) }
+        print(Style.done("Nothing to write: the FM-1 already holds this."))
+        Style.nextSteps(["Switch the FM-1 off and on to leave download mode."] + plan.afterwards)
         return
     }
-    print("Writes \(describeSectors(plan)).")
-    for warning in plan.warnings { print("Warning: \(warning)") }
+    print(Style.bold("Writes \(describeSectors(plan))."))
+    for warning in plan.warnings { print(Style.warning(warning)) }
 
     let files = try save(current, to: backupsPath)
     print("The FM-1's flash as it is now is saved in \(files.flash.path).")
@@ -89,12 +90,13 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
         print("Stopped. Nothing was written. Switch the FM-1 off and on to leave download mode.")
         exit(1)
     }
+    Style.heading("Writing")
     let start = ContinuousClock.now
     let progress = TenthsPrinter(label: "writing")
     do {
         try session.write(plan) { progress.show($0) }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         switch error {
         case .writeNotVerified, .writeInterrupted:
             print("Restore it with `sudo .build/debug/fm1probe flash-restore \(files.flash.path) \(backupsPath)`.")
@@ -105,12 +107,10 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
     }
     let seconds = milliseconds(ContinuousClock.now - start) / 1000
     print(
-        """
-
-        Written and checked in \(String(format: "%.1f", seconds)) s: every changed run matches the chip's CRC-32.
-        Switch the FM-1 off and on to start it.
-        """)
-    for step in plan.afterwards { print(step) }
+        Style.done(
+            "Written and checked in \(String(format: "%.1f", seconds)) s: every changed run matches the chip's CRC-32.")
+    )
+    Style.nextSteps(["Switch the FM-1 off and on to start it."] + plan.afterwards)
 }
 
 /// Plans a write against the flash just read.
@@ -170,13 +170,13 @@ private func confirmFlashWrite(_ plan: FlashPlan) -> Bool {
             m-bootloader first avoids that.
             """
         }
+    Style.heading("Confirm")
     print(
         """
-
         Keep the cable connected and the FM-1 powered until this finishes: if it's switched off \
         while writing, it may not start. \(recovery)
         """)
-    print("Type YES to write to the FM-1, or anything else to stop: ", terminator: "")
+    print(Style.bold("Type YES to write to the FM-1, or anything else to stop: "), terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
 }
 

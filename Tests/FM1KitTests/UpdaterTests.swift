@@ -1,4 +1,5 @@
 import Testing
+import os
 
 @_spi(Testing) @testable import FM1Kit
 
@@ -66,8 +67,19 @@ struct UpdaterTests {
         let device = SimulatedFM1(options: Self.fastOptions)
         device.prepare(for: package)
         let updater = FM1Updater(transport: device, timing: Self.fastTiming)
-        let installed = try await updater.install(package, options: .confirmed)
+        let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
+        let installed = try await updater.install(package, options: .confirmed) { event in
+            events.withLock { $0.append(event) }
+        }
         #expect(installed.text == "FM-1_916")
+
+        // Its reads of the resources show as their own step, ending at 1.
+        let resourceFractions = events.withLock { $0 }.compactMap { event -> Double? in
+            if case .writingResources(let fraction, _) = event { fraction } else { nil }
+        }
+        #expect(!resourceFractions.isEmpty)
+        #expect(resourceFractions == resourceFractions.sorted())
+        #expect(resourceFractions.last == 1)
     }
 
     @Test func resumesAfterTheCableIsPulledMidWrite() async throws {

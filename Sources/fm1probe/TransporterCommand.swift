@@ -43,7 +43,7 @@ func runTransporter(_ arguments: [String]) throws {
         do {
             try transporter.startFirmware()
         } catch {
-            print("Stopped: \(error.localizedDescription)")
+            print(Style.stopped(error.localizedDescription))
             exit(1)
         }
         print("The FM-1 has left boot mode and is starting its firmware.")
@@ -74,7 +74,7 @@ private func openTransporter() -> Transporter {
         print("Transporter: \(link.path)")
         return Transporter(link: link)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -94,7 +94,7 @@ private func showTransporterStatus() {
         print("FM-1:   \(state)")
         print("Loader: \(status.hasLoader ? "sent" : "not sent yet")")
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -126,7 +126,7 @@ private func prepareChip(_ transporter: Transporter) -> Transporter.Chip {
         print("Flash:    \(flashChipDescription(chip.flashID))")
         return chip
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -138,7 +138,7 @@ private func readTransporterFlash(_ transporter: Transporter, _ chip: Transporte
     do {
         return try transporter.backUp(chip) { progress.show($0) }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
 }
@@ -149,6 +149,7 @@ private func writeWithTransporter(restoring: Bool, file: String, backupsPath: St
     let incoming = URL(fileURLWithPath: file)
     let package = restoring ? nil : try FwscPackage(data: Data(contentsOf: incoming))
     let backup = restoring ? try FlashBackup(contentsOf: incoming) : nil
+    Style.heading("FM-1")
     let transporter = openTransporter()
     defer { transporter.close() }
     let chip = prepareChip(transporter)
@@ -162,22 +163,19 @@ private func writeWithTransporter(restoring: Bool, file: String, backupsPath: St
         print("Stopped. Nothing was written. Switch the FM-1 off and on to leave boot mode.")
         exit(1)
     }
+    Style.heading("Writing")
     let start = ContinuousClock.now
     let progress = TenthsPrinter(label: "writing")
     do {
         try transporter.write(plan) { progress.show($0) }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
     let seconds = milliseconds(ContinuousClock.now - start) / 1000
-    print(
-        """
-
-        Written and read back in \(String(format: "%.1f", seconds)) s: every changed sector matches.
-        Switch the FM-1 off, wait 5 seconds, unplug the Transporter's cable and switch it on.
-        """)
-    for step in plan.afterwards { print(step) }
+    print(Style.done("Written and read back in \(String(format: "%.1f", seconds)) s: every changed sector matches."))
+    Style.nextSteps(
+        ["Switch the FM-1 off, wait 5 seconds, unplug the Transporter's cable and switch it on."] + plan.afterwards)
 }
 
 /// Plans installing a package or restoring a backup onto the flash just read and prints what
@@ -197,20 +195,21 @@ private func planTransporterWrite(
             return nil
         }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
+        print(Style.stopped(error.localizedDescription))
         exit(1)
     }
-    print("")
+    Style.heading("Plan")
     for note in plan.notes { print(note) }
     guard !plan.isEmpty else {
-        print("Nothing to write: the FM-1 already holds this. Switch it off and on to leave boot mode.")
+        print(Style.done("Nothing to write: the FM-1 already holds this."))
+        Style.nextSteps(["Switch the FM-1 off and on to leave boot mode."])
         return nil
     }
-    print("Writes \(describeSectors(plan)).")
-    for warning in plan.warnings { print("Warning: \(warning)") }
+    print(Style.bold("Writes \(describeSectors(plan))."))
+    for warning in plan.warnings { print(Style.warning(warning)) }
     if let sector = plan.sectors.first(where: { !FlashPlan.transporterWritable.contains($0) }) {
         print(
-            String(format: "Stopped: this changes 0x%05X, ", sector)
+            Style.stopped(String(format: "this changes 0x%05X, ", sector))
                 + """
                 outside the 0x04000–0x92FFF the Transporter writes: the boot area, or the saved \
                 data and factory data above it. Restore it in download mode instead, with \
@@ -223,13 +222,13 @@ private func planTransporterWrite(
 
 /// Explains what writing through the Transporter risks, and asks the person to type YES.
 private func confirmTransporterWrite() -> Bool {
+    Style.heading("Confirm")
     print(
         """
-
         Keep the FM-1 switched on and the Transporter connected until this finishes. If it \
         stops part-way, don't switch the FM-1 off: run the same command again to finish. The \
         boot area isn't written, so the Transporter can still reach the boot ROM.
         """)
-    print("Type YES to write to the FM-1, or anything else to stop: ", terminator: "")
+    print(Style.bold("Type YES to write to the FM-1, or anything else to stop: "), terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
 }

@@ -12,14 +12,16 @@ struct FlashResourceTests {
     static let range = 0x9_7000..<0x9_9000
 
     /// A package of the sample flash's firmware, with a resources part going to `address`.
-    static func package(address: Int = address, bytes: [UInt8] = region) throws -> FwscPackage {
+    static func package(address: Int = address, bytes: [UInt8] = region, product: String = "FM-1_378001") throws
+        -> FwscPackage
+    {
         let flash = SampleFlash.flash(code: SampleFlash.code(fill: 0x77))
         let resources = FwscPackage.SamplePart.resources(size: bytes.count, at: address)
         let image = FwscPackage.sampleImage(
             parts: [.flash(size: 0x8000), .loader(), resources],
             contents: [0: Array(flash[0..<0x8000]), 2: bytes]
         )
-        return try FwscPackage(data: Data(FwscPackage.sampleFile(logicalImage: image, product: "FM-1_378001")))
+        return try FwscPackage(data: Data(FwscPackage.sampleFile(logicalImage: image, product: product)))
     }
 
     /// The sample flash, with `fill` where the resources go.
@@ -38,9 +40,10 @@ struct FlashResourceTests {
         try session.write(plan)
         #expect(Array(chip.flash[Self.range]) == Self.region + repeatElement(0xFF, count: 0x2000 - Self.region.count))
 
-        // Installing the same package again leaves the resources as they are.
+        // Installing the same package again leaves the resources as they are, and says nothing of them.
         let again = try FlashPlan.installing(try Self.package(), onto: try session.backUp())
         #expect(again.isEmpty)
+        #expect(!again.notes.contains { $0.contains("resources") })
     }
 
     @Test func replacesOlderResources() throws {
@@ -93,5 +96,14 @@ struct FlashResourceTests {
         let plan = try FlashPlan.installingWithTransporter(try Self.package(), onto: dump)
         #expect(plan.sectors.allSatisfy { FlashPlan.transporterWritable.contains($0) })
         #expect(plan.afterwards.contains { $0.contains("install it again over USB-MIDI") })
+    }
+
+    @Test func theTransporterOverAnotherFirmwareGivesOneStepForBoth() throws {
+        // Erasing in download mode writes the resources too.
+        let dump = SampleFlash.backup(Self.flash(holding: []))
+        let plan = try FlashPlan.installingWithTransporter(try Self.package(product: "FM-1_74500"), onto: dump)
+        #expect(plan.afterwards.count == 1)
+        #expect(plan.afterwards.first?.contains("--erase-saved-data") == true)
+        #expect(plan.afterwards.first?.contains("also writes its resources") == true)
     }
 }

@@ -13,6 +13,9 @@ import Foundation
 /// or short re-reads don't count: loaders re-read parts of the header as they start and finish.
 ///
 /// A loader could skip part of the region, so writing progress can end below 1.
+///
+/// Reads of a package's resources part, past its header, are the loader writing the resources,
+/// with their own progress.
 struct WriteProgress {
     /// How much of the region must be read before re-reads can count as checking.
     static let checkingThreshold = 0.5
@@ -21,6 +24,13 @@ struct WriteProgress {
 
     /// The part of the logical image that counts towards progress.
     let region: Range<Int>
+    /// The resources part's payload in the logical image: the part after the 512 bytes its
+    /// header is read in, which fm1-base's loader reads even when it leaves the resources.
+    let resourcePayload: Range<Int>?
+    /// Every byte of the resources' payload read.
+    private var resourcesRead = IndexSet()
+    /// Reads of the resources' payload answered.
+    private var resourceRequests = 0
     /// Every byte of the region read while writing.
     private var written = IndexSet()
     /// Every byte of the region read again while checking.
@@ -37,9 +47,12 @@ struct WriteProgress {
 
     /// Starts tracking a write that counts reads within this part of the logical image.
     ///
-    /// - Parameter region: The bytes that count, normally the application area.
-    init(region: Range<Int>) {
+    /// - Parameters:
+    ///   - region: The bytes that count, normally the application area.
+    ///   - resources: The package's resources part, if it carries one.
+    init(region: Range<Int>, resources: Range<Int>? = nil) {
         self.region = region
+        resourcePayload = resources.map { ($0.lowerBound + FM1Message.maximumReadLength)..<$0.upperBound }
     }
 
     /// Records one answered read and returns the progress event to report.
@@ -49,6 +62,15 @@ struct WriteProgress {
     ///   ``UpdateEvent/checking(fraction:requests:)`` once a second pass has started.
     mutating func record(_ request: FM1ReadRequest) -> UpdateEvent {
         let start = Int(request.address)
+        if let resourcePayload {
+            let payloadRead = (start..<(start + request.length)).clamped(to: resourcePayload)
+            if !payloadRead.isEmpty {
+                resourcesRead.insert(integersIn: payloadRead)
+                resourceRequests += 1
+                let fraction = min(Double(resourcesRead.count) / Double(max(resourcePayload.count, 1)), 1)
+                return report(.writingResources(fraction: fraction, requests: resourceRequests))
+            }
+        }
         let range = (start..<(start + request.length)).clamped(to: region)
         requests += 1
         guard !range.isEmpty else {
@@ -115,6 +137,7 @@ struct WriteProgress {
         switch lastEvent {
         case .checking(let fraction, _): .checking(fraction: fraction, requests: requests)
         case .writing(let fraction, _): .writing(fraction: fraction, requests: requests)
+        case .writingResources(let fraction, _): .writingResources(fraction: fraction, requests: resourceRequests)
         default: .writing(fraction: 0, requests: requests)
         }
     }

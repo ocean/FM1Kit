@@ -23,6 +23,13 @@ public enum UpdateEvent: Sendable, Hashable {
     /// than the first: tell the person to keep the FM-1 connected and switched on until the update
     /// finishes, and that its screen stays dark meanwhile.
     case checking(fraction: Double, requests: Int)
+    /// The loader is writing the firmware's resources (its samples or other data) from the
+    /// package's resources part: it has read `fraction` (0 to 1) of them in `requests` reads.
+    ///
+    /// Only a package that carries its resources has this step, and only when the FM-1 doesn't
+    /// already hold them: fm1-base's loader reads their header first and leaves them otherwise.
+    /// Like the second pass, it's no safer to interrupt.
+    case writingResources(fraction: Double, requests: Int)
     /// Writing has finished and the device is restarting into its new firmware.
     case rebooting
     /// The device is running the new firmware and reports this identity.

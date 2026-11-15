@@ -26,7 +26,7 @@ func installBootloader(path: String, isSimulated: Bool, fromAnyFirmware: Bool, l
         exit(1)
     }
     let transport: any MIDITransport =
-        try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
+        logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     print("Installs: m-bootloader \(installer.bootloader.version) (\(installer.bootloader.bytes.count) bytes)")
     guard let current = await updater.identify() else {
@@ -58,7 +58,7 @@ func installBootloader(path: String, isSimulated: Bool, fromAnyFirmware: Bool, l
             switch the FM-1 off, then hold PLAY while switching it on: m-bootloader's menu should open.
             """)
     } catch {
-        print("\nStopped: \(error.localizedDescription)")
+        print("\n" + Style.stopped(error.localizedDescription))
         exit(1)
     }
 }

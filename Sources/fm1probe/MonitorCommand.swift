@@ -22,7 +22,7 @@ func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
         print("No MIDI ports to listen on. Is the FM-1 connected and switched on?")
         fail()
     }
-    let log = try logPath.map { try MessageLog(path: $0, longestLoggedMessage: .max) }
+    let log = logPath.map { MessageLog(path: $0, longestLoggedMessage: .max) }
     print("Listening on \(connections.map(\.port.name).joined(separator: ", ")) for \(seconds) s. Nothing is sent.")
     if let logPath { print("Logging every message to \(logPath).") }
     let deadline = ContinuousClock.now + .seconds(seconds)

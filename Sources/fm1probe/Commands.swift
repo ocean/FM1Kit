@@ -141,7 +141,7 @@ func runCommand() async throws {
             exit(1)
         }
         let transport: any MIDITransport =
-            try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
+            logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
         let updater = await chosenUpdater(transport)
         var buildID: FM1BuildID?
         if let text = option("--build-id") {
@@ -153,6 +153,7 @@ func runCommand() async throws {
         }
 
         let official = OfficialFirmware.matching(package).map { "  (\($0.name), verified)" } ?? ""
+        Style.heading("FM-1")
         print("Package:  \(package.product)\(official)")
         guard let current = await updater.identify() else {
             print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
@@ -176,7 +177,7 @@ func runCommand() async throws {
             do {
                 check = try await updater.check(package, buildID: buildID)
             } catch {
-                print("Stopped: \(error.localizedDescription)")
+                print(Style.stopped(error.localizedDescription))
                 exit(1)
             }
             if let capability = check.capability {
@@ -199,17 +200,16 @@ func runCommand() async throws {
                 print("Kind:     an update of the open firmware running")
             case .switchingFirmware:
                 print("Kind:     switching to a different firmware")
-                switchWarning = """
-
-                    Switching firmware can erase the FM-1's projects and samples. Back them up first.
-                    """
+                switchWarning = Style.warning(
+                    "Switching firmware can erase the FM-1's projects and samples. Back them up first.\n")
             }
         }
 
         if !isSimulated {
+            Style.heading("Confirm")
+            print(switchWarning, terminator: "")
             print(
                 """
-                \(switchWarning)
                 This writes \(package.product) to the FM-1. Keep the cable connected and the FM-1 switched on
                 until it finishes. Its screen may stay dark while it writes: that's normal, so don't switch it
                 off. If the cable comes out, plug it straight back in and finish with --resume. Ctrl-C stops
@@ -217,15 +217,15 @@ func runCommand() async throws {
                 - while staging, the FM-1 should still start normally afterwards;
                 - while writing, it waits in its update loader, as long as it stays switched on, for
                   `fm1probe install \(path) --resume`.
-
                 """)
-            print("Type YES to install it, or anything else to stop: ", terminator: "")
+            print(Style.bold("Type YES to install it, or anything else to stop: "), terminator: "")
             guard readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES" else {
                 print("Stopped. Nothing was sent apart from the handshake query.")
                 exit(1)
             }
         }
 
+        Style.heading("Installing")
         if let logPath { print("Logging every message to \(logPath).") }
         // Typing YES (or choosing a simulated run) confirms a switch of firmware or a same-identity install.
         let options = InstallOptions(
@@ -250,11 +250,11 @@ func runCommand() async throws {
         do {
             let installed = try await installation.value
             report.printSummary(total: ContinuousClock.now - start)
-            print("\nInstalled: the FM-1 is running \(installed.text).")
+            print("\n" + Style.done("Installed: the FM-1 is running \(installed.text)."))
         } catch is CancellationError {
             report.printSummary(total: ContinuousClock.now - start)
             switch report.step {
-            case .writing, .checking:
+            case .writing, .checking, .writingResources:
                 print("\nStopped while writing. Don't switch the FM-1 off; finish with --resume.")
             case .rebooting, .finished:
                 print("\nStopped after writing. Check what the FM-1 is running with `fm1probe identify`.")
@@ -264,7 +264,7 @@ func runCommand() async throws {
             exit(1)
         } catch {
             report.printSummary(total: ContinuousClock.now - start)
-            print("\nStopped: \(error.localizedDescription)")
+            print("\n" + Style.stopped(error.localizedDescription))
             exit(1)
         }
 
