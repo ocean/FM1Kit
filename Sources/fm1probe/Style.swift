@@ -26,9 +26,32 @@ enum Style {
         styled("Warning:", "1;33") + " " + text
     }
 
-    /// Something finished well, in green after a tick.
+    /// Something finished well, in green.
     static func done(_ text: String) -> String {
-        isEnabled ? styled("✓ " + text, "32") : text
+        colour(text, .green)
+    }
+
+    /// Colours for text that says how something went.
+    enum Colour: String {
+        case red = "31"
+        case green = "32"
+        case yellow = "33"
+        case cyan = "36"
+    }
+
+    /// Text in a colour.
+    static func colour(_ text: String, _ colour: Colour) -> String {
+        styled(text, colour.rawValue)
+    }
+
+    /// A line as it happens: the time, dim, then `text`.
+    static func logged(_ text: String) -> String {
+        dim(timestamp()) + "  " + text
+    }
+
+    /// A progress line as it happens, all dim, with the time first.
+    static func progress(_ text: String) -> String {
+        dim("\(timestamp())  \(text)")
     }
 
     /// Prints the steps to take afterwards under a "Next" heading, numbered; nothing when there

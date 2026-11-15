@@ -22,9 +22,10 @@ func runCommand() async throws {
     case "ports":
         let transport = try await CoreMIDITransport(clientName: "fm1probe")
         let ports = await transport.ports()
-        if ports.isEmpty { print("No MIDI port pairs found.") }
+        if ports.isEmpty { print(Style.colour("No MIDI port pairs found.", .yellow)) }
         for port in ports {
-            print("\(FM1Updater.isProbeable(port) ? "probe" : "skip ")  \(portLabel(port))  [\(port.id)]")
+            let tag = FM1Updater.isProbeable(port) ? Style.colour("probe", .green) : Style.dim("skip ")
+            print("\(tag)  \(portLabel(port))  \(Style.dim("[\(port.id)]"))")
         }
 
     case "identify":
@@ -55,22 +56,23 @@ func runCommand() async throws {
             let names = await transport.ports().map { "\($0.name)\(FM1Updater.isProbeable($0) ? "" : " (skipped)")" }
             return names.isEmpty ? "no ports" : names.joined(separator: ", ")
         }
+        Style.heading("Watching")
         print("Watching for \(seconds) s. Unplug and replug the FM-1, or switch it off and on.")
         let initial = await portSummary()
-        print("\(timestamp())  \(initial)")
+        print(Style.logged(initial))
         let watching = Task {
             // CoreMIDI sends several notifications for one plug or unplug, so only print real changes.
             var shown = initial
             for await _ in transport.changes() {
                 let summary = await portSummary()
                 guard summary != shown else { continue }
-                print("\(timestamp())  \(summary)")
+                print(Style.logged(summary))
                 shown = summary
             }
         }
         try? await Task.sleep(for: .seconds(seconds))
         watching.cancel()
-        print("Stopped watching after \(seconds) s.")
+        print("\n" + Style.done("Stopped watching after \(seconds) s."))
 
     case "inspect" where arguments.count >= 2:
         try inspect(path: arguments[1])
@@ -122,8 +124,7 @@ func runCommand() async throws {
         let path = arguments[1]
         let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
         guard package.isFirmware else {
-            print("\(path) installs a bootloader, not firmware. Use `fm1probe install-bootloader \(path)`.")
-            exit(1)
+            stop("\(path) installs a bootloader, not firmware. Use `fm1probe install-bootloader \(path)`.")
         }
         let device: any MIDITransport
         if isSimulated {
@@ -137,8 +138,7 @@ func runCommand() async throws {
         }
         let logPath = option("--log")
         if let logPath, FileManager.default.fileExists(atPath: logPath) {
-            print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
-            exit(1)
+            stop("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
         }
         let transport: any MIDITransport =
             logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
@@ -146,23 +146,21 @@ func runCommand() async throws {
         var buildID: FM1BuildID?
         if let text = option("--build-id") {
             guard let id = FM1BuildID(hex: text) else {
-                print("\(text) isn't a build ID: it should be 64 hex digits.")
-                exit(1)
+                stop("\(text) isn't a build ID: it should be 64 hex digits.")
             }
             buildID = id
         }
 
         let official = OfficialFirmware.matching(package).map { "  (\($0.name), verified)" } ?? ""
         Style.heading("FM-1")
-        print("Package:  \(package.product)\(official)")
+        print(Style.bold("Package:") + "  \(package.product)\(official)")
         guard let current = await updater.identify() else {
-            print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-            exit(1)
+            stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
         }
-        print("Device:   \(current.text)  (\(current.isLoader ? "update loader" : "firmware running"))")
+        print(
+            Style.bold("Device:") + "   \(current.text)  (\(current.isLoader ? "update loader" : "firmware running"))")
         guard current.hardwareModel == package.identity.model else {
-            print("The package is for \(package.identity.model), but the device is \(current.hardwareModel).")
-            exit(1)
+            stop("The package is for \(package.identity.model), but the device is \(current.hardwareModel).")
         }
         guard isResume == current.isLoader else {
             print(
@@ -177,29 +175,34 @@ func runCommand() async throws {
             do {
                 check = try await updater.check(package, buildID: buildID)
             } catch {
-                print(Style.stopped(error.localizedDescription))
-                exit(1)
+                stop(error.localizedDescription)
             }
             if let capability = check.capability {
-                print("Open:     build \(capability.buildID.hex.prefix(16)), \(capability.isReady ? "ready" : "busy")")
+                print(
+                    Style.bold("Open:")
+                        + "     build \(capability.buildID.hex.prefix(16)), \(capability.isReady ? "ready" : "busy")")
             }
             switch check.kind {
             case .reinstall where check.canReinstallOfficial && reinstallsOfficial:
-                print("Kind:     \(package.product) over an FM-1 reporting it too, as --reinstall-official allows")
+                print(
+                    Style.bold("Kind:")
+                        + "     \(package.product) over an FM-1 reporting it too, as --reinstall-official allows")
             case .reinstall where check.canReinstallOfficial:
-                print("The FM-1 reports \(package.product), so it isn't reinstalled. If it's running a firmware")
-                print("that reports that identity, such as TransitFM1, run again with --reinstall-official.")
-                exit(1)
+                stop(
+                    """
+                    The FM-1 reports \(package.product), so it isn't reinstalled. If it's running a firmware \
+                    that reports that identity, such as TransitFM1, run again with --reinstall-official.
+                    """)
             case .reinstall:
                 print(
                     "The FM-1 is already running \(package.product), so it isn't reinstalled. Choose another package.")
                 exit(1)
             case .sameIdentity:
-                print("Kind:     the identity already running: a reinstall, or another release of it")
+                print(Style.bold("Kind:") + "     the identity already running: a reinstall, or another release of it")
             case .update:
-                print("Kind:     an update of the open firmware running")
+                print(Style.bold("Kind:") + "     an update of the open firmware running")
             case .switchingFirmware:
-                print("Kind:     switching to a different firmware")
+                print(Style.bold("Kind:") + "     switching to a different firmware")
                 switchWarning = Style.warning(
                     "Switching firmware can erase the FM-1's projects and samples. Back them up first.\n")
             }
@@ -220,8 +223,7 @@ func runCommand() async throws {
                 """)
             print(Style.bold("Type YES to install it, or anything else to stop: "), terminator: "")
             guard readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES" else {
-                print("Stopped. Nothing was sent apart from the handshake query.")
-                exit(1)
+                stop("Nothing was sent apart from the handshake query.")
             }
         }
 
@@ -251,25 +253,35 @@ func runCommand() async throws {
             let installed = try await installation.value
             report.printSummary(total: ContinuousClock.now - start)
             print("\n" + Style.done("Installed: the FM-1 is running \(installed.text)."))
+            if let problem = report.resourcesProblem {
+                print(Style.warning("Its resources (such as samples) aren't written. \(problem.localizedDescription)"))
+                Style.nextSteps(["Write them once the FM-1 is ready: `fm1probe write-resources \(path)`."])
+            }
         } catch is CancellationError {
             report.printSummary(total: ContinuousClock.now - start)
+            print("")
             switch report.step {
             case .writing, .checking, .writingResources:
-                print("\nStopped while writing. Don't switch the FM-1 off; finish with --resume.")
+                stop("Interrupted while writing. Don't switch the FM-1 off; finish with --resume.")
+            case .firmwareResources:
+                stop(
+                    """
+                    Interrupted while the firmware wrote its resources. It is installed, but does without \
+                    them until you run `fm1probe write-resources \(path)`.
+                    """)
             case .rebooting, .finished:
-                print("\nStopped after writing. Check what the FM-1 is running with `fm1probe identify`.")
+                stop("Interrupted after writing. Check what the FM-1 is running with `fm1probe identify`.")
             case .starting, .staging, .waitingForLoader:
-                print("\nStopped before writing. Check what the FM-1 is running with `fm1probe identify`.")
+                stop("Interrupted before writing. Check what the FM-1 is running with `fm1probe identify`.")
             }
-            exit(1)
         } catch {
             report.printSummary(total: ContinuousClock.now - start)
-            print("\n" + Style.stopped(error.localizedDescription))
-            exit(1)
+            print("")
+            stop(error.localizedDescription)
         }
 
     default:
-        print(usage)
+        printUsage()
         exit(2)
     }
 }

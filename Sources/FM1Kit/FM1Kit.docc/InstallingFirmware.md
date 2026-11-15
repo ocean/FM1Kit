@@ -238,9 +238,13 @@ again.
 
 Some firmwares built with fm1-base keep data they don't need to start, such as samples, in a
 resource region of the flash. A package that carries its resources (``FwscPackage/resources``)
-needs nothing more: its update loader writes them after the firmware. Others publish them beside
-the package as `NAME-res.bin`, as LOOM-8 does from 0.12. Once the firmware is running,
-``FM1Updater/writeResources(_:progress:)`` sends that file to it:
+needs nothing more: its update loader writes them after the firmware. fm1-base's loader can leave
+them out without failing the install, such as while an older build's projects are still to move,
+so ``FM1Updater/install(_:options:events:)`` then asks the new firmware for them. If it can't
+write them, the install still finishes, after ``UpdateEvent/resourcesNotWritten(_:)``: tell the
+person their samples are missing until the resources are written. Others publish them beside the
+package as `NAME-res.bin`, as LOOM-8 does from 0.12. Once the firmware is running,
+``FM1Updater/writeResources(_:progress:)`` sends that file, or a package's resources, to it:
 
 ```swift
 let resources = try ResourceRegion(bytes: [UInt8](try Data(contentsOf: url)))

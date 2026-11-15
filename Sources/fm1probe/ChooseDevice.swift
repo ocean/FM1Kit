@@ -11,9 +11,9 @@ func listDevices() async throws {
         return
     }
     if devices.isEmpty {
-        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-        fail()
+        stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
     }
+    Style.heading("Devices")
     printDevices(devices)
 }
 
@@ -27,7 +27,7 @@ func chosenUpdater(_ transport: any MIDITransport) async -> FM1Updater {
     let wanted = option("--device")
     guard devices.count > 1 || wanted != nil else { return FM1Updater(transport: transport, alsoProbing: portNames) }
     guard let wanted else {
-        print("\(devices.count) devices answered. Choose one with --device N or --device SERIAL:")
+        print(Style.stopped("\(devices.count) devices answered. Choose one with --device N or --device SERIAL:"))
         printDevices(devices)
         fail()
     }
@@ -36,9 +36,10 @@ func chosenUpdater(_ transport: any MIDITransport) async -> FM1Updater {
     }
     guard matches.count == 1, let device = matches.first?.element else {
         print(
-            matches.isEmpty
-                ? "No device answered as \(wanted). These did:"
-                : "More than one device answered as \(wanted). Choose one by number:")
+            Style.stopped(
+                matches.isEmpty
+                    ? "No device answered as \(wanted). These did:"
+                    : "More than one device answered as \(wanted). Choose one by number:"))
         printDevices(devices)
         fail()
     }
@@ -54,8 +55,7 @@ func chosenPortNames(_ transport: any MIDITransport) async -> Set<String> {
         name.localizedCaseInsensitiveContains(wanted)
     }
     guard !names.isEmpty else {
-        print("No port matches \"\(wanted)\". Run `fm1probe ports` to see their names.")
-        fail()
+        stop("No port matches \"\(wanted)\". Run `fm1probe ports` to see their names.")
     }
     return Set(names)
 }
@@ -65,7 +65,8 @@ func printDevices(_ devices: [FM1DeviceSummary]) {
     for (index, device) in devices.enumerated() {
         let state = device.isWaitingMidUpdate ? "update loader" : device.firmwareName ?? "firmware running"
         let serial = device.serialNumber.map { ", serial \($0)" } ?? ""
-        print("  \(index + 1). \(device.identity.text)  (\(state))  on \(portLabel(device.port))\(serial)")
+        let number = Style.bold("\(index + 1).")
+        print("  \(number) \(Style.bold(device.identity.text))  (\(state))  on \(portLabel(device.port))\(serial)")
     }
 }
 

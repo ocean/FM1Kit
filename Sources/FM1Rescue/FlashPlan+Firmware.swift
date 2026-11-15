@@ -25,9 +25,10 @@ extension FlashPlan {
     /// A package that carries its resources in fm1-base's form (``FwscPackage/resources``) has
     /// them written where its part says, after erasing saved data, or without erasing when that
     /// flash is blank past any resources already there. Anything else there may be an older build's
-    /// projects not yet moved, so the resources are left out, and the plan says to install the
-    /// firmware again over USB-MIDI once it's running: its update loader writes them. The same goes
-    /// for resources in another form, such as Melodee's.
+    /// projects not yet moved, so the resources are left out, and the plan says to write them over
+    /// USB-MIDI once the firmware is running. Resources in another form, such as Melodee's, are left
+    /// out too, and the plan says to install the firmware again over USB-MIDI: its update loader
+    /// writes them.
     ///
     /// - Parameters:
     ///   - package: A firmware package for the FM-1.
@@ -195,10 +196,16 @@ extension FlashPlan {
 
     /// What to do once a firmware is running whose resources a plan leaves out.
     static func resourcesAfterwards(_ package: FwscPackage) -> String {
-        """
-        Its resources (such as samples) aren't written here. Once \(package.product) is running, install it again \
-        over USB-MIDI, and its update loader writes them: `fm1probe install FILE.fwsc`.
-        """
+        guard package.resources != nil else {
+            return """
+                Its resources (such as samples) aren't written here. Once \(package.product) is running, install it \
+                again over USB-MIDI, and its update loader writes them: `fm1probe install FILE.fwsc`.
+                """
+        }
+        return """
+            Its resources (such as samples) aren't written here. Once \(package.product) is running, write them \
+            over USB-MIDI: `fm1probe write-resources FILE.fwsc`.
+            """
     }
 
     /// Where data is kept that no firmware declares but every one leaves in place, from `0xFC000`

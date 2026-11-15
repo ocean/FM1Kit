@@ -14,6 +14,12 @@ func fail() -> Never {
     exit(1)
 }
 
+/// Prints why fm1probe stopped, after a red "Stopped:", and stops it, reporting failure.
+func stop(_ reason: String) -> Never {
+    print(Style.stopped(reason))
+    exit(1)
+}
+
 func hex(_ bytes: [UInt8]) -> String {
     bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
 }

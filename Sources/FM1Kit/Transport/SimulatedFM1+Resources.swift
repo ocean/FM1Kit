@@ -7,9 +7,11 @@ extension SimulatedFM1 {
     /// them already, and otherwise erases the region, reads the payload 512 bytes at a time,
     /// checks it and reports.
     ///
-    /// A firmware without ``Options/buildResources`` ignores the request.
+    /// A firmware whose build takes no resources (``Options/buildResources``) ignores the request.
     func handleResourceRequest(_ payload: [UInt8], from connection: SimulatedConnection) {
-        guard let build = options.buildResources, currentIdentity?.isLoader == false, payload.count == 8 else {
+        guard let build = state.withLock({ $0.buildResources }), currentIdentity?.isLoader == false,
+            payload.count == 8
+        else {
             log("The firmware ignores the resource request.")
             return
         }

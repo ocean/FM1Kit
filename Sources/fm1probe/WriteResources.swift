@@ -2,16 +2,10 @@ import FM1Kit
 import Foundation
 import os
 
-/// Writes a firmware's resources (a `NAME-res.bin`) to the connected FM-1 (or a simulated one)
-/// over USB-MIDI, after the person types YES.
+/// Writes a firmware's resources (a `NAME-res.bin`, or a package that carries them) to the
+/// connected FM-1 (or a simulated one) over USB-MIDI, after the person types YES.
 func writeResources(path: String, isSimulated: Bool, logPath: String?) async throws {
-    let resources: ResourceRegion
-    do {
-        resources = try ResourceRegion(bytes: [UInt8](Data(contentsOf: URL(fileURLWithPath: path))))
-    } catch let failure as ResourceRegion.Failure {
-        print("\(path): \(failure.localizedDescription)")
-        exit(1)
-    }
+    let resources = try loadResources(path)
     let device: any MIDITransport
     if isSimulated {
         var options = SimulatedFM1.Options()
@@ -21,26 +15,24 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
         device = try await CoreMIDITransport(clientName: "fm1probe")
     }
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
-        print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
-        exit(1)
+        stop("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
     }
     let transport: any MIDITransport =
         logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
-        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-        exit(1)
+        stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
     }
     Style.heading("FM-1")
-    print("Device:    \(current.text)")
-    print("Resources: \(resources.payloadLength) bytes, CRC-32 \(String(format: "%08x", resources.payloadCRC))")
+    print(Style.bold("Device:") + "    \(current.text)")
+    print(
+        Style.bold("Resources:")
+            + " \(resources.payloadLength) bytes, CRC-32 \(String(format: "%08x", resources.payloadCRC))")
     if current.isLoader {
-        print("The FM-1 is in its update loader. Finish the install first: `fm1probe install FILE.fwsc --resume`.")
-        exit(1)
+        stop("The FM-1 is in its update loader. Finish the install first: `fm1probe install FILE.fwsc --resume`.")
     }
     if !isSimulated, !confirmResourceWrite() {
-        print("Stopped. Nothing was sent apart from the handshake query.")
-        exit(1)
+        stop("Nothing was sent apart from the handshake query.")
     }
     Style.heading("Writing")
     if let logPath { print("Logging every message to \(logPath).") }
@@ -55,14 +47,31 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
                     return tenth > last
                 })
             else { return }
-            print(Style.dim("\(timestamp())  resources: \(tenth * 10)%"))
+            print(Style.progress("resources: \(tenth * 10)%"))
         }
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
         print(Style.done("The resources are on the FM-1 (\(String(format: "%.1f", seconds)) s)."))
         Style.nextSteps(["Switch the FM-1 off and on, so the firmware loads them."])
     } catch {
-        print("\n" + Style.stopped(error.localizedDescription))
-        exit(1)
+        print("")
+        stop(error.localizedDescription)
+    }
+}
+
+/// The resources in a `NAME-res.bin`, or in a package that carries them in fm1-base's form;
+/// stops fm1probe for anything else.
+func loadResources(_ path: String) throws -> ResourceRegion {
+    let data = try Data(contentsOf: URL(fileURLWithPath: path))
+    if path.lowercased().hasSuffix(".fwsc") {
+        guard let resources = try FwscPackage(data: data).resources else {
+            stop("\(path) carries no resources that fm1probe can write over USB-MIDI.")
+        }
+        return resources
+    }
+    do {
+        return try ResourceRegion(bytes: [UInt8](data))
+    } catch {
+        stop("\(path): \(error.localizedDescription)")
     }
 }
 

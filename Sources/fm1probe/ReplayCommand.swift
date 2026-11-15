@@ -113,8 +113,7 @@ func replay(path: String, showsEveryMessage: Bool) throws {
     let messages = text.split(whereSeparator: \.isNewline).compactMap { LoggedMessage(csvLine: String($0)) }
     guard !messages.isEmpty else {
         let isLog = text.hasPrefix("seconds,direction,port,kind,")
-        print(isLog ? "\(path) has no messages." : "\(path) isn't a log fm1probe wrote.")
-        fail()
+        stop(isLog ? "\(path) has no messages." : "\(path) isn't a log fm1probe wrote.")
     }
     let ports = Set(messages.map(\.port))
     let portWidth = ports.count > 1 ? ports.map(\.count).max() ?? 0 : 0
@@ -122,8 +121,9 @@ func replay(path: String, showsEveryMessage: Bool) throws {
         let columns =
             [direction.padding(toLength: 3, withPad: " ", startingAt: 0)]
             + (portWidth > 0 ? [port.padding(toLength: portWidth, withPad: " ", startingAt: 0)] : [])
-        print(String(format: "%9.3f", seconds) + "  " + (columns + [text]).joined(separator: "  "))
+        print(Style.dim(String(format: "%9.3f", seconds)) + "  " + (columns + [text]).joined(separator: "  "))
     }
+    Style.heading("Messages")
     var run: ReadRun?
     var counts: [String: Int] = [:]
     var identities: [String] = []
@@ -151,7 +151,7 @@ func replay(path: String, showsEveryMessage: Bool) throws {
     }
     if let run { line(run.start, "", "", run.text) }
 
-    print("")
+    Style.heading("Summary")
     let duration = String(format: "%.1f s", messages[messages.count - 1].seconds - messages[0].seconds)
     let sent = messages.filter { $0.direction == .toDevice }.count
     print("\(messages.count) messages over \(duration): \(sent) to the device, \(messages.count - sent) from it.")
@@ -159,10 +159,14 @@ func replay(path: String, showsEveryMessage: Bool) throws {
         print("  \(String(count).leftPadded(to: 7))  \(kind)")
     }
     if !identities.isEmpty {
-        print("Identities, in order: " + identities.map { $0.dropFirst("identity ".count) }.joined(separator: ", "))
+        print(
+            Style.bold("Identities, in order:") + " "
+                + identities.map { $0.dropFirst("identity ".count) }.joined(separator: ", "))
     }
     if longestSilence.length > 0 {
-        print(String(format: "Longest silence: %.3f s, after %.3f s.", longestSilence.length, longestSilence.after))
+        print(
+            Style.bold("Longest silence:")
+                + String(format: " %.3f s, after %.3f s.", longestSilence.length, longestSilence.after))
     }
 }
 

@@ -151,3 +151,70 @@ struct ResourceTests {
         }
     }
 }
+
+/// Installing a package that carries its resources over USB-MIDI, after which the new firmware is
+/// asked for them in case its loader left them out.
+struct ResourceInstallTests {
+    /// Installs a package carrying fm1-base resources on a simulated FM-1 and returns its events.
+    static func install(on device: SimulatedFM1) async throws -> (FwscPackage, [UpdateEvent]) {
+        let package = try ResourceTests.package(resources: .resources(size: ResourceTests.region.count, at: 0x9_7000))
+        device.prepare(for: package)
+        let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
+        let updater = FM1Updater(transport: device, timing: ResourceTests.fastTiming)
+        let installed = try await updater.install(package, options: .confirmed) { event in
+            events.withLock { $0.append(event) }
+        }
+        #expect(installed.text == "FM-1_916")
+        return (package, events.withLock { $0 })
+    }
+
+    static func device(_ change: (inout SimulatedFM1.Options) -> Void = { _ in }) -> SimulatedFM1 {
+        var options = UpdaterTests.fastOptions
+        options.resourceSectorErase = .zero
+        change(&options)
+        return SimulatedFM1(options: options)
+    }
+
+    @Test func theFirmwareAnswersAtOnceWhenTheLoaderWroteThem() async throws {
+        let device = Self.device()
+        let (package, events) = try await Self.install(on: device)
+        #expect(device.currentResources == package.resources.map { Array($0.payload) })
+        let rebooting = try #require(events.firstIndex(of: .rebooting))
+        #expect(!events[rebooting...].contains { if case .writingResources = $0 { true } else { false } })
+        #expect(!events.contains { if case .resourcesNotWritten = $0 { true } else { false } })
+        #expect(device.events.contains("The resources are there already."))
+    }
+
+    @Test func theFirmwareWritesThemWhenTheLoaderLeftThemOut() async throws {
+        let device = Self.device { $0.loaderLeavesResources = true }
+        let (package, events) = try await Self.install(on: device)
+        #expect(device.currentResources == package.resources.map { Array($0.payload) })
+        let rebooting = try #require(events.firstIndex(of: .rebooting))
+        let fractions = events[rebooting...].compactMap { event -> Double? in
+            if case .writingResources(let fraction, _) = event { fraction } else { nil }
+        }
+        #expect(fractions.last == 1)
+        #expect(fractions == fractions.sorted())
+        #expect(!events[..<rebooting].contains { if case .writingResources = $0 { true } else { false } })
+        #expect(events.last == .finished(FM1Identity(model: "FM-1", version: 916)))
+    }
+
+    @Test func aRefusalIsReportedWithoutFailingTheInstall() async throws {
+        let device = Self.device { options in
+            options.loaderLeavesResources = true
+            options.resourceRefusal = 21
+        }
+        let (_, events) = try await Self.install(on: device)
+        #expect(device.currentResources == nil)
+        #expect(events.contains(.resourcesNotWritten(.resourcesRefused(code: 21))))
+        #expect(events.last == .finished(FM1Identity(model: "FM-1", version: 916)))
+    }
+
+    @Test func aPackageWithoutResourcesAsksForNone() async throws {
+        let device = Self.device()
+        let package = try UpdaterTests.package()
+        device.prepare(for: package)
+        try await FM1Updater(transport: device, timing: ResourceTests.fastTiming).install(package, options: .confirmed)
+        #expect(!device.events.contains { $0.contains("resource") })
+    }
+}

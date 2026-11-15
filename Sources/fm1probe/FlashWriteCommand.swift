@@ -28,7 +28,7 @@ enum FlashWrite {
 /// - Throws: Any error reading a file or saving the backup.
 func writeFlash(_ arguments: [String]) throws {
     guard arguments.count >= 3 else {
-        print(usage)
+        printUsage()
         exit(1)
     }
     let write: FlashWrite =
@@ -64,15 +64,14 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
         command: "\(write.command) \(backupsPath)", simulating: simulated, traces: traces)
     defer { session.close() }
     let current = readFlash(session)
-    print("Bootloader: \(current.bootloaderDescription)")
-    print("Firmware:   \(describeFirmware(current))")
+    print(Style.bold("Bootloader:") + " \(current.bootloaderDescription)")
+    print(Style.bold("Firmware:") + "   \(describeFirmware(current))")
 
     let plan: FlashPlan
     do {
         plan = try makePlan(write, onto: current)
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
     Style.heading("Plan")
     for note in plan.notes { print(note) }
@@ -87,8 +86,7 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
     let files = try save(current, to: backupsPath)
     print("The FM-1's flash as it is now is saved in \(files.flash.path).")
     if simulated == nil, !confirmFlashWrite(plan) {
-        print("Stopped. Nothing was written. Switch the FM-1 off and on to leave download mode.")
-        exit(1)
+        stop("Nothing was written. Switch the FM-1 off and on to leave download mode.")
     }
     Style.heading("Writing")
     let start = ContinuousClock.now
@@ -99,7 +97,9 @@ func writeFlash(_ write: FlashWrite, backupsPath: String, simulatedPath: String?
         print(Style.stopped(error.localizedDescription))
         switch error {
         case .writeNotVerified, .writeInterrupted:
-            print("Restore it with `sudo .build/debug/fm1probe flash-restore \(files.flash.path) \(backupsPath)`.")
+            Style.nextSteps([
+                "Restore it: `sudo .build/debug/fm1probe flash-restore \(files.flash.path) \(backupsPath)`."
+            ])
         default:
             break
         }
@@ -122,8 +122,7 @@ private func makePlan(_ write: FlashWrite, onto current: FlashBackup) throws -> 
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         if path.lowercased().hasSuffix(".boot") {
             guard let bootloader = BootloaderImage(data: data) else {
-                print("\(path) isn't an m-bootloader .boot file, or it's damaged. Nothing was written.")
-                exit(1)
+                stop("\(path) isn't an m-bootloader .boot file, or it's damaged. Nothing was written.")
             }
             return try FlashPlan.installing(bootloader, onto: current)
         }
@@ -149,7 +148,7 @@ private func simulatedFM1(_ path: String) throws -> SimulatedDownloadMode {
             return UInt8(id[start..<id.index(start, offsetBy: 2)], radix: 16)
         }
     }
-    print("Simulating the FM-1 in \(path): nothing real is written.")
+    print(Style.colour("Simulating the FM-1 in \(path): nothing real is written.", .cyan))
     return chip
 }
 

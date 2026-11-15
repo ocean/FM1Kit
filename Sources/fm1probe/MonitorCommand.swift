@@ -10,8 +10,7 @@ import Foundation
 /// - Throws: When CoreMIDI can't start, or the log can't be created.
 func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
-        print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
-        fail()
+        stop("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
     }
     let transport = try await CoreMIDITransport(clientName: "fm1probe")
     var connections: [any MIDIConnection] = []
@@ -19,10 +18,10 @@ func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
         if let connection = try? await transport.open(port) { connections.append(connection) }
     }
     if connections.isEmpty {
-        print("No MIDI ports to listen on. Is the FM-1 connected and switched on?")
-        fail()
+        stop("No MIDI ports to listen on. Is the FM-1 connected and switched on?")
     }
     let log = logPath.map { MessageLog(path: $0, longestLoggedMessage: .max) }
+    Style.heading("Listening")
     print("Listening on \(connections.map(\.port.name).joined(separator: ", ")) for \(seconds) s. Nothing is sent.")
     if let logPath { print("Logging every message to \(logPath).") }
     let deadline = ContinuousClock.now + .seconds(seconds)
@@ -35,13 +34,15 @@ func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
                         count += 1
                         log?.record(message, .fromDevice, port: connection.port.name)
                         let description = FM1MessageDescription(message, direction: .fromDevice)
-                        print("\(timestamp())  \(connection.port.name)  \(description.text)")
+                        print(Style.logged("\(Style.bold(connection.port.name))  \(description.text)"))
                         if showsHex || isUnknown(description) {
-                            print("    \(hex(message))")
+                            print(Style.dim("    \(hex(message))"))
                         }
                     }
                     if connection.isLost {
-                        print("\(timestamp())  \(connection.port.name)  disconnected")
+                        print(
+                            Style.logged(
+                                "\(Style.bold(connection.port.name))  \(Style.colour("disconnected", .yellow))"))
                         return count
                     }
                 }
@@ -55,7 +56,7 @@ func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
     for connection in connections {
         connection.close()
     }
-    print("Stopped listening: \(received) SysEx \(received == 1 ? "message" : "messages") received.")
+    print("\n" + Style.done("Stopped listening: \(received) SysEx \(received == 1 ? "message" : "messages") received."))
 }
 
 /// True for a message FM1Kit can't name, whose bytes are worth showing.

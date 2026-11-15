@@ -18,8 +18,10 @@ func simulate(packagePath: String?, seconds: Int?) async throws {
     if let packagePath {
         let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: packagePath)))
         fm1.prepare(for: package)
+        Style.heading("Simulated FM-1")
         print("Expecting \(package.product) (SHA-256 \(package.sha256.prefix(16))…); each byte sent is checked.")
     } else {
+        Style.heading("Simulated FM-1")
         print("No package given, so the simulated FM-1 answers but ignores the upgrade command.")
     }
     let published = try CoreMIDIVirtualDevice(
@@ -28,8 +30,9 @@ func simulate(packagePath: String?, seconds: Int?) async throws {
         observer: messagePrinter(showsHex: arguments.contains("--hex"), showsEveryRead: arguments.contains("--all")))
     let running = Task { try await published.run() }
     let identity = fm1.currentIdentity?.text ?? "nothing"
-    print("A simulated FM-1 reporting \(identity) is on the virtual port \"\(SimulatedFM1.portName)\".")
+    print("A simulated FM-1 reporting \(Style.bold(identity)) is on the virtual port \"\(SimulatedFM1.portName)\".")
     print(seconds.map { "Running for \($0) s." } ?? "Running until Ctrl-C.")
+    Style.heading("Messages")
 
     let deadline = seconds.map { ContinuousClock.now + .seconds($0) }
     var shown = 0
@@ -37,13 +40,14 @@ func simulate(packagePath: String?, seconds: Int?) async throws {
         try await Task.sleep(for: .milliseconds(100))
         let events = fm1.events
         for event in events.dropFirst(shown) {
-            print("\(timestamp())  simulated FM-1: \(event)")
+            print(Style.logged(Style.colour("simulated FM-1: \(event)", .cyan)))
         }
         shown = events.count
     }
     running.cancel()
     _ = await running.result
-    print("Stopped. The simulated FM-1 reports \(fm1.currentIdentity?.text ?? "nothing, restarting").")
+    print(
+        "\n" + Style.done("Stopped. The simulated FM-1 reports \(fm1.currentIdentity?.text ?? "nothing, restarting")."))
 }
 
 /// The simulated FM-1's options, from `--identity`, `--flash-chip` and `--loader`.
@@ -51,8 +55,7 @@ private func simulatorOptions() -> SimulatedFM1.Options {
     var options = SimulatedFM1.Options()
     if let text = option("--identity") {
         guard let identity = FM1Identity(text: text) else {
-            print("\(text) isn't an identity an FM-1 reports, such as FM-1_015.")
-            fail()
+            stop("\(text) isn't an identity an FM-1 reports, such as FM-1_015.")
         }
         options.installedIdentity = identity
     } else {
@@ -60,8 +63,7 @@ private func simulatorOptions() -> SimulatedFM1.Options {
     }
     if let hex = option("--flash-chip") {
         guard let id = UInt32(hex.replacingOccurrences(of: "0x", with: ""), radix: 16) else {
-            print("\(hex) isn't a flash chip's JEDEC ID in hex, such as B36014.")
-            fail()
+            stop("\(hex) isn't a flash chip's JEDEC ID in hex, such as B36014.")
         }
         options.flashChipID = id
     }
@@ -84,15 +86,15 @@ private func messagePrinter(showsHex: Bool, showsEveryRead: Bool) -> CoreMIDIVir
                 return count
             }
             if description.kind == "read", count == 1 || count.isMultiple(of: 100) {
-                print("\(timestamp())  ← \(port)  \(count) reads so far; the last \(description.detail)")
+                print(Style.progress("← \(port)  \(count) reads so far; the last \(description.detail)"))
             }
             return
         }
         if description.kind == "upgrade" || description.kind == "finish" { reads.withLock { $0 = 0 } }
         let arrow = direction == .toDevice ? "→" : "←"
-        print("\(timestamp())  \(arrow) \(port)  \(description.text)")
+        print(Style.logged("\(arrow) \(Style.bold(port))  \(description.text)"))
         if showsHex || isUnknown(description) {
-            print("    \(hex(sysex))")
+            print(Style.dim("    \(hex(sysex))"))
         }
     }
 }

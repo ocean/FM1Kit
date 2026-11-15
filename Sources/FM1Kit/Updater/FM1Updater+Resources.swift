@@ -19,11 +19,11 @@ extension FM1Updater {
     /// without its resources until they're written again; nothing else changes.
     ///
     /// Use it after installing a firmware whose resources are published beside its package
-    /// (`NAME-res.bin`), such as LOOM-8 from 0.12. Packages that carry their resources (see
-    /// ``FwscPackage/resources``) don't need it: the update loader writes them.
+    /// (`NAME-res.bin`), such as LOOM-8 from 0.12. For a package that carries its resources (see
+    /// ``FwscPackage/resources``), ``install(_:options:events:)`` asks for them itself.
     ///
     /// - Parameters:
-    ///   - resources: The resources, from a `NAME-res.bin` file.
+    ///   - resources: The resources, from a `NAME-res.bin` file or a package.
     ///   - progress: Called with the share of the payload sent so far (0 to 1); it may be called
     ///     from any task.
     /// - Throws: ``FM1UpdateError`` when no single FM-1 running firmware is found, it doesn't
@@ -34,16 +34,52 @@ extension FM1Updater {
     ) async throws {
         guard let device = try await findOnly(where: { !$0.isLoader }) else { throw FM1UpdateError.deviceNotFound }
         defer { device.connection.close() }
+        progress(0)
+        try await sendResources(resources, to: device) { fraction, _ in progress(fraction) }
+        progress(1)
+    }
+
+    /// Asks the firmware an install has just put on the FM-1 for the package's resources.
+    ///
+    /// fm1-base's loader can leave them out without failing the install: when the FM-1 holds them
+    /// already, but also when it's still moving an older build's projects, or finds a fault. The
+    /// firmware answers at once when it holds them, and otherwise writes them.
+    ///
+    /// The firmware itself is installed either way, so a refusal is reported as
+    /// ``UpdateEvent/resourcesNotWritten(_:)`` rather than thrown.
+    func askForResources(
+        _ resources: ResourceRegion,
+        on device: FoundDevice,
+        events: @escaping @Sendable (UpdateEvent) -> Void
+    ) async throws {
+        do {
+            try await sendResources(resources, to: device) { fraction, requests in
+                events(.writingResources(fraction: fraction, requests: requests))
+            }
+        } catch let error as FM1UpdateError {
+            events(.resourcesNotWritten(error))
+        }
+    }
+
+    /// Asks the firmware on `device` to take the resources, then answers its reads until it
+    /// reports, calling `progress` with the share of the payload sent and the reads answered.
+    func sendResources(
+        _ resources: ResourceRegion,
+        to device: FoundDevice,
+        progress: (Double, Int) -> Void
+    ) async throws {
         let connection = device.connection
         let payload = Array(resources.payload)
         connection.drain()
         let request =
             FM1Message.littleEndian(UInt32(payload.count), byteCount: 4)
             + FM1Message.littleEndian(resources.payloadCRC, byteCount: 4)
-        try connection.send(FM1Message.command(Self.resourceCommand, payload: request))
+        guard (try? connection.send(FM1Message.command(Self.resourceCommand, payload: request))) != nil else {
+            throw FM1UpdateError.resourcesNotTaken(device: device.identity.text)
+        }
 
-        progress(0)
         var sent = 0
+        var requests = 0
         var asked = false
         let sectors = (ResourceRegion.headerLength + payload.count + 0xFFF) / 0x1000
         var waitLimit = timing.resourceStartWait + timing.resourceSectorEraseWait * sectors
@@ -74,7 +110,6 @@ extension FM1Updater {
                 guard read.address == Self.resourcesWrittenAddress else {
                     throw FM1UpdateError.resourcesRefused(code: Int(read.address & 0xFFFF))
                 }
-                progress(1)
                 return
             }
             let start = Int(read.address)
@@ -89,7 +124,8 @@ extension FM1Updater {
                 throw FM1UpdateError.resourcesStalled(bytesSent: sent)
             }
             sent = max(sent, start + data.count)
-            progress(Double(sent) / Double(max(payload.count, 1)))
+            requests += 1
+            progress(Double(sent) / Double(max(payload.count, 1)), requests)
         }
     }
 

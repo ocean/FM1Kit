@@ -7,8 +7,7 @@ import os
 func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async throws {
     let package = try FwscPackage(data: Data(contentsOf: URL(fileURLWithPath: path)))
     guard package.hasFactoryVoices else {
-        print("\(path) isn't M-VAVE's official V15 package, so it has no factory voices to restore.")
-        exit(1)
+        stop("\(path) isn't M-VAVE's official V15 package, so it has no factory voices to restore.")
     }
     let device: any MIDITransport
     if isSimulated {
@@ -19,25 +18,23 @@ func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async thro
         device = try await CoreMIDITransport(clientName: "fm1probe")
     }
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
-        print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
-        exit(1)
+        stop("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
     }
     let transport: any MIDITransport =
         logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
-        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-        exit(1)
+        stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
     }
-    print("Device:   \(current.text)")
+    Style.heading("FM-1")
+    print(Style.bold("Device:") + "   \(current.text)")
     guard current == FM1Identity.officialV15 else {
-        print("Restoring the factory voices needs the FM-1 running V15 (FM-1_015). Install V15 first.")
-        exit(1)
+        stop("Restoring the factory voices needs the FM-1 running V15 (FM-1_015). Install V15 first.")
     }
     if !isSimulated, !confirmVoiceRestore() {
-        print("Stopped. Nothing was sent apart from the handshake query.")
-        exit(1)
+        stop("Nothing was sent apart from the handshake query.")
     }
+    Style.heading("Writing")
     if let logPath { print("Logging every message to \(logPath).") }
     let start = ContinuousClock.now
     let shown = OSAllocatedUnfairLock(initialState: -1)
@@ -50,27 +47,27 @@ func restoreVoices(path: String, isSimulated: Bool, logPath: String?) async thro
                     return tenth > last
                 })
             else { return }
-            print("\(timestamp())  voices: \(tenth * 10)%")
+            print(Style.progress("voices: \(tenth * 10)%"))
         }
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
-        print("\nRestored V15's factory voices in \(String(format: "%.1f", seconds)) s. Switch voices to hear them.")
+        print("\n" + Style.done("Restored V15's factory voices in \(String(format: "%.1f", seconds)) s."))
+        Style.nextSteps(["Switch voices to hear them."])
     } catch {
-        print("\n" + Style.stopped(error.localizedDescription))
-        exit(1)
+        print("")
+        stop(error.localizedDescription)
     }
 }
 
 /// Warns that a voice restore replaces every voice for good, and asks the person to type YES.
 func confirmVoiceRestore() -> Bool {
+    Style.heading("Confirm")
     print(
         """
-
         This erases the FM-1's four voice banks and writes V15's 128 factory voices in their place.
         Every voice in them is replaced for good, including any you made, and V15 can't read them
         back first. Keep the cable connected until it finishes; if it's interrupted, some voices
         may be wrong or silent until you run it again.
-
         """)
-    print("Type YES to restore the factory voices, or anything else to stop: ", terminator: "")
+    print(Style.bold("Type YES to restore the factory voices, or anything else to stop: "), terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
 }

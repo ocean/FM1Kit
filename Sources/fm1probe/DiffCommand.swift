@@ -68,7 +68,7 @@ private func cannotCompare(_ firstPath: String, _ secondPath: String, _ reason: 
     if isJSON {
         printJSON(ErrorJSON(format: "fm1probe-diff-1", file: "\(firstPath), \(secondPath)", error: reason))
     } else {
-        print(reason)
+        print(Style.stopped(reason))
     }
     exit(2)
 }
@@ -83,9 +83,10 @@ private func report(
             DiffJSON(first: firstPath, second: secondPath, kind: kind, same: isSame, fields: fields, parts: parts))
         exit(isSame ? 0 : 1)
     }
-    print("First:  \(firstPath)")
-    print("Second: \(secondPath)")
-    print("")
+    Style.heading("Files")
+    print(Style.bold("First:") + "  \(firstPath)")
+    print(Style.bold("Second:") + " \(secondPath)")
+    Style.heading("Differences")
     let nameWidth = fields.map(\.name.count).max() ?? 0
     for field in fields { print(field.text(width: nameWidth)) }
     if comparison == nil {
@@ -97,10 +98,11 @@ private func report(
     for part in parts {
         let range = part.rangeText.padding(toLength: rangeWidth, withPad: " ", startingAt: 0)
         let label = "[\(part.outcome.rawValue)]".padding(toLength: 9, withPad: " ", startingAt: 0)
-        print("\(label) \(range)  \(part.name): \(part.detail)")
+        let styled = part.outcome == .same ? Style.dim(label) : Style.colour(label, .yellow)
+        print("\(styled) \(range)  \(Style.bold(part.name)): \(part.detail)")
     }
     print("")
-    print(isSame ? "The same." : "They differ.")
+    print(isSame ? Style.done("The same.") : Style.colour("They differ.", .yellow))
     exit(isSame ? 0 : 1)
 }
 

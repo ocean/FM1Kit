@@ -16,25 +16,23 @@ func runTransporter(_ arguments: [String]) throws {
         let transporter = openTransporter()
         defer { transporter.close() }
         _ = prepareChip(transporter)
-        print("\nNothing was written. Switch the FM-1 off and on to leave boot mode.")
+        print("\n" + Style.done("Checked the FM-1. Nothing was written."))
+        Style.nextSteps(["Switch the FM-1 off and on to leave boot mode."])
     case ("backup", 1):
         let transporter = openTransporter()
         defer { transporter.close() }
         let chip = prepareChip(transporter)
         let backup = readTransporterFlash(transporter, chip)
         let saved = try save(backup, to: files[0])
-        print(
-            """
-
-            Read the flash twice: both reads and the Transporter's CRC-32 match.
-            Bootloader: \(backup.bootloaderDescription)
-            Firmware:   \(describeFirmware(backup))
-            SHA-256:    \(backup.sha256)
-            Saved:      \(saved.flash.path)
-                        \(saved.description.path)
-
-            Nothing was written. Switch the FM-1 off and on to leave boot mode.
-            """)
+        print("\n" + Style.done("Read the flash twice: both reads and the Transporter's CRC-32 match."))
+        Style.heading("Backup")
+        print(Style.bold("Bootloader:") + " \(backup.bootloaderDescription)")
+        print(Style.bold("Firmware:") + "   \(describeFirmware(backup))")
+        print(Style.bold("SHA-256:") + "    \(backup.sha256)")
+        print(Style.bold("Saved:") + "      \(saved.flash.path)")
+        print("            \(saved.description.path)")
+        print("\nNothing was written to the FM-1.")
+        Style.nextSteps(["Switch the FM-1 off and on to leave boot mode."])
     case ("install", 2), ("restore", 2):
         try writeWithTransporter(restoring: arguments[1] == "restore", file: files[0], backupsPath: files[1])
     case ("start", 0):
@@ -43,12 +41,11 @@ func runTransporter(_ arguments: [String]) throws {
         do {
             try transporter.startFirmware()
         } catch {
-            print(Style.stopped(error.localizedDescription))
-            exit(1)
+            stop(error.localizedDescription)
         }
-        print("The FM-1 has left boot mode and is starting its firmware.")
+        print(Style.done("The FM-1 has left boot mode and is starting its firmware."))
     default:
-        print(usage)
+        printUsage()
         exit(2)
     }
 }
@@ -59,23 +56,22 @@ private let optionValues = Set(["--port", "--loader", "--wait", "--simulated"].c
 /// Opens the Transporter's data port, or a simulated Transporter with `--simulated BACKUP.bin`,
 /// or explains why it can't and exits.
 private func openTransporter() -> Transporter {
+    Style.heading("Transporter")
     if let path = option("--simulated") {
         guard let backup = try? FlashBackup(contentsOf: URL(fileURLWithPath: path)) else {
-            print("\(path) isn't a 1 MB flash backup.")
-            exit(1)
+            stop("\(path) isn't a 1 MB flash backup.")
         }
         let simulated = SimulatedTransporter(flash: backup.bytes)
         simulated.isWaitingForFM1 = true
-        print("Simulating a Transporter wired to the FM-1 in \(path): nothing real is written.")
+        print(Style.colour("Simulating a Transporter wired to the FM-1 in \(path): nothing real is written.", .cyan))
         return Transporter(link: simulated)
     }
     do {
         let link = try SerialTransporterLink.find(path: option("--port"))
-        print("Transporter: \(link.path)")
+        print(Style.bold("Transporter:") + " \(link.path)")
         return Transporter(link: link)
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
@@ -85,28 +81,27 @@ private func showTransporterStatus() {
     defer { transporter.close() }
     do {
         guard let status = try transporter.status() else {
-            print("FM-1:   not answering yet. If the Transporter's LED blinks red, it's waiting for the FM-1")
-            print("        to be switched on.")
+            print(Style.bold("FM-1:") + "   " + Style.colour("not answering yet.", .yellow))
+            print("        If the Transporter's LED blinks red, it's waiting for the FM-1 to be switched on.")
             return
         }
         let state =
             status.isInBootMode ? "in boot mode" : status.isRunningV15 ? "running V15" : "not connected or starting"
-        print("FM-1:   \(state)")
-        print("Loader: \(status.hasLoader ? "sent" : "not sent yet")")
+        print(Style.bold("FM-1:") + "   \(state)")
+        print(Style.bold("Loader:") + " \(status.hasLoader ? "sent" : "not sent yet")")
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
 /// Waits for the FM-1 to reach boot mode, sends the flash loader and checks the chip, printing
 /// what it reports, or explains why it can't and exits.
 private func prepareChip(_ transporter: Transporter) -> Transporter.Chip {
+    Style.heading("FM-1")
     var loader = Transporter.Loader.mBootloader
     if let loaderPath = option("--loader") {
         guard let bytes = try? [UInt8](Data(contentsOf: URL(fileURLWithPath: loaderPath))) else {
-            print("\(loaderPath) couldn't be read.")
-            exit(1)
+            stop("\(loaderPath) couldn't be read.")
         }
         loader = .wl82loader(bytes)
     }
@@ -119,15 +114,14 @@ private func prepareChip(_ transporter: Transporter) -> Transporter.Chip {
                 blinking red, briefly shows other colours, then shows green alone.
                 """)
         }
-        print("\(timestamp())  The FM-1 is in boot mode.")
+        print(Style.logged("The FM-1 is in boot mode."))
         try transporter.sendLoader(loader, status: status)
         let chip = try transporter.chip()
-        print("Chip key: " + String(format: "0x%04X", chip.key))
-        print("Flash:    \(flashChipDescription(chip.flashID))")
+        print(Style.bold("Chip key:") + " " + String(format: "0x%04X", chip.key))
+        print(Style.bold("Flash:") + "    \(flashChipDescription(chip.flashID))")
         return chip
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
@@ -138,8 +132,7 @@ private func readTransporterFlash(_ transporter: Transporter, _ chip: Transporte
     do {
         return try transporter.backUp(chip) { progress.show($0) }
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
@@ -149,19 +142,17 @@ private func writeWithTransporter(restoring: Bool, file: String, backupsPath: St
     let incoming = URL(fileURLWithPath: file)
     let package = restoring ? nil : try FwscPackage(data: Data(contentsOf: incoming))
     let backup = restoring ? try FlashBackup(contentsOf: incoming) : nil
-    Style.heading("FM-1")
     let transporter = openTransporter()
     defer { transporter.close() }
     let chip = prepareChip(transporter)
     let current = readTransporterFlash(transporter, chip)
-    print("Bootloader: \(current.bootloaderDescription)")
-    print("Firmware:   \(describeFirmware(current))")
+    print(Style.bold("Bootloader:") + " \(current.bootloaderDescription)")
+    print(Style.bold("Firmware:") + "   \(describeFirmware(current))")
     guard let plan = planTransporterWrite(package: package, backup: backup, onto: current) else { return }
     let saved = try save(current, to: backupsPath)
     print("The FM-1's flash as it is now is saved in \(saved.flash.path).")
     if option("--simulated") == nil, !confirmTransporterWrite() {
-        print("Stopped. Nothing was written. Switch the FM-1 off and on to leave boot mode.")
-        exit(1)
+        stop("Nothing was written. Switch the FM-1 off and on to leave boot mode.")
     }
     Style.heading("Writing")
     let start = ContinuousClock.now
@@ -169,8 +160,7 @@ private func writeWithTransporter(restoring: Bool, file: String, backupsPath: St
     do {
         try transporter.write(plan) { progress.show($0) }
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
     let seconds = milliseconds(ContinuousClock.now - start) / 1000
     print(Style.done("Written and read back in \(String(format: "%.1f", seconds)) s: every changed sector matches."))
@@ -195,8 +185,7 @@ private func planTransporterWrite(
             return nil
         }
     } catch {
-        print(Style.stopped(error.localizedDescription))
-        exit(1)
+        stop(error.localizedDescription)
     }
     Style.heading("Plan")
     for note in plan.notes { print(note) }

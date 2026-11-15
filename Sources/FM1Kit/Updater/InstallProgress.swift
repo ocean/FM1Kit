@@ -80,6 +80,8 @@ public struct InstallProgress: Sendable, Hashable {
             advance(to: .installing, Self.writingEndsAt + (Self.checkingEndsAt - Self.writingEndsAt) * checked)
         case .writingResources(let written, _):
             advance(to: .installing, Self.checkingEndsAt + (Self.resourcesEndAt - Self.checkingEndsAt) * written)
+        case .resourcesNotWritten:
+            break
         case .rebooting:
             advance(to: .restarting, Self.checkingEndsAt)
         case .finished:

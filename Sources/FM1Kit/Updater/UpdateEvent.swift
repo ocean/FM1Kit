@@ -23,13 +23,22 @@ public enum UpdateEvent: Sendable, Hashable {
     /// than the first: tell the person to keep the FM-1 connected and switched on until the update
     /// finishes, and that its screen stays dark meanwhile.
     case checking(fraction: Double, requests: Int)
-    /// The loader is writing the firmware's resources (its samples or other data) from the
-    /// package's resources part: it has read `fraction` (0 to 1) of them in `requests` reads.
+    /// The firmware's resources (its samples or other data) are being written from the package's
+    /// resources part: `fraction` (0 to 1) of them has been read, in `requests` reads.
     ///
     /// Only a package that carries its resources has this step, and only when the FM-1 doesn't
     /// already hold them: fm1-base's loader reads their header first and leaves them otherwise.
-    /// Like the second pass, it's no safer to interrupt.
+    /// Its loader writes them before ``rebooting``; like the second pass, that's no safer to
+    /// interrupt. When the loader leaves them out, the new firmware writes them once it's running,
+    /// after ``rebooting``; interrupting that leaves the firmware without its resources until they're
+    /// written again, with ``FM1Updater/writeResources(_:progress:)``.
     case writingResources(fraction: Double, requests: Int)
+    /// The new firmware didn't write its resources, for this reason, such as
+    /// ``FM1UpdateError/resourcesRefused(code:)`` with code 21 while it's still moving an older
+    /// build's projects. The firmware is installed and ``finished(_:)`` follows, but it does without
+    /// its resources (such as samples) until they're written with
+    /// ``FM1Updater/writeResources(_:progress:)``.
+    case resourcesNotWritten(FM1UpdateError)
     /// Writing has finished and the device is restarting into its new firmware.
     case rebooting
     /// The device is running the new firmware and reports this identity.

@@ -60,7 +60,7 @@ struct FlashResourceTests {
         let plan = try FlashPlan.installing(try Self.package(), onto: current)
         #expect(!plan.sectors.contains { Self.range.contains($0) })
         #expect(plan.afterwards.count == 1)
-        #expect(plan.afterwards.first?.contains("install it again over USB-MIDI") == true)
+        #expect(plan.afterwards.first?.contains("fm1probe write-resources FILE.fwsc") == true)
     }
 
     @Test func leavesResourcesOutOverDataPastSmallerOnes() throws {
@@ -95,7 +95,7 @@ struct FlashResourceTests {
         let dump = SampleFlash.backup(Self.flash(holding: []))
         let plan = try FlashPlan.installingWithTransporter(try Self.package(), onto: dump)
         #expect(plan.sectors.allSatisfy { FlashPlan.transporterWritable.contains($0) })
-        #expect(plan.afterwards.contains { $0.contains("install it again over USB-MIDI") })
+        #expect(plan.afterwards.contains { $0.contains("fm1probe write-resources FILE.fwsc") })
     }
 
     @Test func theTransporterOverAnotherFirmwareGivesOneStepForBoth() throws {
