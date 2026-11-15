@@ -555,6 +555,37 @@ reach download mode from it by holding REC while switching on.
 If CORES doesn't start, hold REC while switching on and `flash-restore` Z1's backup; failing
 that, `transporter restore` it.
 
+## Stage AA: resources after an install, and Melodee's
+
+After a USB-MIDI install of a package that carries fm1-base resources, FM1Kit now asks the new
+firmware for them, as its update loader can leave them out. Download mode never writes Melodee's
+sounds, which only its update loader writes. Start on V15 with m-bootloader 2.1 and the
+Transporter to hand, with stage Z's CORES files and Melodee 1.5.1 and 1.6.1 packages from
+Melodee's releases. Melodee refuses V15 over USB-MIDI while m-bootloader is installed, so go back
+to V15 with `flash-restore`. Watch the output's styling throughout: section headings, bold labels,
+dim progress and green when something finishes.
+
+| Step | Command | What to look for |
+|---|---|---|
+| AA1 | `swift run fm1probe download-mode`, then `sudo .build/debug/fm1probe flash-backup .artifacts/tmp/aa-start` | A backup of V15 to come back to. Switch off and on. |
+| AA2 | `swift run fm1probe install ../woodshed/audition/cores/build/cores.fwsc --log .artifacts/tmp/aa2.csv` | As Z13: CORES plays its piano straight away. No "Firmware writing resources" step: the loader wrote them, so the firmware answers at once. |
+| AA3 | AA2 again, logging to `aa3.csv` | "Kind: the identity already running", then "Installed" with no "Firmware writing resources" step. |
+| AA4 | `swift run fm1probe write-resources ../woodshed/audition/cores/build/cores.fwsc` | Done at once: the package's resources are read from the `.fwsc`, and the firmware holds them already. |
+| AA5 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa5` | Nothing to write, with no "Writes its resources" line, and the firmware named `FM-1_74500`. Switch off and on. |
+| AA6 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa6`; then `swift run fm1probe transporter install ../woodshed/audition/cores/build/cores.fwsc .artifacts/tmp/aa6-t` and `swift run fm1probe transporter start` | One afterwards step for the resources: `fm1probe write-resources FILE.fwsc`. CORES starts with "No piano bank". |
+| AA7 | AA4 again | Progress, then "The resources are on the FM-1". After switching off and on, CORES plays its piano. |
+| AA8 | WOODSHED's CORES build whose update loader leaves its resources out (still to come; its steps go here) | After the firmware answers, "Firmware writing resources" with its own progress, then "Installed" with the piano. Or, if the firmware refuses (code 21, still moving projects), "Installed", then a yellow warning and a Next step to run `write-resources`; AA7 then writes them. |
+| AA9 | As AA6, back to V15, then `swift run fm1probe install melodee-1.5.1.fwsc --log .artifacts/tmp/aa9.csv`; save a preset bank | Melodee 1.5.1 (`FM-1_91051`), holding a saved preset. |
+| AA10 | `swift run fm1probe install melodee-1.6.1.fwsc --log .artifacts/tmp/aa10.csv` | "Installed" (`FM-1_91061`). The FM-1 shows "Setup unfinished": its loader left the sounds while the old presets sat there. |
+| AA11 | AA10 again, logging to `aa11.csv` | "Kind: the identity already running", a confirm, then "Installed". The factory sounds play, and the preset is still there. |
+| AA12 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-install melodee-1.6.1.fwsc .artifacts/tmp/aa12` | The plan writes nothing for Melodee's sounds and says a normal install over USB-MIDI writes them. Switch off and on: the sounds still play. |
+| AA13 | AA12 with `--erase-saved-data`, saving to `.artifacts/tmp/aa13` | The plan says the erase clears Melodee's sounds and that installing over USB-MIDI puts them back. After switching off and on, note what Melodee shows. |
+| AA14 | AA10 again, logging to `aa14.csv` | The factory sounds back. |
+| AA15 | Hold REC while switching on, then `sudo .build/debug/fm1probe flash-restore` AA1's backup `.artifacts/tmp/aa15` | Back to V15. |
+
+If a firmware doesn't start, hold REC while switching on and `flash-restore` AA1's backup;
+failing that, `transporter restore` it.
+
 ## What to report
 
 For each stage: the commands' output, the FM-1's firmware before and after, the host (Mac
