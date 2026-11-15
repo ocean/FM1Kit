@@ -3,7 +3,7 @@ import Foundation
 
 /// Prints every device that answers, numbered for `--device`.
 func listDevices() async throws {
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
+    let transport = try await CoreMIDITransport(clientName: "fm1probe")
     let devices = await FM1Updater(transport: transport, alsoProbing: await chosenPortNames(transport)).devices()
     if isJSON {
         printJSON(DevicesJSON(devices))

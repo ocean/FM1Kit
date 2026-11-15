@@ -11,7 +11,7 @@ func backUp(folderPath: String, isSimulated: Bool, logPath: String?) async throw
         exit(1)
     }
     let device: any MIDITransport =
-        try isSimulated ? simulatedOpenFirmware() : CoreMIDITransport(clientName: "fm1probe")
+        try await isSimulated ? simulatedOpenFirmware() : CoreMIDITransport(clientName: "fm1probe")
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
         print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
         exit(1)

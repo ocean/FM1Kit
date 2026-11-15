@@ -20,6 +20,19 @@ All notable changes to FM1Kit are recorded here. The project follows
   firmware again over USB-MIDI once it's running. `fm1probe flash-install` prints `afterwards`,
   and `fm1probe inspect` shows a package's resources.
 
+### Changed
+
+- `CoreMIDITransport.init(clientName:)` is `@MainActor`, so its CoreMIDI client is created on
+  the main thread. Code off the main actor now creates it with `await`.
+
+### Fixed
+
+- From 0.7.0, fm1probe created its CoreMIDI client off the main thread, where CoreMIDI never
+  told it about devices coming and going. An install then lost the FM-1 when it restarted into
+  its update loader and again into its new firmware ("The update loader didn't appear", "The
+  FM-1 didn't come back"), though `--resume` and a fresh fm1probe found it, and `watch` showed
+  no changes. Seen on hardware in stage Z on 2026-11-15.
+
 ## [0.7.1] - 2026-11-14
 
 ### Changed

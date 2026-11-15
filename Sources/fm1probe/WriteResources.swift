@@ -18,7 +18,7 @@ func writeResources(path: String, isSimulated: Bool, logPath: String?) async thr
         options.buildResources = resources
         device = SimulatedFM1(options: options)
     } else {
-        device = try CoreMIDITransport(clientName: "fm1probe")
+        device = try await CoreMIDITransport(clientName: "fm1probe")
     }
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
         print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")

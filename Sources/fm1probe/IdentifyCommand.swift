@@ -4,7 +4,7 @@ import Foundation
 /// Runs `identify`: asks each port that looks like an FM-1, or the one `--port` names, what it's
 /// running, `--repeat` times, and reports the answers and how long they took.
 func identify() async throws {
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
+    let transport = try await CoreMIDITransport(clientName: "fm1probe")
     let repeats = max(option("--repeat").flatMap(Int.init) ?? 1, 1)
     let ports = try await portsToIdentify(transport)
     var results: [IdentifyJSON.Port] = []

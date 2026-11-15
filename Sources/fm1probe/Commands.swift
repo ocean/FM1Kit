@@ -20,7 +20,7 @@ func runCommand() async throws {
         try await listDevices()
 
     case "ports":
-        let transport = try CoreMIDITransport(clientName: "fm1probe")
+        let transport = try await CoreMIDITransport(clientName: "fm1probe")
         let ports = await transport.ports()
         if ports.isEmpty { print("No MIDI port pairs found.") }
         for port in ports {
@@ -49,7 +49,7 @@ func runCommand() async throws {
         try await simulate(packagePath: packagePath, seconds: seconds)
 
     case "watch":
-        let transport = try CoreMIDITransport(clientName: "fm1probe")
+        let transport = try await CoreMIDITransport(clientName: "fm1probe")
         let seconds = arguments.dropFirst().first.flatMap(Int.init) ?? 60
         @Sendable func portSummary() async -> String {
             let names = await transport.ports().map { "\($0.name)\(FM1Updater.isProbeable($0) ? "" : " (skipped)")" }
@@ -133,7 +133,7 @@ func runCommand() async throws {
             simulated.prepare(for: package)
             device = simulated
         } else {
-            device = try CoreMIDITransport(clientName: "fm1probe")
+            device = try await CoreMIDITransport(clientName: "fm1probe")
         }
         let logPath = option("--log")
         if let logPath, FileManager.default.fileExists(atPath: logPath) {

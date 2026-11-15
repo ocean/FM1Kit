@@ -19,7 +19,7 @@ func installBootloader(path: String, isSimulated: Bool, fromAnyFirmware: Bool, l
         simulated.prepare(for: installer.package)
         device = simulated
     } else {
-        device = try CoreMIDITransport(clientName: "fm1probe")
+        device = try await CoreMIDITransport(clientName: "fm1probe")
     }
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
         print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")

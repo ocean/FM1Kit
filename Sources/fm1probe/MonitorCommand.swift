@@ -13,7 +13,7 @@ func monitor(seconds: Int, logPath: String?, showsHex: Bool) async throws {
         print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
         fail()
     }
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
+    let transport = try await CoreMIDITransport(clientName: "fm1probe")
     var connections: [any MIDIConnection] = []
     for port in await transport.ports() {
         if let connection = try? await transport.open(port) { connections.append(connection) }
