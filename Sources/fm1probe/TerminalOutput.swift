@@ -29,3 +29,10 @@ func keepOutputReachingTheTerminal() {
         _exit(1)
     }
 }
+
+/// True when standard output is a terminal that takes colour: not a file or pipe, with `NO_COLOR`
+/// unset and `TERM` not `dumb`.
+func outputTakesColour() -> Bool {
+    guard isatty(STDOUT_FILENO) != 0, getenv("NO_COLOR") == nil else { return false }
+    return getenv("TERM").map { String(cString: $0) } != "dumb"
+}

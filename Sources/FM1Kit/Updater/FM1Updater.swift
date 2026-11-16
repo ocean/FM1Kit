@@ -251,8 +251,9 @@ public actor FM1Updater {
         return try await write(package, with: loader, expecting: Self.knownBuildID(of: package), events: events)
     }
 
-    /// Answers the loader's reads, then waits for the device to return running the package, and
-    /// checks the build open firmware reports when the package's build ID is known.
+    /// Answers the loader's reads, then waits for the device to return running the package,
+    /// checks the build open firmware reports when the package's build ID is known, and asks it for
+    /// the package's resources when it carries them.
     private func write(
         _ package: FwscPackage,
         with loader: FoundDevice,
@@ -268,6 +269,9 @@ public actor FM1Updater {
         // Stock firmwares can't report their build, so only open firmware's is checked.
         if let buildID, let capability = try? await capability(of: returned), capability.buildID != buildID {
             throw FM1UpdateError.buildMismatch(expected: buildID, reported: capability.buildID)
+        }
+        if let resources = package.resources {
+            try await askForResources(resources, on: returned, events: events)
         }
         events(.finished(returned.identity))
         return returned.identity

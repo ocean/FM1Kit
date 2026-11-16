@@ -12,6 +12,8 @@ final class InstallReport: Sendable {
         case waitingForLoader = "Waiting for the loader"
         case writing = "Writing"
         case checking = "Second pass"
+        case writingResources = "Writing resources"
+        case firmwareResources = "Firmware writing resources"
         case rebooting = "Restarting"
         case finished = "Finished"
     }
@@ -26,10 +28,17 @@ final class InstallReport: Sendable {
         var requests = 0
         var lastPrintedTenth = -1
         var summary: [String] = []
+        var resourcesProblem: FM1UpdateError?
     }
 
     /// What's printed when the loader starts a second pass.
     static let secondPassNote = "The loader is reading the image again; Felucca's loader writes in this pass"
+
+    /// What's printed when the loader starts writing the firmware's resources.
+    static let resourcesNote = "The loader is writing the firmware's resources (its samples); keep the FM-1 on"
+
+    /// What's printed when the new firmware starts writing the resources its loader left out.
+    static let firmwareResourcesNote = "The firmware is writing its resources (its samples); keep the FM-1 on"
 
     /// How often staging progress is printed, in requests.
     static let stagingPrintInterval = 25
@@ -39,6 +48,11 @@ final class InstallReport: Sendable {
     /// The step the install had reached.
     var step: Step {
         state.withLock { $0.step }
+    }
+
+    /// Why the new firmware didn't write its resources, if it didn't.
+    var resourcesProblem: FM1UpdateError? {
+        state.withLock { $0.resourcesProblem }
     }
 
     /// Records one update event, printing what changed.
@@ -63,14 +77,21 @@ final class InstallReport: Sendable {
                     ? []
                     : Self.begin(.checking, in: &state, note: Self.secondPassNote)
                 return start + Self.noteFraction(fraction, requests: requests, in: &state)
+            case .writingResources(let fraction, let requests):
+                return Self.noteResources(fraction, requests: requests, in: &state)
+            case .resourcesNotWritten(let error):
+                // Said after the FM-1 reports, as the firmware is answering by then.
+                state.resourcesProblem = error
+                return []
             case .rebooting:
                 return Self.begin(.rebooting, in: &state, note: "Writing finished; restarting into the new firmware")
             case .finished(let identity):
-                return Self.begin(.finished, in: &state, note: "The FM-1 reports \(identity.text)")
+                let reports = Self.begin(.finished, in: &state, note: "The FM-1 reports \(identity.text)")
+                return reports + (state.resourcesProblem == nil ? [] : ["The firmware didn't write its resources"])
             }
         }
         for line in lines {
-            print("\(timestamp())  \(line)")
+            print(Style.progress(line))
         }
     }
 
@@ -79,7 +100,7 @@ final class InstallReport: Sendable {
         let summary = state.withLock { state in
             state.step == .finished ? state.summary : state.summary + [Self.describe(state, stoppedEarly: true)]
         }
-        print("\nSummary:")
+        Style.heading("Summary")
         for line in summary {
             print("  \(line)")
         }
@@ -99,6 +120,17 @@ final class InstallReport: Sendable {
         state.requests = 0
         state.lastPrintedTenth = -1
         return [note]
+    }
+
+    /// Notes the resources being written: by the loader, or by the new firmware once it's back.
+    private static func noteResources(_ fraction: Double, requests: Int, in state: inout State) -> [String] {
+        let start: [String] =
+            switch state.step {
+            case .writingResources, .firmwareResources: []
+            case .rebooting: begin(.firmwareResources, in: &state, note: firmwareResourcesNote)
+            default: begin(.writingResources, in: &state, note: resourcesNote)
+            }
+        return start + noteFraction(fraction, requests: requests, in: &state)
     }
 
     /// Notes a progress event, tracking the longest silence between requests.
@@ -123,7 +155,7 @@ final class InstallReport: Sendable {
     /// One summary line for the current step.
     private static func describe(_ state: State, stoppedEarly: Bool) -> String {
         var line = "\(state.step.rawValue): \(formatSeconds(ContinuousClock.now - state.stepStart))"
-        if [.staging, .writing, .checking].contains(state.step) {
+        if [.staging, .writing, .checking, .writingResources, .firmwareResources].contains(state.step) {
             let longestGap = Int(milliseconds(state.longestGap).rounded())
             line += ", \(state.requests) requests, longest gap between requests \(longestGap) ms"
         }

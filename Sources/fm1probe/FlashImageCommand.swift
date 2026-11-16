@@ -10,7 +10,7 @@ import Foundation
 /// - Throws: Any error reading a file or saving the image.
 func makeTransporterImage(_ arguments: [String]) throws {
     guard arguments.count >= 4 else {
-        print(usage)
+        printUsage()
         exit(1)
     }
     let packagePath = arguments[1]
@@ -22,36 +22,34 @@ func makeTransporterImage(_ arguments: [String]) throws {
     let flashID: UInt32?
     if let text = option("--flash-id") {
         guard let id = UInt32(text.replacingOccurrences(of: "0x", with: ""), radix: 16) else {
-            print("--flash-id takes the flash ID in hex, such as 856014.")
-            exit(1)
+            stop("--flash-id takes the flash ID in hex, such as 856014.")
         }
         flashID = id
     } else if backup.flashID == 0 {
-        print(
+        stop(
             """
             \(backupPath) has no .json beside it saying which flash chip it came from. Add the flash \
             ID the Transporter showed when it checked the FM-1, such as --flash-id 856014.
             """)
-        exit(1)
     } else {
         flashID = nil
     }
 
-    print("Backup:     \(backupPath), sha256 \(backup.sha256)")
-    print("Bootloader: \(backup.bootloaderDescription)")
-    print("Firmware:   \(describeFirmware(backup))")
+    Style.heading("Backup")
+    print(Style.bold("Backup:") + "     \(backupPath), sha256 \(backup.sha256)")
+    print(Style.bold("Bootloader:") + " \(backup.bootloaderDescription)")
+    print(Style.bold("Firmware:") + "   \(describeFirmware(backup))")
     let plan: FlashPlan
     do {
         plan = try FlashPlan.installingWithTransporter(package, onto: backup, flashID: flashID)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
-        exit(1)
+        stop(error.localizedDescription)
     }
-    print("")
+    Style.heading("Plan")
     for note in plan.notes { print(note) }
-    for warning in plan.warnings { print("Warning: \(warning)") }
+    for warning in plan.warnings { print(Style.warning(warning)) }
     guard !plan.isEmpty else {
-        print("Nothing to write: the backup already holds this firmware, so no image was made.")
+        print(Style.done("Nothing to write: the backup already holds this firmware, so no image was made."))
         return
     }
     print("The Transporter will write \(describeSectors(plan)).")
@@ -59,14 +57,14 @@ func makeTransporterImage(_ arguments: [String]) throws {
     do {
         try Data(plan.target).write(to: imageURL, options: .withoutOverwriting)
     } catch CocoaError.fileWriteFileExists {
-        print("\(imageURL.path) already exists. Choose a new file for the image.")
-        exit(1)
+        stop("\(imageURL.path) already exists. Choose a new file for the image.")
     }
-    print(
+    print("\n" + Style.done("Saved the image in \(imageURL.path), sha256 \(FwscPackage.sha256Hex(plan.target))."))
+    print("Outside 0x04000–0x92FFF it's the backup unchanged.")
+    Style.nextSteps([
         """
-
-        Saved the image in \(imageURL.path), sha256 \(FwscPackage.sha256Hex(plan.target)).
-        Outside 0x04000–0x92FFF it's the backup unchanged. In the web app, choose it at Write in \
-        the same session as the backup: it writes only if the FM-1 still matches that backup.
-        """)
+        In the web app, choose it at Write in the same session as the backup: it writes only if the FM-1 \
+        still matches that backup.
+        """
+    ])
 }

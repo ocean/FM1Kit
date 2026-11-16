@@ -5,6 +5,67 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- `ResourceRegion` reads a firmware's resource region (fm1-base's `RES1` format), from a
+  `NAME-res.bin` file or a package's part of type 101. `FwscPackage.resources` gives a package's
+  with its flash address, and `carriesOtherResources` says when it carries one only its update
+  loader can write, such as Melodee's. `otherResourcesRange(in:)` finds those in a flash image.
+- `FM1Updater.writeResources(_:progress:)` sends a `NAME-res.bin` over USB-MIDI to the firmware
+  it belongs to, once that's running, as fm1-base's installer does. `fm1probe write-resources`
+  runs it, from a `NAME-res.bin` or a package that carries them, and `SimulatedFM1` takes
+  resources for tests.
+- After a USB-MIDI install of a package that carries its resources, `install` and `resume` ask
+  the new firmware for them, as fm1-base's loader can leave them out without failing the
+  install. A firmware that holds them answers at once; otherwise it writes them, reported as
+  `writingResources`. When it can't, such as while it's still moving an older build's projects,
+  the install still finishes, after the new `UpdateEvent.resourcesNotWritten(_:)`, and fm1probe
+  warns and says to run `fm1probe write-resources FILE.fwsc`.
+- `FlashPlan.installing` writes a package's resources in download mode, after the firmware: when
+  erasing saved data, or when that flash is blank past any resources already there. Otherwise,
+  and for the Transporter, the plan's `afterwards` says to write them over USB-MIDI once it's
+  running (`fm1probe write-resources FILE.fwsc`); for Melodee's packages, it says to install the
+  firmware again over USB-MIDI. `fm1probe flash-install` prints `afterwards`, and
+  `fm1probe inspect` shows a package's resources. Over another firmware, the Transporter's
+  plan gives one step for both: installing again in download mode, erasing saved data.
+- `UpdateEvent.writingResources(fraction:requests:)`: the update loader writing a package's
+  resources after the firmware, or the new firmware writing them once it's running. Before,
+  progress sat at 100% meanwhile. fm1-base's loader
+  leaves resources the FM-1 already holds, reading only their header, which isn't reported.
+  `InstallProgress` counts it as installing.
+
+### Changed
+
+- `CoreMIDITransport.init(clientName:)` is `@MainActor`, so its CoreMIDI client is created on
+  the main thread. Code off the main actor now creates it with `await`. A `switch` over
+  `UpdateEvent` needs the new `writingResources` and `resourcesNotWritten` cases.
+- fm1probe's output is styled in a terminal: sections with bold headings (such as FM-1, Plan,
+  Confirm and Writing), bold labels, a red "Stopped:", a yellow "Warning:", green when something
+  finishes, dim progress and timestamps, and the steps to take afterwards numbered under "Next"
+  at the end. Output to a file or pipe, or with `NO_COLOR` set, stays plain text.
+
+### Fixed
+
+- fm1probe's `identify` asks twice, as the updater does: on macOS 27.2 the first message after
+  opening a port can go unanswered, so it said "no answer" with the FM-1 running. Seen on
+  hardware in stage AA on 2026-11-16.
+- A download-mode plan that erases saved data says when that clears resources only the update
+  loader writes, such as Melodee's sounds, before anything is written. Without erasing, it no
+  longer says to install again when the FM-1 already holds them.
+- `monitor` and `replay` name the resource request, and an install's output says the firmware
+  didn't write its resources after the line saying what the FM-1 reports.
+- From 0.7.0, fm1probe created its CoreMIDI client off the main thread, where CoreMIDI never
+  told it about devices coming and going. An install then lost the FM-1 when it restarted into
+  its update loader and again into its new firmware ("The update loader didn't appear", "The
+  FM-1 didn't come back"), though `--resume` and a fresh fm1probe found it, and `watch` showed
+  no changes. Seen on hardware in stage Z on 2026-11-15.
+- A backup's firmware description no longer counts an update loader's identity such as
+  `ota-FM-1_015`, which every fm1-base firmware's code holds, so CORES reads as `FM-1_74500`
+  rather than "unknown, naming FM-1_015 and FM-1_74500".
+- A download-mode plan says it writes resources only when they change.
+- fm1probe's `--log` file is made with the first message, so a run that finds no FM-1 no longer
+  leaves an empty log that blocks the next run with the same name.
+
 ## [0.7.1] - 2026-11-14
 
 ### Changed

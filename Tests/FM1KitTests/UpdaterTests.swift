@@ -1,4 +1,5 @@
 import Testing
+import os
 
 @_spi(Testing) @testable import FM1Kit
 
@@ -52,6 +53,33 @@ struct UpdaterTests {
         let installed = try await updater.install(package, options: .confirmed)
         #expect(installed.text == "FM-1_916")
         #expect(device.currentIdentity?.text == "FM-1_916")
+    }
+
+    @Test func installsAPackageCarryingItsResourceRegion() async throws {
+        // fm1-base packages since c8e0599 carry NAME-res.bin as a type-101 part, which the loader writes after the app.
+        let resources = FwscPackage.SamplePart(type: 101, name: "res.bin", size: 20_000)
+        let image = FwscPackage.sampleImage(parts: [.flash(), .loader(), resources])
+        let package = try FwscPackage(bytes: FwscPackage.sampleFile(logicalImage: image, product: "FM-1_916"))
+        #expect(package.logicalImage == image)
+        #expect(package.container.applicationRange == (0x400 + 0x4000)..<(0x400 + 32_768))
+
+        // The simulated loader reads the whole image, resources included, and checks every byte.
+        let device = SimulatedFM1(options: Self.fastOptions)
+        device.prepare(for: package)
+        let updater = FM1Updater(transport: device, timing: Self.fastTiming)
+        let events = OSAllocatedUnfairLock(initialState: [UpdateEvent]())
+        let installed = try await updater.install(package, options: .confirmed) { event in
+            events.withLock { $0.append(event) }
+        }
+        #expect(installed.text == "FM-1_916")
+
+        // Its reads of the resources show as their own step, ending at 1.
+        let resourceFractions = events.withLock { $0 }.compactMap { event -> Double? in
+            if case .writingResources(let fraction, _) = event { fraction } else { nil }
+        }
+        #expect(!resourceFractions.isEmpty)
+        #expect(resourceFractions == resourceFractions.sorted())
+        #expect(resourceFractions.last == 1)
     }
 
     @Test func resumesAfterTheCableIsPulledMidWrite() async throws {

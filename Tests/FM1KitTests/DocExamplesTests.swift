@@ -20,6 +20,17 @@ struct DocExamplesTests {
         #expect(check.kind == .switchingFirmware)
     }
 
+    @Test func resourcesExampleRuns() async throws {
+        let device = try ResourceTests.device()
+        let updater = FM1Updater(transport: device, timing: ResourceTests.fastTiming)
+
+        let resources = try ResourceRegion(bytes: ResourceTests.region)
+        try await updater.writeResources(resources) { fraction in
+            print("Writing resources \(Int(fraction * 100))%")
+        }
+        #expect(device.currentResources == Array(resources.payload))
+    }
+
     @Test func installingFirmwareExamplesRun() async throws {
         let package = try UpdaterTests.package()
         let device = SimulatedFM1(options: UpdaterTests.fastOptions)

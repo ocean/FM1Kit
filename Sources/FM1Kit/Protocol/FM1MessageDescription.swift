@@ -92,7 +92,8 @@ public struct FM1MessageDescription: Equatable, Sendable {
         return hex(request.address, digits: 8) + ", \(length) bytes" + flashType
     }
 
-    /// Open firmware's capability and arming messages, and V15's voice bank messages, either way.
+    /// Open firmware's capability and arming messages, V15's voice bank messages and fm1-base's
+    /// resource request, either way.
     private static func updateCommandDescription(_ sysex: [UInt8], _ direction: Direction) -> (String, String)? {
         let body = SevenBit.unpack(sysex.dropFirst().dropLast())
         guard body.count > FM1Message.Offset.command, body.starts(with: FM1Message.prefix) else { return nil }
@@ -104,6 +105,7 @@ public struct FM1MessageDescription: Equatable, Sendable {
         case FM1Message.voiceWriteCommand: name = "voice write"
         case FM1Message.capabilityCommand: name = "capability"
         case FM1Message.armCommand: name = "arm"
+        case FM1Updater.resourceCommand: name = "resource request"
         default: return ("update command 0x\(hex(command))", "not one FM1Kit knows")
         }
         guard let (_, payload) = FM1Message.parseCommand(sysex) else {
@@ -133,6 +135,10 @@ public struct FM1MessageDescription: Equatable, Sendable {
             return "asks about update support"
         case FM1Message.armCommand where direction == .toDevice:
             return "arms the update, \(payload.count) bytes"
+        case FM1Updater.resourceCommand where payload.count == 8:
+            let length = FM1Message.readLittleEndian(payload, at: 0, byteCount: 4)
+            let crc = FM1Message.readLittleEndian(payload, at: 4, byteCount: 4)
+            return "asks the firmware to take \(length) bytes of resources, CRC-32 " + hex(crc, digits: 8)
         default:
             return payload.count == 1 ? "status \(payload[0])" : "\(payload.count) bytes"
         }

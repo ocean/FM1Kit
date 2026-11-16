@@ -22,6 +22,24 @@ struct WriteProgressTests {
         events.compactMap { if case .checking(let fraction, _) = $0 { fraction } else { nil } }
     }
 
+    @Test func readingOnlyTheResourcesHeaderIsNotWritingThem() {
+        // fm1-base's loader reads the header's 512 bytes and leaves resources the FM-1 holds.
+        var progress = WriteProgress(
+            region: 0..<Self.imageLength, resources: Self.imageLength..<(Self.imageLength + 8 * Self.block))
+        var events = (0..<64).map { block in
+            progress.record(FM1ReadRequest(address: UInt32(block * Self.block), length: Self.block))
+        }
+        events.append(progress.record(FM1ReadRequest(address: UInt32(Self.imageLength), length: Self.block)))
+        #expect(events.last == .writing(fraction: 1, requests: 65))
+
+        // Reading on past the header is writing them.
+        let payload = (1..<8).map { block in
+            progress.record(FM1ReadRequest(address: UInt32(Self.imageLength + block * Self.block), length: Self.block))
+        }
+        #expect(payload.first == .writingResources(fraction: 1.0 / 7, requests: 1))
+        #expect(payload.last == .writingResources(fraction: 1, requests: 7))
+    }
+
     @Test func aForwardsPassRisesSteadilyToTheEnd() {
         let fractions = Self.writingFractions(Self.events(forBlocks: Array(0..<64)))
         #expect(fractions.count == 64)

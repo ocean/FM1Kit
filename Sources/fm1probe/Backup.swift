@@ -7,31 +7,28 @@ import os
 func backUp(folderPath: String, isSimulated: Bool, logPath: String?) async throws {
     let folder = URL(fileURLWithPath: folderPath)
     if FileManager.default.fileExists(atPath: folder.path) {
-        print("\(folderPath) already exists. Choose a new folder, so an earlier backup isn't overwritten.")
-        exit(1)
+        stop("\(folderPath) already exists. Choose a new folder, so an earlier backup isn't overwritten.")
     }
     let device: any MIDITransport =
-        try isSimulated ? simulatedOpenFirmware() : CoreMIDITransport(clientName: "fm1probe")
+        try await isSimulated ? simulatedOpenFirmware() : CoreMIDITransport(clientName: "fm1probe")
     if let logPath, FileManager.default.fileExists(atPath: logPath) {
-        print("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
-        exit(1)
+        stop("\(logPath) already exists. Choose a new name for the log, so an earlier one isn't lost.")
     }
     let transport: any MIDITransport =
-        try logPath.map { LoggingTransport(device, log: try MessageLog(path: $0)) } ?? device
+        logPath.map { LoggingTransport(device, log: MessageLog(path: $0)) } ?? device
     let updater = await chosenUpdater(transport)
     guard let current = await updater.identify() else {
-        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-        exit(1)
+        stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
     }
-    print("Device:   \(current.text)")
+    Style.heading("FM-1")
+    print(Style.bold("Device:") + "   \(current.text)")
     guard current.isOpenFirmware else {
-        print("Only M-VAVE's open firmware can be backed up; other firmwares have no known way to read their data.")
-        exit(1)
+        stop("Only M-VAVE's open firmware can be backed up; other firmwares have no known way to read their data.")
     }
     if !isSimulated, !confirmBackup() {
-        print("Stopped. Nothing was sent apart from the handshake query.")
-        exit(1)
+        stop("Nothing was sent apart from the handshake query.")
     }
+    Style.heading("Reading")
     if let logPath { print("Logging every message to \(logPath).") }
     let start = ContinuousClock.now
     let shown = OSAllocatedUnfairLock(initialState: -1)
@@ -44,15 +41,17 @@ func backUp(folderPath: String, isSimulated: Bool, logPath: String?) async throw
                     return tenth > last
                 })
             else { return }
-            print("\(timestamp())  reading: \(tenth * 10)%")
+            print(Style.progress("reading: \(tenth * 10)%"))
         }
         let seconds = milliseconds(ContinuousClock.now - start) / 1000
         try backup.write(to: folder)
-        print("\nRead the FM-1 in \(String(format: "%.1f", seconds)) s and saved it to \(folderPath):")
+        print("\n" + Style.done("Read the FM-1 in \(String(format: "%.1f", seconds)) s and saved it to \(folderPath)."))
+        Style.heading("Backup")
         printSummary(of: backup)
+        Style.nextSteps(["M-VAVE's workbench can restore the .fm1 projects and the .fm1s sample bank."])
     } catch {
-        print("\nStopped: \(error.localizedDescription)")
-        exit(1)
+        print("")
+        stop(error.localizedDescription)
     }
 }
 
@@ -72,22 +71,20 @@ func printSummary(of backup: OpenFirmwareBackup) {
         print("  Slot \(String(format: "%2d", slot.index + 1)):    \(slot.name ?? "empty")")
     }
     print("  Samples:    \(backup.samples.map { "\($0.count) bytes" } ?? "none")")
-    print("\nM-VAVE's workbench can restore the .fm1 projects and the .fm1s sample bank.")
 }
 
 /// Explains what a backup does to the FM-1 while it runs, and asks the person to type YES.
 func confirmBackup() -> Bool {
+    Style.heading("Confirm")
     print(
         """
-
         This reads the FM-1's 16 project slots, its current project and its sample bank. Open
         firmware can only read the project being edited, so each slot is loaded in turn; afterwards
         the current project is put back as it was, including unsaved changes. No slot is saved and
         the sample bank isn't written. Don't play or edit until it finishes, and keep the cable
         connected: if it's interrupted, the FM-1 may be left on another slot, with unsaved
         changes lost.
-
         """)
-    print("Type YES to back up the FM-1, or anything else to stop: ", terminator: "")
+    print(Style.bold("Type YES to back up the FM-1, or anything else to stop: "), terminator: "")
     return readLine()?.trimmingCharacters(in: .whitespaces).uppercased() == "YES"
 }

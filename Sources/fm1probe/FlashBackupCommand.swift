@@ -5,25 +5,26 @@ import os
 
 /// Asks the connected FM-1 to restart into the chip's download mode, over MIDI.
 func enterDownloadMode() async throws {
-    let updater = await chosenUpdater(try CoreMIDITransport(clientName: "fm1probe"))
+    let updater = await chosenUpdater(try await CoreMIDITransport(clientName: "fm1probe"))
     guard let current = await updater.identify() else {
-        print("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
-        exit(1)
+        stop("No FM-1 answered. Check it's connected and switched on, then run `fm1probe ports`.")
     }
-    print("Device:   \(current.text)")
+    Style.heading("FM-1")
+    print(Style.bold("Device:") + "   \(current.text)")
     print("Asking it to restart into download mode. Nothing is written; switching it off and on leaves.")
     do {
         try await updater.enterDownloadMode()
-        print("The FM-1 is in download mode. Back it up with `sudo .build/debug/fm1probe flash-backup FOLDER`.")
+        print("\n" + Style.done("The FM-1 is in download mode."))
+        Style.nextSteps(["Back it up: `sudo .build/debug/fm1probe flash-backup FOLDER`."])
     } catch {
-        print("Stopped: \(error.localizedDescription)")
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
 /// Reads the whole flash of an FM-1 in download mode (or a simulated one) and saves it to a
 /// folder, as M-Flasher saves backups.
 func backUpFlash(folderPath: String, isSimulated: Bool, traces: Bool) throws {
+    Style.heading("FM-1")
     let session = openFlashSession(
         command: "flash-backup \(folderPath)", simulating: isSimulated ? SimulatedDownloadMode() : nil, traces: traces)
     defer { session.close() }
@@ -33,17 +34,18 @@ func backUpFlash(folderPath: String, isSimulated: Bool, traces: Bool) throws {
     let files = try save(backup, to: folderPath)
     let seconds = milliseconds(ContinuousClock.now - start) / 1000
     print(
-        """
-
-        Read the flash twice in \(String(format: "%.1f", seconds)) s: both reads and the chip's CRC-32 match.
-        Bootloader: \(backup.bootloaderDescription)
-        Firmware:   \(describeFirmware(backup))
-        SHA-256:    \(backup.sha256)
-        Saved:      \(files.flash.path)
-                    \(files.description.path)
-
-        Nothing was written to the FM-1. Switch it off and on to leave download mode.
-        """)
+        "\n"
+            + Style.done(
+                "Read the flash twice in \(String(format: "%.1f", seconds)) s: both reads and the chip's CRC-32 match.")
+    )
+    Style.heading("Backup")
+    print(Style.bold("Bootloader:") + " \(backup.bootloaderDescription)")
+    print(Style.bold("Firmware:") + "   \(describeFirmware(backup))")
+    print(Style.bold("SHA-256:") + "    \(backup.sha256)")
+    print(Style.bold("Saved:") + "      \(files.flash.path)")
+    print("            \(files.description.path)")
+    print("\nNothing was written to the FM-1.")
+    Style.nextSteps(["Switch the FM-1 off and on to leave download mode."])
 }
 
 /// Opens the FM-1 in download mode (or a simulated one) and starts the flash loader, printing
@@ -65,18 +67,17 @@ func openFlashSession(command: String, simulating simulated: SimulatedDownloadMo
     do {
         session = try FlashSession(connection: connection)
     } catch {
-        print("Stopped: \(error.localizedDescription)")
-        exit(1)
+        stop(error.localizedDescription)
     }
     let mhz = session.clockMHz > 0 ? ", CPU at \(session.clockMHz) MHz" : ""
-    print("Loader:   m-bootloader's flash loader \(session.loaderVersion)\(mhz)")
+    print(Style.bold("Loader:") + "   m-bootloader's flash loader \(session.loaderVersion)\(mhz)")
     let keyNote = session.chipKey == FlashSession.expectedChipKey ? "" : " (0x980F expected)"
-    print("Chip key: " + String(format: "0x%04X", session.chipKey) + keyNote)
+    print(Style.bold("Chip key:") + " " + String(format: "0x%04X", session.chipKey) + keyNote)
     let chipNote =
         session.flashID == FM1FlashChip.uc25hq80
         ? " (the newer chip, UC25HQ80: firmwares that don't know it keep saves only until switched off)" : ""
-    print("Flash:    " + String(format: "0x%06X", session.flashID) + ", 1 MB" + chipNote)
-    print("Unit ID:  \(session.uniqueID ?? "none")")
+    print(Style.bold("Flash:") + "    " + String(format: "0x%06X", session.flashID) + ", 1 MB" + chipNote)
+    print(Style.bold("Unit ID:") + "  \(session.uniqueID ?? "none")")
     return session
 }
 
@@ -87,8 +88,7 @@ func readFlash(_ session: FlashSession) -> FlashBackup {
     do {
         return try session.backUp { progress.show($0) }
     } catch {
-        print("Stopped: \(error.localizedDescription)")
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
@@ -122,7 +122,7 @@ final class TenthsPrinter: Sendable {
                 return tenth > last
             })
         else { return }
-        print("\(timestamp())  \(label): \(tenth * 10)%")
+        print(Style.progress("\(label): \(tenth * 10)%"))
     }
 }
 
@@ -145,7 +145,7 @@ private func openDownloadMode(command: String, traces: Bool) -> any DownloadMode
                     """)
             }
             usb = try USBDownloadModeConnection.open(waitingUpTo: wait)
-            print("\(timestamp())  Caught the FM-1 in download mode.")
+            print(Style.logged("Caught the FM-1 in download mode."))
         } else {
             usb = try USBDownloadModeConnection.open()
         }
@@ -157,16 +157,16 @@ private func openDownloadMode(command: String, traces: Bool) -> any DownloadMode
         }
         return usb
     } catch DownloadModeError.needsRoot {
-        print("This needs administrator rights: run `swift build`, then")
         let waitOption = wait.map { " --wait \($0.components.seconds)" } ?? ""
-        print("`sudo .build/debug/fm1probe \(command)\(waitOption)`.")
-        exit(1)
+        stop(
+            """
+            This needs administrator rights: run `swift build`, then \
+            `sudo .build/debug/fm1probe \(command)\(waitOption)`.
+            """)
     } catch DownloadModeError.notFound where wait != nil {
-        print("Stopped: the FM-1 didn't appear in download mode in time. Nothing was written.")
-        exit(1)
+        stop("The FM-1 didn't appear in download mode in time. Nothing was written.")
     } catch {
-        print("Stopped: \(error.localizedDescription)")
-        exit(1)
+        stop(error.localizedDescription)
     }
 }
 
@@ -175,8 +175,7 @@ private func openDownloadMode(command: String, traces: Bool) -> any DownloadMode
 private func downloadModeWait() -> Duration? {
     guard arguments.contains("--wait") else { return nil }
     guard let seconds = option("--wait").flatMap(Int.init), (1...600).contains(seconds) else {
-        print("--wait needs a number of seconds from 1 to 600, such as --wait 120.")
-        exit(1)
+        stop("--wait needs a number of seconds from 1 to 600, such as --wait 120.")
     }
     return .seconds(seconds)
 }

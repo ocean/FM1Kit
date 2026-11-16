@@ -95,6 +95,23 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         /// Read a package's header, then refuse it, as firmwares with Felucca's original update
         /// check do with m-bootloader's installer.
         public var refusesAfterHeader = false
+        /// The resources the running firmware's build takes over USB-MIDI, as fm1-base firmwares
+        /// built with resources do, or `nil` for a firmware that ignores the request.
+        ///
+        /// Installing a package replaces them with its own (``FwscPackage/resources``).
+        public var buildResources: ResourceRegion?
+        /// Have the loader leave a package's resources out, reading only their header, as
+        /// fm1-base's does while an older build's projects are still to move.
+        public var loaderLeavesResources = false
+        /// Refuse resources with this code from fm1-base's `device/res.c`, such as 10 while playing.
+        public var resourceRefusal: Int?
+        /// How long erasing each 4 KB sector of the resource region takes, before the first read.
+        public var resourceSectorErase: Duration = .milliseconds(50)
+        /// Say a question is on the screen before reading the resources, then wait this long for
+        /// its answer, as a firmware that asks first would; `nil` to ask nothing, as fm1-base does.
+        public var resourceAskPause: Duration?
+        /// How many bytes each read of the resources asks for; a host refuses more than 512.
+        public var resourceReadLength = FM1Message.maximumReadLength
 
         /// The defaults: an FM-1 running `FM-1_900`, with timings like the real device's.
         public init() {}
@@ -126,6 +143,10 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         var library: LibraryState
         /// The m-bootloader version installed, or `nil` for M-VAVE's bootloader.
         var bootloaderVersion: String?
+        /// The resource payload written over USB-MIDI or by the loader, once one has been.
+        var resources: [UInt8]?
+        /// The resources the running firmware's build takes.
+        var buildResources: ResourceRegion?
     }
 
     /// The name of the simulated device's only port.
@@ -155,6 +176,7 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         let library = LibraryState(workspace: options.workspace, currentSlot: options.currentSlot)
         var initial = State(mode: mode, buildID: options.installedBuildID, voices: voices, library: library)
         initial.bootloaderVersion = options.bootloaderVersion
+        initial.buildResources = options.buildResources
         state = OSAllocatedUnfairLock(initialState: initial)
     }
 
@@ -169,6 +191,11 @@ public final class SimulatedFM1: MIDITransport, Sendable {
     /// The simulated V15's four voice banks.
     public var currentVoices: [UInt8] {
         state.withLock { $0.voices }
+    }
+
+    /// The resource payload written to the simulated FM-1, or `nil` before one is.
+    public var currentResources: [UInt8]? {
+        state.withLock { $0.resources }
     }
 
     /// The m-bootloader version the simulated FM-1 has, or `nil` for M-VAVE's bootloader.
@@ -220,6 +247,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
             command == FM1Message.voiceEraseCommand || command == FM1Message.voiceWriteCommand
         {
             handleVoiceCommand(command, payload: payload, from: connection)
+        } else if let (command, payload) = FM1Message.parseCommand(sysex), command == FM1Updater.resourceCommand {
+            handleResourceRequest(payload, from: connection)
         } else {
             connection.fromHost.deliver(sysex)
         }
@@ -283,52 +312,8 @@ public final class SimulatedFM1: MIDITransport, Sendable {
         await reboot(into: .loader)
     }
 
-    /// Reads the whole package (in the order the options say, and twice if checking), then
-    /// restarts running it.
-    private func write(_ package: FwscPackage, on connection: SimulatedConnection) async {
-        let image = package.logicalImage
-        var addresses = Array(stride(from: 0, to: image.count, by: options.writeChunkLength))
-        if options.writesBackwards {
-            addresses.reverse()
-        }
-        let passes = options.checksAfterWriting ? [addresses, addresses] : [addresses]
-        for pass in passes {
-            for (index, address) in pass.enumerated() {
-                if let unplugAt = options.unplugDuringWriteAt,
-                    Double(index) / Double(pass.count) >= unplugAt,
-                    !state.withLock({ $0.hasUnpluggedOnce })
-                {
-                    state.withLock { $0.hasUnpluggedOnce = true }
-                    log("Cable pulled at \(Int(unplugAt * 100))%; the loader stays in update mode.")
-                    await reboot(into: .loader)
-                    return
-                }
-                let length = min(options.writeChunkLength, image.count - address)
-                let request = FM1ReadRequest(address: UInt32(address), length: length)
-                let expected = Array(image[address..<(address + length)])
-                guard await exchange(request, expecting: expected, on: connection) else {
-                    return
-                }
-            }
-        }
-        if !options.restartsWithoutFinishing {
-            let finish = FM1ReadRequest(address: FM1Message.writeFinishAddress, length: 8)
-            guard await exchange(finish, expecting: FM1Message.finishPayload, on: connection) else { return }
-        }
-        log("Wrote \(package.product); rebooting.")
-        // Real open firmware reports the build compiled into it: here, the one it was armed with, or
-        // else the build ID FM1Kit knows for the package.
-        let packageBuildID = FM1Updater.knownBuildID(of: package) ?? FM1BuildID(knownHex: package.sha256)
-        state.withLock { state in
-            state.buildID = state.armedBuildID ?? packageBuildID
-            // V15's package writes the whole boot area, putting M-VAVE's bootloader back.
-            if package.identity == .officialV15 { state.bootloaderVersion = nil }
-        }
-        await reboot(into: .firmware(package.identity))
-    }
-
     /// Sends one request and checks the host's answer.
-    private func exchange(_ request: FM1ReadRequest, expecting expected: [UInt8], on connection: SimulatedConnection)
+    func exchange(_ request: FM1ReadRequest, expecting expected: [UInt8], on connection: SimulatedConnection)
         async -> Bool
     {
         try? await Task.sleep(for: options.requestInterval)

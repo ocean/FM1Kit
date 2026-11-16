@@ -1,4 +1,6 @@
 #if os(macOS)
+import FM1Kit
+
 /// The chip's download-mode commands, and those of the flash loader that runs on it.
 ///
 /// The chip's ROM (`UBOOT1.00`) takes memory writes and a jump; FM1Kit writes m-bootloader's
@@ -90,15 +92,7 @@ enum ChipChecksum {
 
     /// The standard CRC-32 (as in zlib), which m-bootloader's loader computes on the chip.
     static func crc32(_ bytes: some Sequence<UInt8>) -> UInt32 {
-        var value: UInt32 = 0xFFFF_FFFF
-        for byte in bytes {
-            value = table[Int((value ^ UInt32(byte)) & 0xFF)] ^ (value >> 8)
-        }
-        return ~value
-    }
-
-    private static let table: [UInt32] = (0..<256).map { index in
-        (0..<8).reduce(UInt32(index)) { value, _ in value & 1 == 1 ? 0xEDB8_8320 ^ (value >> 1) : value >> 1 }
+        ResourceRegion.crc32(bytes)
     }
 
     /// The phrase JieLi's scrambling steps through.

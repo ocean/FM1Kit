@@ -17,7 +17,7 @@ func checkPackage(_ arguments: [String]) throws {
         if isJSON {
             printJSON(ErrorJSON(format: "fm1probe-check-1", file: path, error: error.localizedDescription))
         } else {
-            print("[FAIL] Package")
+            print(Style.colour("[FAIL]", .red) + " " + Style.bold("Package"))
             print("  \(error.localizedDescription)")
         }
         exit(1)
@@ -36,35 +36,35 @@ func checkPackage(_ arguments: [String]) throws {
         if !report.passes || (strict && report.worst == .warning) { exit(1) }
         return
     }
-    print("\(package.product), SHA-256 \(package.sha256)")
+    Style.heading(package.product)
+    print(Style.dim("SHA-256 \(package.sha256)"))
     for finding in report.findings {
         print("")
-        let label = "\(outcomeLabel(finding.outcome)) \(topicLabel(finding.topic))"
-        print(label)
+        print("\(outcomeLabel(finding.outcome)) \(Style.bold(topicLabel(finding.topic)))")
         print("  " + finding.summary)
     }
-    print("")
+    Style.heading("Verdict")
     switch report.worst {
     case .failure:
-        print("Not ready: fix the failures above.")
+        print(Style.colour("Not ready: fix the failures above.", .red))
         exit(1)
     case .warning where strict:
-        print("Warnings above, and --strict treats them as failures.")
+        print(Style.colour("Warnings above, and --strict treats them as failures.", .red))
         exit(1)
     case .warning:
-        print("Ready, with warnings above.")
+        print(Style.colour("Ready, with warnings above.", .yellow))
     case .pass, .note:
-        print("Ready.")
+        print(Style.done("Ready."))
     }
 }
 
 /// The outcome as a fixed-width tag.
 private func outcomeLabel(_ outcome: PackageCheck.Outcome) -> String {
     switch outcome {
-    case .pass: "[ok]  "
-    case .note: "[note]"
-    case .warning: "[warn]"
-    case .failure: "[FAIL]"
+    case .pass: Style.colour("[ok]  ", .green)
+    case .note: Style.colour("[note]", .cyan)
+    case .warning: Style.colour("[warn]", .yellow)
+    case .failure: Style.colour("[FAIL]", .red)
     }
 }
 

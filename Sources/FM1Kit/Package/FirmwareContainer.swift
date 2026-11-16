@@ -24,6 +24,8 @@ struct FirmwareContainer {
         let encipheredLength: Int
         /// The part's checksum.
         let checksum: UInt16
+        /// For fm1-base's resource region (type 101), where it goes in flash; 0 when not named.
+        let flashAddress: Int
 
         /// Reads an entry from its deciphered fields.
         init(fields: [UInt8]) {
@@ -34,6 +36,7 @@ struct FirmwareContainer {
             storedSize = FirmwareContainer.integer(fields, at: 16, byteCount: 4)
             encipheredLength = FirmwareContainer.integer(fields, at: 24, byteCount: 4)
             checksum = UInt16(FirmwareContainer.integer(fields, at: 4, byteCount: 2))
+            flashAddress = FirmwareContainer.integer(fields, at: 20, byteCount: 4)
         }
 
         /// True when the part is stored enciphered, so its checksum can't be checked here.
@@ -56,6 +59,8 @@ struct FirmwareContainer {
     static let loaderType = 100
     static let userDataType = 50
     static let userDataName = "USR"
+    /// A firmware's resource region, which the update loader writes after the firmware.
+    static let resourcesType = 101
     /// The firmware image's valid sizes: whole 4 KB flash sectors, up to the chip's flash.
     static let flashSizes = 16_384...1_044_480
     static let flashSectorSize = 4096
@@ -71,6 +76,8 @@ struct FirmwareContainer {
     let loader: Entry
     /// M-VAVE's user data part (`USR`), which holds V15's factory voices, if the package has one.
     let userData: Entry?
+    /// The resource region part (type 101), if the package has one, in fm1-base's form or Melodee's.
+    let resources: Entry?
 
     /// Reads and checks the container in a package's logical image.
     ///
@@ -138,6 +145,7 @@ struct FirmwareContainer {
         self.flash = flash
         self.loader = loader
         userData = entries.first { $0.type == Self.userDataType && $0.name == Self.userDataName }
+        resources = entries.first { $0.type == Self.resourcesType }
     }
 
     /// The firmware image's application area, after its boot area.

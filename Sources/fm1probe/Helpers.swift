@@ -14,6 +14,12 @@ func fail() -> Never {
     exit(1)
 }
 
+/// Prints why fm1probe stopped, after a red "Stopped:", and stops it, reporting failure.
+func stop(_ reason: String) -> Never {
+    print(Style.stopped(reason))
+    exit(1)
+}
+
 func hex(_ bytes: [UInt8]) -> String {
     bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
 }
@@ -50,18 +56,22 @@ func flashChipDescription(_ id: UInt32) -> String {
     }
 }
 
-/// Sends the handshake query and waits up to a second for the identity reply.
+/// Sends the handshake query and waits for the identity reply, as many times and as long as
+/// the updater does: on macOS 27.2 the first message after opening a port can go unanswered.
 func handshake(_ connection: any MIDIConnection) async -> HandshakeAnswer? {
     connection.drain()
-    let start = ContinuousClock.now
-    guard (try? connection.send(FM1Message.handshakeQuery)) != nil else { return nil }
-    let deadline = start + .seconds(1)
-    while ContinuousClock.now < deadline {
-        guard let reply = await connection.receive(timeout: deadline - ContinuousClock.now) else { break }
-        if let identity = FM1Identity(handshakeReply: reply) {
-            return HandshakeAnswer(reply: reply, identity: identity, elapsed: ContinuousClock.now - start)
+    let timing = UpdaterTiming()
+    for _ in 0..<timing.handshakeAttempts {
+        let start = ContinuousClock.now
+        guard (try? connection.send(FM1Message.handshakeQuery)) != nil else { return nil }
+        let deadline = start + timing.handshakeWait
+        while ContinuousClock.now < deadline {
+            guard let reply = await connection.receive(timeout: deadline - ContinuousClock.now) else { break }
+            if let identity = FM1Identity(handshakeReply: reply) {
+                return HandshakeAnswer(reply: reply, identity: identity, elapsed: ContinuousClock.now - start)
+            }
+            printAside("  (other message while waiting: \(hex(reply)))")
         }
-        printAside("  (other message while waiting: \(hex(reply)))")
     }
     return nil
 }

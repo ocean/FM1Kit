@@ -182,13 +182,19 @@ extension FlashBackup {
     }
 
     /// Every `FM-1_` identity in the code, such as `FM-1_015` or `FM-1_8000012`, in order.
+    ///
+    /// An update loader's identity, such as `ota-FM-1_015`, doesn't count: firmwares built on
+    /// fm1-base write V15's loader's into the update record, whatever they are.
     static func identities(in code: [UInt8]) -> [String] {
         let prefix = Array("FM-1_".utf8)
+        let loaderPrefix = Array("ota-".utf8)
         var found: Set<String> = []
         var index = 0
-        while let start = code[index...].firstRange(of: prefix)?.upperBound {
+        while let match = code[index...].firstRange(of: prefix) {
+            let start = match.upperBound
             let digits = code[start...].prefix { (0x30...0x39).contains($0) }
-            if (3...8).contains(digits.count) {
+            let isLoader = code[..<match.lowerBound].suffix(loaderPrefix.count).elementsEqual(loaderPrefix)
+            if (3...8).contains(digits.count), !isLoader {
                 found.insert("FM-1_" + (String(bytes: digits, encoding: .ascii) ?? ""))
             }
             index = start

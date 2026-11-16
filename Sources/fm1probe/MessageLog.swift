@@ -6,7 +6,8 @@ import os
 ///
 /// It's for studying how the FM-1 reads an image: each read request's address and length, and
 /// when it arrived. Each row goes straight to the file, so the log is complete even when the
-/// install stops early.
+/// install stops early. The file is made with the first message, so a run that finds no FM-1
+/// leaves no log behind to block the next one's name.
 final class MessageLog: Sendable {
     /// Which way a message went.
     enum Direction: String {
@@ -19,25 +20,27 @@ final class MessageLog: Sendable {
 
     private let longestLoggedMessage: Int
 
-    private let handle: FileHandle
-    private let writing = OSAllocatedUnfairLock()
+    /// The log's file: not made yet, open, or not made because it couldn't be.
+    private enum File {
+        case notYet
+        case open(FileHandle)
+        case failed
+    }
+
+    private let path: String
+    private let file = OSAllocatedUnfairLock(initialState: File.notYet)
     private let start = ContinuousClock.now
 
-    /// Creates the file and writes the header row.
+    /// Prepares a log at `path`, made when the first message arrives.
     ///
     /// The caller checks that `path` is new, so an earlier log is never replaced.
     ///
     /// - Parameters:
     ///   - path: Where to write the log.
     ///   - longestLoggedMessage: Longer messages are logged without their bytes.
-    /// - Throws: When the file can't be created.
-    init(path: String, longestLoggedMessage: Int = longestInstallMessage) throws {
+    init(path: String, longestLoggedMessage: Int = longestInstallMessage) {
+        self.path = path
         self.longestLoggedMessage = longestLoggedMessage
-        guard FileManager.default.createFile(atPath: path, contents: nil) else {
-            throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: path])
-        }
-        handle = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
-        write("seconds,direction,port,kind,flash_type,address,length,size,bytes")
     }
 
     /// Logs one message.
@@ -58,7 +61,27 @@ final class MessageLog: Sendable {
     }
 
     private func write(_ line: String) {
-        writing.withLock { handle.write(Data((line + "\n").utf8)) }
+        file.withLock { file in
+            if case .notYet = file {
+                file = openFile().map(File.open) ?? .failed
+            }
+            if case .open(let handle) = file {
+                handle.write(Data((line + "\n").utf8))
+            }
+        }
+    }
+
+    /// Makes the file and writes the header row, or says on standard error why it couldn't.
+    private func openFile() -> FileHandle? {
+        guard FileManager.default.createFile(atPath: path, contents: nil),
+            let handle = FileHandle(forWritingAtPath: path)
+        else {
+            FileHandle.standardError.write(
+                Data("fm1probe: couldn't create the log \(path); carrying on without it.\n".utf8))
+            return nil
+        }
+        handle.write(Data("seconds,direction,port,kind,flash_type,address,length,size,bytes\n".utf8))
+        return handle
     }
 }
 

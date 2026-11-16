@@ -49,6 +49,7 @@ public struct InstallProgress: Sendable, Hashable {
     static let loaderFoundAt = 0.22
     static let writingEndsAt = 0.8
     static let checkingEndsAt = 0.92
+    static let resourcesEndAt = 0.96
     /// Staging reads after which the staging share is about two-thirds full; V15 stages in
     /// about 50, Felucca in about 100.
     static let stagingScale = 50.0
@@ -77,6 +78,10 @@ public struct InstallProgress: Sendable, Hashable {
         case .checking(let checked, _):
             // Felucca's loader writes in this pass, so it's still installing.
             advance(to: .installing, Self.writingEndsAt + (Self.checkingEndsAt - Self.writingEndsAt) * checked)
+        case .writingResources(let written, _):
+            advance(to: .installing, Self.checkingEndsAt + (Self.resourcesEndAt - Self.checkingEndsAt) * written)
+        case .resourcesNotWritten:
+            break
         case .rebooting:
             advance(to: .restarting, Self.checkingEndsAt)
         case .finished:

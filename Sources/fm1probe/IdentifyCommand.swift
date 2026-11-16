@@ -4,13 +4,13 @@ import Foundation
 /// Runs `identify`: asks each port that looks like an FM-1, or the one `--port` names, what it's
 /// running, `--repeat` times, and reports the answers and how long they took.
 func identify() async throws {
-    let transport = try CoreMIDITransport(clientName: "fm1probe")
+    let transport = try await CoreMIDITransport(clientName: "fm1probe")
     let repeats = max(option("--repeat").flatMap(Int.init) ?? 1, 1)
     let ports = try await portsToIdentify(transport)
     var results: [IdentifyJSON.Port] = []
     for port in ports {
         if !isJSON {
-            print("\(portLabel(port)):")
+            Style.heading(portLabel(port))
             if let serial = port.serialNumber { print("  serial: \(serial)") }
         }
         let answers = await ask(try await transport.open(port), repeats: repeats)
@@ -21,7 +21,8 @@ func identify() async throws {
     if isJSON {
         printJSON(IdentifyJSON(ports: results))
     } else if answering > 1 {
-        print("\(answering) FM-1s answered: run `fm1probe devices`, then choose one with --device")
+        print(
+            "\n" + Style.warning("\(answering) FM-1s answered: run `fm1probe devices`, then choose one with --device"))
     }
     if answering == 0 { exit(1) }
 }
@@ -41,7 +42,7 @@ private func portsToIdentify(_ transport: CoreMIDITransport) async throws -> [MI
     if isJSON {
         printJSON(ErrorJSON(format: "fm1probe-identify-1", file: nil, error: message))
     } else {
-        print(message)
+        print(Style.stopped(message))
     }
     exit(1)
 }
@@ -87,7 +88,7 @@ private func ask(_ connection: any MIDIConnection, repeats: Int) async -> Answer
             if answers.firstReply == nil {
                 answers.firstReply = answer.reply
                 if !isJSON {
-                    print("  reply: \(hex(answer.reply))")
+                    print("  reply: \(Style.dim(hex(answer.reply)))")
                     if let chip = FM1Identity.flashChipID(inHandshakeReply: answer.reply) {
                         print("  flash chip: " + flashChipDescription(chip))
                     }
@@ -96,7 +97,7 @@ private func ask(_ connection: any MIDIConnection, repeats: Int) async -> Answer
             answers.times.append(milliseconds(answer.elapsed))
             answers.identities.insert(answer.identity.text)
         } else if repeats > 1, !isJSON {
-            print("  attempt \(attempt): no answer")
+            print("  attempt \(attempt): \(Style.colour("no answer", .yellow))")
         }
         if repeats > 1 { try? await Task.sleep(for: .milliseconds(200)) }
     }
@@ -107,14 +108,15 @@ private func ask(_ connection: any MIDIConnection, repeats: Int) async -> Answer
 /// Prints what a port reported and how quickly.
 private func printAnswers(_ answers: Answers, attempts: Int) {
     guard let timing = answers.timing else {
-        print("  no answer")
+        print("  " + Style.colour("no answer", .yellow))
         return
     }
     for text in answers.identities.sorted() {
         let isLoader = FM1Identity(text: text)?.isLoader == true
-        print("  reports: \(text)  (\(isLoader ? "update loader: mid-update or USB recovery" : "firmware running"))")
+        let state = isLoader ? "update loader: mid-update or USB recovery" : "firmware running"
+        print("  reports: \(Style.bold(text))  (\(state))")
     }
-    if answers.identities.count > 1 { print("  warning: the answers disagreed") }
+    if answers.identities.count > 1 { print("  " + Style.warning("the answers disagreed")) }
     print("  answered \(answers.times.count) of \(attempts); reply time \(timing.average) ms", terminator: "")
     print(" (fastest \(timing.fastest), slowest \(timing.slowest))")
 }

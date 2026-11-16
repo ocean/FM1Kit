@@ -267,6 +267,8 @@ struct UpdaterEdgeCaseTests {
             case .loaderFound: "loaderFound"
             case .writing: "writing"
             case .checking: "checking"
+            case .writingResources: "writingResources"
+            case .resourcesNotWritten: "resourcesNotWritten"
             case .rebooting: "rebooting"
             case .finished: "finished"
             }

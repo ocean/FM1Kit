@@ -23,11 +23,18 @@ public final class CoreMIDITransport: MIDITransport, @unchecked Sendable {
     /// Streams to notify when devices come or go, by stream.
     private let observers: OSAllocatedUnfairLock<[UUID: AsyncStream<Void>.Continuation]>
 
-    /// Creates a CoreMIDI client.
+    /// Creates a CoreMIDI client, on the main thread.
+    ///
+    /// CoreMIDI tells a client about devices coming and going, and keeps its list of ports up to
+    /// date, only through the run loop of the thread that created it. Created elsewhere, the
+    /// transport never sees an FM-1 come back after restarting into its update loader or its new
+    /// firmware. The main thread's run loop runs in an app, and in a command-line tool whose
+    /// top-level code awaits.
     ///
     /// - Parameter clientName: The name other MIDI apps see for this client.
     /// - Throws: ``MIDITransportError/unavailable(_:)`` when CoreMIDI can't create the client or
     ///   its output port.
+    @MainActor
     public init(clientName: String = "FM1Kit") throws {
         let observers = OSAllocatedUnfairLock(initialState: [UUID: AsyncStream<Void>.Continuation]())
         var client = MIDIClientRef()

@@ -34,6 +34,16 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
     case voiceRestoreRefused(code: Int, bytesWritten: Int)
     /// V15 stopped answering during the voice restore, after `bytesWritten` of the voices.
     case voiceRestoreStalled(bytesWritten: Int)
+    /// The FM-1 didn't ask for the resources, so its firmware doesn't take them over USB-MIDI;
+    /// it reports this.
+    case resourcesNotTaken(device: String)
+    /// The FM-1's firmware refused or failed to write the resources, with this code from
+    /// fm1-base's `device/res.c`.
+    case resourcesRefused(code: Int)
+    /// The FM-1 stopped asking for the resources, after `bytesSent` of them.
+    case resourcesStalled(bytesSent: Int)
+    /// The FM-1 asked for resource bytes beyond the payload.
+    case resourcesBadRequest(address: UInt32, length: Int)
     /// Backups need the FM-1 running M-VAVE's open firmware, but it reports this.
     case backupNeedsOpenFirmware(device: String)
     /// The FM-1's open firmware didn't answer as its project library should.
@@ -153,6 +163,23 @@ public enum FM1UpdateError: Error, Hashable, LocalizedError {
             The FM-1 stopped answering while restoring the factory voices, after \(written) of 16384 bytes. \
             Some voices may be wrong or silent until a restore finishes: reconnect the FM-1, keep it on V15, \
             and run the restore again.
+            """
+        case .resourcesNotTaken(let device):
+            """
+            The FM-1 (\(device)) didn't ask for the resources, so its firmware doesn't take them over \
+            USB-MIDI. Check they belong to the firmware it's running; its own installer may write them.
+            """
+        case .resourcesRefused(let code):
+            Self.resourcesRefusal(code: code)
+        case .resourcesStalled(let sent):
+            """
+            The FM-1 stopped asking for the resources after \(sent) bytes. It keeps no half-written \
+            resources: reconnect it and write them again.
+            """
+        case .resourcesBadRequest(let address, let length):
+            """
+            The FM-1 asked for data outside the resources (\(length) bytes at 0x\(String(address, radix: 16))), \
+            so the write was stopped. Check the resources belong to the firmware it's running.
             """
         case .backupNeedsOpenFirmware(let device):
             """
