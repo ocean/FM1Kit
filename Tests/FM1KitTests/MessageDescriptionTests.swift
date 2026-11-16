@@ -38,6 +38,16 @@ struct MessageDescriptionTests {
                 == "acknowledgement: done")
     }
 
+    @Test func namesTheResourceRequest() {
+        let request = FM1Message.command(
+            FM1Updater.resourceCommand,
+            payload: FM1Message.littleEndian(277_058, byteCount: 4) + FM1Message.littleEndian(0xA755_8214, byteCount: 4)
+        )
+        #expect(
+            describe(request, .toDevice)
+                == "resource request: asks the firmware to take 277058 bytes of resources, CRC-32 0xA7558214")
+    }
+
     @Test func readsOpenFirmwaresCapability() {
         let capability = FM1Capability(state: 0, buildID: FM1BuildID(bytes: [UInt8](repeating: 0xAB, count: 32)))
         let reply = FM1Message.command(FM1Message.capabilityCommand, payload: capability.payload())

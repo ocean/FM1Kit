@@ -141,6 +141,23 @@ extension FwscPackage {
     public var carriesOtherResources: Bool {
         container.resources != nil && resources == nil
     }
+
+    /// Where `flash`, a whole FM-1 flash, holds the resources the package carries in another
+    /// form (``carriesOtherResources``), byte for byte from the start of a sector of
+    /// ``ResourceRegion/dataArea``, or `nil`.
+    ///
+    /// Melodee's update loader writes its part as it is, so this finds whether the FM-1 already
+    /// holds the sounds, without FM1Kit knowing where Melodee keeps them.
+    public func otherResourcesRange(in flash: [UInt8]) -> Range<Int>? {
+        guard carriesOtherResources, let entry = container.resources, entry.size > 0 else { return nil }
+        let part = logicalImage[entry.range]
+        let end = min(flash.count, ResourceRegion.dataArea.upperBound)
+        for start in stride(from: ResourceRegion.dataArea.lowerBound, to: end, by: FirmwareContainer.flashSectorSize) {
+            let range = start..<(start + part.count)
+            if range.upperBound <= end, flash[range].elementsEqual(part) { return range }
+        }
+        return nil
+    }
 }
 
 @_spi(Testing)

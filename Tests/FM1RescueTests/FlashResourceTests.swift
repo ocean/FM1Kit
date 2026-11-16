@@ -91,6 +91,20 @@ struct FlashResourceTests {
         #expect(plan.afterwards.count == 1)
     }
 
+    @Test func saysNothingOfOtherResourcesTheFM1Holds() throws {
+        // Its update loader wrote them as they are in the package (stage AA14).
+        let melodee = [UInt8](repeating: 0x4D, count: 0x2000)
+        let package = try Self.package(address: 0, bytes: melodee)
+        let current = SampleFlash.backup(Self.flash(holding: melodee))
+        #expect(package.otherResourcesRange(in: current.bytes) == Self.range)
+        #expect(try FlashPlan.installing(package, onto: current).afterwards.isEmpty)
+
+        // Erasing saved data clears them, which the plan says before anything is written (AA15).
+        let erasing = try FlashPlan.installing(package, onto: current, erasingSavedData: true)
+        #expect(erasing.warnings.contains { $0.contains("clears its resources too") && $0.contains("0x97000–0x98FFF") })
+        #expect(erasing.afterwards.count == 1)
+    }
+
     @Test func theTransporterLeavesResourcesForLater() throws {
         let dump = SampleFlash.backup(Self.flash(holding: []))
         let plan = try FlashPlan.installingWithTransporter(try Self.package(), onto: dump)

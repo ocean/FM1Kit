@@ -80,12 +80,14 @@ final class InstallReport: Sendable {
             case .writingResources(let fraction, let requests):
                 return Self.noteResources(fraction, requests: requests, in: &state)
             case .resourcesNotWritten(let error):
+                // Said after the FM-1 reports, as the firmware is answering by then.
                 state.resourcesProblem = error
-                return ["The firmware didn't write its resources"]
+                return []
             case .rebooting:
                 return Self.begin(.rebooting, in: &state, note: "Writing finished; restarting into the new firmware")
             case .finished(let identity):
-                return Self.begin(.finished, in: &state, note: "The FM-1 reports \(identity.text)")
+                let reports = Self.begin(.finished, in: &state, note: "The FM-1 reports \(identity.text)")
+                return reports + (state.resourcesProblem == nil ? [] : ["The firmware didn't write its resources"])
             }
         }
         for line in lines {

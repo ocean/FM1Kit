@@ -117,6 +117,9 @@ extension FlashPlan {
                 notes.append("Writes its resources (\(Self.describe(resources))).")
             }
         }
+        if erasingSavedData, let other = package.otherResourcesRange(in: current.bytes) {
+            warnings.append(Self.erasingResourcesWarning(other))
+        }
         var plan = try Self(
             purpose: .firmware(package.identity),
             original: current,
@@ -125,7 +128,7 @@ extension FlashPlan {
             notes: notes,
             warnings: warnings
         )
-        if resources == nil, package.resources != nil || package.carriesOtherResources {
+        if resources == nil, Self.leavesResourcesOut(package, over: current, erasing: erasingSavedData) {
             plan.afterwards.append(Self.resourcesAfterwards(package))
         }
         return plan
@@ -192,6 +195,23 @@ extension FlashPlan {
     static func isBlankPastResources(_ flash: ArraySlice<UInt8>) -> Bool {
         let claimed = ResourceRegion.claimedLength(flash) ?? 0
         return flash.dropFirst((claimed + sectorLength - 1) / sectorLength * sectorLength).allSatisfy { $0 == 0xFF }
+    }
+
+    /// True when a plan that doesn't write the package's resources leaves the FM-1 without them:
+    /// always for fm1-base's form, and for another form unless the FM-1 holds them and they
+    /// aren't erased.
+    static func leavesResourcesOut(_ package: FwscPackage, over current: FlashBackup, erasing: Bool) -> Bool {
+        if package.resources != nil { return true }
+        guard package.carriesOtherResources else { return false }
+        return erasing || package.otherResourcesRange(in: current.bytes) == nil
+    }
+
+    /// The warning that erasing saved data clears resources only the update loader writes.
+    static func erasingResourcesWarning(_ range: Range<Int>) -> String {
+        """
+        Erasing saved data clears its resources too, such as samples (\(describe(range))). Once it's \
+        running, installing it again over USB-MIDI writes them back.
+        """
     }
 
     /// What to do once a firmware is running whose resources a plan leaves out.

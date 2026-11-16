@@ -10,7 +10,7 @@ All notable changes to FM1Kit are recorded here. The project follows
 - `ResourceRegion` reads a firmware's resource region (fm1-base's `RES1` format), from a
   `NAME-res.bin` file or a package's part of type 101. `FwscPackage.resources` gives a package's
   with its flash address, and `carriesOtherResources` says when it carries one only its update
-  loader can write, such as Melodee's.
+  loader can write, such as Melodee's. `otherResourcesRange(in:)` finds those in a flash image.
 - `FM1Updater.writeResources(_:progress:)` sends a `NAME-res.bin` over USB-MIDI to the firmware
   it belongs to, once that's running, as fm1-base's installer does. `fm1probe write-resources`
   runs it, from a `NAME-res.bin` or a package that carries them, and `SimulatedFM1` takes
@@ -46,6 +46,14 @@ All notable changes to FM1Kit are recorded here. The project follows
 
 ### Fixed
 
+- fm1probe's `identify` asks twice, as the updater does: on macOS 27.2 the first message after
+  opening a port can go unanswered, so it said "no answer" with the FM-1 running. Seen on
+  hardware in stage AA on 2026-11-16.
+- A download-mode plan that erases saved data says when that clears resources only the update
+  loader writes, such as Melodee's sounds, before anything is written. Without erasing, it no
+  longer says to install again when the FM-1 already holds them.
+- `monitor` and `replay` name the resource request, and an install's output says the firmware
+  didn't write its resources after the line saying what the FM-1 reports.
 - From 0.7.0, fm1probe created its CoreMIDI client off the main thread, where CoreMIDI never
   told it about devices coming and going. An install then lost the FM-1 when it restarted into
   its update loader and again into its new firmware ("The update loader didn't appear", "The
